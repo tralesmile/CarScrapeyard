@@ -7,13 +7,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 - [ ] **Play the prototype and give feedback.** Run `npm install && npm run dev` (or open the PR's
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
-- [ ] **Review and merge the `dev` → `main` pull request** when you're happy with a milestone.
+- [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
       Claude works on `dev` and never pushes to `main`.
 
 ## Soon (Phase 1, web MVP)
 
-- [ ] **CI permission:** if GitHub rejects the workflow file, allow GitHub Actions for the repo
-      (Settings → Actions → General → Allow all actions).
 - [ ] **Cloudflare account** (free): connect this repo in Cloudflare Pages so every push to `main`
       deploys the web game. Build command `npm run build`, output folder `dist`.
 - [ ] **Domain name** (about $10–15/year), e.g. junkyardempire.com.

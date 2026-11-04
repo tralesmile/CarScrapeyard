@@ -15,7 +15,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.4 Playable loop: pressure-wash reveal (real erase), tap to repair (sparks, rust), sell with coin burst
 - [x] P0.5 Upgrades (x1/x10/Max), milestones, crew (mechanic, washer, salesperson), lot slots, welcome-back popup
 - [x] P0.6 Tutorial hints, Grandpa Joe intro, synthesised sound, browser e2e test, balance simulator
-- [ ] P0.7 CI: GitHub Actions running typecheck + tests + build on every push (needs owner to allow workflows if push is rejected — see NEEDS_FROM_YOU)
+- [x] P0.7 CI: GitHub Actions runs typecheck + tests + build on every push (first run green). PR #1 dev → main is open.
 - [ ] P0.8 Car crusher: crush a wreck for Parts (new currency) with heavy animation; parts reduce repair time
 - [ ] P0.9 Contracts board: 3 timed orders ("sell 3 pickups in 10 min") with cash/parts rewards
 - [ ] P0.10 Haggle mini-game on manual sales (timing slider, 0.9x–1.3x)
