@@ -1,3 +1,4 @@
+import { barnScene, type BarnLook } from '../src/game/barnArt';
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
 import {
@@ -165,5 +166,31 @@ describe('barn find', () => {
     delete raw.barn;
     const loaded = deserialize(serialize(raw as unknown as GameState, T0), T0)!.state;
     expect(loaded.barn.status).toBe('locked');
+  });
+});
+
+describe('barn art scene', () => {
+  const look = (status: BarnLook['status'], stage: number): BarnLook => ({ status, stage, family: 'muscle', paint: 0xe5484d });
+
+  it('follows the restoration: tarp, tow chain, hoist, welder, paint booth, clean tarp, shiny car', () => {
+    expect(barnScene(look('covered', 0))).toMatchObject({ car: true, tarp: 'full', finish: 'rusty', props: [] });
+    expect(barnScene(look('working', 0)).props).toEqual(['lamp', 'chain']);
+    expect(barnScene(look('working', 1))).toMatchObject({ tarp: 'rear', props: ['lamp', 'hoist'] });
+    expect(barnScene(look('covered', 2))).toMatchObject({ tarp: 'none', finish: 'rusty', props: [] });
+    expect(barnScene(look('working', 2)).props).toEqual(['lamp', 'welder']);
+    expect(barnScene(look('covered', 3)).finish).toBe('primer');
+    expect(barnScene(look('working', 3))).toMatchObject({ finish: 'primer', props: ['lamp', 'sheets'] });
+    expect(barnScene(look('finished', 4))).toMatchObject({ tarp: 'full', tarpClean: true, finish: 'paint' });
+    expect(barnScene(look('revealed', 4))).toMatchObject({ tarp: 'none', finish: 'paint' });
+  });
+
+  it('shows no car while away, locked or out for the reveal', () => {
+    expect(barnScene(look('away', 0)).car).toBe(false);
+    expect(barnScene(look('locked', 0)).car).toBe(false);
+    expect(barnScene({ ...look('finished', 4), empty: true }).car).toBe(false);
+  });
+
+  it('has a work prop for every restoration stage', () => {
+    for (let i = 0; i < ECON.barn.stages.length; i++) expect(barnScene(look('working', i)).props.length).toBe(2);
   });
 });

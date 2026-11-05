@@ -427,6 +427,9 @@ body {
   white-space: nowrap;
 }
 
+.banner.muted {
+  visibility: hidden;
+}
 .banner small {
   display: block;
   font: 800 14px 'Nunito', sans-serif;

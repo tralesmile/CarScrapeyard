@@ -59,7 +59,9 @@ to automate it, open new car businesses, then sell your empire and start again i
   car under a tarp. Tapping it opens its card in the Yard tab. Four stages — Tow it out, Rebuild the engine,
   Fix the body, Fresh paint — each cost cash (and parts for the engine and body) and take 20 s to 90 s; the
   timer keeps going while the game is closed (one stage at most). While the next stage needs parts, spare parts
-  are not spent on repairs. When done, "Reveal!" dims the yard, wiggles and whips off the tarp, light rays spin
+  are not spent on repairs. The barn doorway shows the work in progress (tow chain, engine hoist, welder, paint-booth
+  sheets; the car goes from rusty to primer grey to painted). When done, "Reveal!" rolls the covered car out of the
+  barn to the front, dims the yard, wiggles and whips off the tarp, light rays spin
   and the car pops out ("LEGENDARY CLASSIC!"); a collector buys it for about 3x what the stages cost.
   Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
   (e.g. Stallion Wildfire '67).

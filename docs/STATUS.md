@@ -29,11 +29,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.14c Contracts polish: one free swap per order (run 6). Offline contract timers moved to P2.5 (they need push notifications)
 - [x] P0.14d Buyers polish: customers drawn as characters that walk in and out; Tradie (pickups) and Influencer (sports/hyper) buyers; "Skip haggling" setting (run 7)
 - [x] P0.14e Floating texts overlap when several rewards land at once: they stack now; banners queue (run 5)
-- [ ] P0.14f Barn polish: the restored car drives out of the barn into the bay before the reveal; stage art inside the barn (engine hoist, paint booth); keep classics for the Collection book (P1.4) instead of only selling (found in run 4)
+- [x] P0.14f Barn polish: the covered classic drives out of the barn before the reveal; stage art inside the barn (tow chain,
+      engine hoist, welder, paint booth, clean tarp) with work sparks/dust; banners hide during the reveal (run 8).
+      "Keep classics for the Collection book" moved to P1.4.
 - [ ] P0.14g Yard tab now has 4 cards and the barn card sits below the fold on phones: compact cards or a dot on the barn itself (found in run 4)
 - [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
       is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
-      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills and barn on Canvas 2D too
+      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills on Canvas 2D too (the barn, tarp, Scrapper
+      and press are Canvas 2D since run 8)
 - [ ] P0.14i Collection hook for new families (found in run 5): show "first Van!" style toasts and count each family
       for the Collection book (P1.4)
 - [x] P0.15 Playtest gate: owner played ~10 minutes (2026-11-05): "works well, held my attention for 10 minutes";
@@ -44,7 +47,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
-- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery
+- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub

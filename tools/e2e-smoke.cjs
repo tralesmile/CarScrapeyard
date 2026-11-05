@@ -316,12 +316,33 @@ async function waitForServer(url, ms = 15000) {
       await page.click('.cards .barn .buy');
       const st = await page.evaluate(() => window.__jye.state.barn.status);
       if (i === 0) assert(st === 'working', 'starting a stage pays and runs the timer');
+      await page.waitForTimeout(150);
+      const barnTex = await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnImg.texture.key);
+      assert(barnTex.startsWith(`barn-working-${i}-`), `barn art shows stage ${i + 1} work inside (${barnTex.split('-').slice(0, 3).join('-')})`);
+      if (i === 1 || i === 3) {
+        const r = await page.evaluate(() => {
+          const g = window.__jye.game;
+          const b = g.scene.getScene('yard').barnRect;
+          const z = g.scale.zoom;
+          const c = document.querySelector('#game canvas').getBoundingClientRect();
+          return { x: c.x + b.x * z, y: c.y + b.y * z, width: b.width * z, height: b.height * z };
+        });
+        await page.screenshot({ path: path.join(SHOTS, `e2e-11${i === 1 ? 'b' : 'c'}-barn-stage${i + 1}.png`), clip: r });
+      }
       await page.evaluate(() => (window.__jye.state.barn.timeLeft = 0.05));
       await page.waitForFunction((n) => window.__jye.state.barn.stage === n, i + 1);
     }
     await page.waitForFunction(() => window.__jye.state.barn.status === 'finished');
     assert((await page.textContent('.cards .barn .buy')).includes('Reveal'), 'finished restoration offers a reveal');
     await page.click('.cards .barn .buy');
+    await page.waitForTimeout(450);
+    const out = await page.evaluate(() => {
+      const y = window.__jye.game.scene.getScene('yard');
+      return { out: y.barnCarOut, tex: y.barnImg.texture.key };
+    });
+    assert(out.out && out.tex.endsWith('-1'), 'the covered classic drives out of the barn (barn is empty behind it)');
+    assert(!(await page.isVisible('.banner.show:not(.muted)')), 'no banner covers the reveal');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12a-barn-drive-out.png') });
     await page.waitForSelector('.modal-back.reveal .modal .buy', { timeout: 5000 });
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-12-barn-reveal.png') });
@@ -331,6 +352,7 @@ async function waitForServer(url, ms = 15000) {
     const sold = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.barn.status, n: window.__jye.state.barn.restored }));
     assert(sold.cash >= sale.cash + sale.value && sold.status === 'away' && sold.n === 1, 'selling the classic pays and the barn waits for the next find');
     await page.waitForTimeout(500);
+    assert(!(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnCarOut)), 'the reveal closes cleanly');
 
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
@@ -538,6 +560,19 @@ async function waitForServer(url, ms = 15000) {
     assert(fams.length === 8, `gallery draws all 8 families (${fams.join(', ')})`);
     const buyerArt = await gal.$$eval('.car-gallery canvas[data-buyer]', (cs) => cs.map((c) => c.dataset.buyer));
     assert(buyerArt.length === 6, `gallery draws all 6 customers (${buyerArt.join(', ')})`);
+    const extra = await gal.evaluate(() => ({
+      crew: document.querySelectorAll('.car-gallery canvas[data-crew]').length,
+      barn: document.querySelectorAll('.car-gallery canvas[data-barn]').length,
+      // Reveal tarp: no car paint (the red PAINTS[0]) may show above the tarp's hem.
+      tarpLeaks: [...document.querySelectorAll('.car-gallery canvas[data-tarp]')].map((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, Math.floor(c.height * 0.7)).data;
+        let red = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] < 100 && d[i + 2] < 100) red++;
+        return red;
+      }),
+    }));
+    assert(extra.crew === 2 && extra.barn === 5, 'gallery draws the Scrapper, the press and 5 barn stages');
+    assert(extra.tarpLeaks.every((n) => n < 30), `the reveal tarp covers vans, SUVs and pickups (${extra.tarpLeaks.join(', ')} red px)`);
     assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
     assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
     await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });

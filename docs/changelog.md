@@ -6,6 +6,13 @@
   Scrapper's target while you're away (plus a little scrap cash); the welcome-back popup says "+N ⚙".
 - **The Scrapper on screen:** a worker in an orange hard hat stands beside a small hydraulic press next to the barn and
   pulls the lever on every auto-crush; crushing a lot thumbnail now shows a mini press slamming the car flat.
+- **Barn restorations you can watch:** the barn is repainted in smooth Canvas 2D art, and the doorway shows each stage:
+  a tow chain on the tarp-covered wreck, an engine hoist with the tarp folded back, a welder's glow on the rusty body,
+  plastic paint-booth sheets around the primer-grey car, a clean tarp when it's done and the shiny classic after the
+  reveal. A work lamp lights the barn while a stage runs, with sparks or dust at the door.
+- **Drive-out reveal:** tapping Reveal rolls the covered classic out of the barn door and up to the front before the
+  tarp comes off (skipped with reduce motion). The new tarp is antialiased and covers every body shape; banners such as
+  "RESTORED!" no longer cover the reveal.
 - Fix: empty lot slots were drawn behind the backdrop (invisible); they show as faint outlines now.
 - Fix (test): the e2e "hour away" check never really simulated an hour (the page saved over the edited save on reload);
   it now blocks saves before the reload and asserts the popup says 1h.

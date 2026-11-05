@@ -5,6 +5,8 @@ import { ECON, PAINTS, type CarFamily, type Rarity } from '../core/config';
 import { paintCar, paintRust } from './carArt';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import type { BuyerKind } from '../core/config';
+import { BARN_BOX_H, BARN_BOX_W, paintBarn, paintTarp, type BarnLook } from './barnArt';
+import { PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintPress, paintScrapper } from './crewArt';
 
 export function showCarGallery(): HTMLElement {
   const root = document.createElement('div');
@@ -38,6 +40,53 @@ export function showCarGallery(): HTMLElement {
     const ctx = c.getContext('2d')!;
     ctx.scale(2, 2);
     paintBuyer(ctx, kind);
+    root.append(c);
+  }
+  // The Scrapper and its press.
+  for (const [name, w, h, paint] of [
+    ['scrapper', SCRAPPER_W, SCRAPPER_H, paintScrapper],
+    ['press', PRESS_W, PRESS_H, paintPress],
+  ] as const) {
+    const c = document.createElement('canvas');
+    c.width = w * 2;
+    c.height = h * 2;
+    c.style.height = '110px';
+    c.style.justifySelf = 'center';
+    c.dataset.crew = name;
+    const ctx = c.getContext('2d')!;
+    ctx.scale(2, 2);
+    paint(ctx);
+    root.append(c);
+  }
+  // The barn through a restoration, and the reveal tarp over the tallest cars.
+  const looks: BarnLook[] = [
+    { status: 'covered', stage: 0, family: 'van', paint: PAINTS[1]! },
+    { status: 'working', stage: 1, family: 'suv', paint: PAINTS[2]! },
+    { status: 'working', stage: 2, family: 'muscle', paint: PAINTS[0]! },
+    { status: 'working', stage: 3, family: 'sports', paint: PAINTS[3]! },
+    { status: 'revealed', stage: 4, family: 'hyper', paint: PAINTS[4]! },
+  ];
+  for (const look of looks) {
+    const c = document.createElement('canvas');
+    c.width = BARN_BOX_W * 2;
+    c.height = BARN_BOX_H * 2;
+    c.style.width = '100%';
+    c.dataset.barn = `${look.status}-${look.stage}`;
+    const ctx = c.getContext('2d')!;
+    ctx.scale(2, 2);
+    paintBarn(ctx, look);
+    root.append(c);
+  }
+  for (const family of ['van', 'suv', 'pickup'] as CarFamily[]) {
+    const c = document.createElement('canvas');
+    c.width = 360;
+    c.height = 180;
+    c.style.width = '100%';
+    c.dataset.tarp = family;
+    const ctx = c.getContext('2d')!;
+    ctx.scale(0.5, 0.5);
+    paintCar(ctx, { family, paint: PAINTS[0]!, rarity: 'legendary' }, 720, 360);
+    paintTarp(ctx, 720 * 0.02, 720 * 0.98, 360 * 0.93, 360, true);
     root.append(c);
   }
   document.body.append(root);

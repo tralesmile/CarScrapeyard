@@ -595,7 +595,9 @@ export class Ui {
     const s = this.deps.state();
     this.modalOpen = true;
     sfx.reveal();
-    const close = this.deps.barnReveal(() => {
+    // Banners (e.g. "RESTORED!") stay out of the way of the reveal.
+    this.banner.classList.add('muted');
+    const reveal = this.deps.barnReveal(() => {
       this.modal({
         title: 'Legendary classic!',
         body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>`,
@@ -615,6 +617,10 @@ export class Ui {
         onSecondary: () => close(),
       });
     });
+    const close = () => {
+      this.banner.classList.remove('muted');
+      reveal();
+    };
   }
 
   private onCrush() {

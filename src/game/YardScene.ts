@@ -7,6 +7,7 @@ import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
 import { mudSpots, paintCar, paintRust } from './carArt';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
+import { BARN_BODY_W, BARN_BOX_H, BARN_BOX_W, BARN_GROUND, paintBarn, paintTarp, type BarnLook } from './barnArt';
 import type { BuyerKind } from '../core/config';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 import { PLATE_H, PLATE_W, PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintPlate, paintPress, paintScrapper } from './crewArt';
@@ -52,6 +53,11 @@ export class YardScene extends Phaser.Scene {
   private barnLabel!: Phaser.GameObjects.Text;
   private barnKey = '';
   private barnRect = new Phaser.Geom.Rectangle();
+  private barnImg!: Phaser.GameObjects.Image;
+  private barnTexKey = '';
+  /** True while the restored car is out of the barn for the reveal. */
+  private barnCarOut = false;
+  private barnFx = 0;
   /** The waiting customer standing in the yard (mirrors state.buyer). */
   private buyerSprite: Phaser.GameObjects.Image | null = null;
   private buyerShown: BuyerKind | null = null;
@@ -116,6 +122,7 @@ export class YardScene extends Phaser.Scene {
     this.makeTextures();
     this.bg = this.add.graphics();
     this.bay = this.add.graphics();
+    this.barnImg = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.barnG = this.add.graphics();
     this.barnLabel = this.add
       .text(0, 0, '', {
@@ -201,6 +208,7 @@ export class YardScene extends Phaser.Scene {
     this.syncBigCar();
     this.syncSlots();
     this.syncBarn();
+    this.barnActivity(deltaMs);
     this.syncBuyer();
     this.syncStation();
 
@@ -514,15 +522,16 @@ export class YardScene extends Phaser.Scene {
     const g = this.barnG;
     const visible = b.status !== 'locked';
     g.setVisible(visible);
+    this.barnImg.setVisible(visible);
     if (!visible) {
       this.barnLabel.setVisible(false);
       return;
     }
     const geo = this.barnGeometry();
-    const key = `${b.status}:${b.stage}:${b.family}:${b.paint}`;
+    const key = `${b.status}:${b.stage}:${b.family}:${b.paint}:${this.barnCarOut}`;
     if (key !== this.barnKey) {
       this.barnKey = key;
-      this.drawBarn(geo, b.status !== 'away', b.stage, b.status === 'finished' || b.status === 'revealed' ? b.paint : null);
+      this.drawBarn(geo);
     }
     // Little sign above the roof.
     let label = '';
@@ -538,8 +547,30 @@ export class YardScene extends Phaser.Scene {
     this.barnLabel.setPosition(this.px(geo.x), this.px(geo.bottom - geo.h - 14)).setScale(pulse);
   }
 
-  /** A little red barn; inside, a car under a tarp (or the restored car peeking out). */
-  private drawBarn(geo: { x: number; bottom: number; w: number; h: number }, hasCar: boolean, stage: number, paint: number | null) {
+  /** The barn (Canvas 2D texture per restoration state) and the stage pips under it. */
+  private drawBarn(geo: { x: number; bottom: number; w: number; h: number }) {
+    const b = this.bridge.state.barn;
+    const look: BarnLook = { status: b.status, stage: b.stage, family: b.family, paint: b.paint, empty: this.barnCarOut };
+    const key = `barn-${b.status}-${b.stage}-${b.family}-${b.paint}-${this.barnCarOut ? 1 : 0}`;
+    if (!this.textures.exists(key)) {
+      // Keep one barn texture at a time.
+      if (this.barnTexKey && this.textures.exists(this.barnTexKey)) this.textures.remove(this.barnTexKey);
+      const tex = this.textures.createCanvas(key, BARN_BOX_W * 2, BARN_BOX_H * 2);
+      if (tex) {
+        const ctx = tex.getContext();
+        ctx.scale(2, 2);
+        paintBarn(ctx, look);
+        tex.refresh();
+      }
+    }
+    this.barnTexKey = key;
+    const scale = this.px(geo.w) / (BARN_BODY_W * 2);
+    this.barnImg
+      .setTexture(key)
+      .setOrigin(0.5, BARN_GROUND / BARN_BOX_H)
+      .setScale(scale)
+      .setPosition(this.px(geo.x), this.px(geo.bottom))
+      .setVisible(true);
     const g = this.barnG;
     g.clear();
     const x = this.px(geo.x);
@@ -547,55 +578,33 @@ export class YardScene extends Phaser.Scene {
     const h = this.px(geo.h);
     const bottom = this.px(geo.bottom);
     const top = bottom - h;
-    const wall = h * 0.62;
-    // Walls and roof.
-    g.fillStyle(0x000000, 0.18);
-    g.fillEllipse(x, bottom, w * 1.2, this.px(8));
-    g.fillStyle(0x9b3324, 1);
-    g.fillRect(x - w / 2, bottom - wall, w, wall);
-    g.fillStyle(0x6e2318, 1);
-    g.fillTriangle(x - w * 0.62, bottom - wall + this.px(2), x, top, x + w * 0.62, bottom - wall + this.px(2));
-    g.lineStyle(this.px(1), 0x6e2318, 0.6);
-    for (let i = 1; i < 6; i++) g.lineBetween(x - w / 2 + (w * i) / 6, bottom - wall, x - w / 2 + (w * i) / 6, bottom);
-    // Hay-loft window.
-    g.fillStyle(0xf2e6d0, 1);
-    g.fillRect(x - w * 0.08, top + h * 0.2, w * 0.16, h * 0.12);
-    // Open doorway.
-    const dw = w * 0.74;
-    const dh = wall * 0.82;
-    g.fillStyle(0x24170f, 1);
-    g.fillRect(x - dw / 2, bottom - dh, dw, dh);
-    g.lineStyle(this.px(1.5), 0xf2e6d0, 1);
-    g.strokeRect(x - w / 2, bottom - wall, w, wall);
-    if (hasCar) {
-      // Wheels peek out under the tarp, or a shiny restored car.
-      const cw = dw * 0.9;
-      const ch = dh * 0.55;
-      const cy = bottom - this.px(2);
-      g.fillStyle(0x15171b, 1);
-      g.fillCircle(x - cw * 0.3, cy - ch * 0.18, ch * 0.2);
-      g.fillCircle(x + cw * 0.3, cy - ch * 0.18, ch * 0.2);
-      if (paint !== null) {
-        g.fillStyle(paint, 1);
-        g.fillRoundedRect(x - cw / 2, cy - ch * 0.85, cw, ch * 0.5, this.px(3));
-        g.fillRoundedRect(x - cw * 0.25, cy - ch * 1.15, cw * 0.5, ch * 0.4, this.px(3));
-        g.fillStyle(0xffffff, 0.6);
-        g.fillRect(x - cw * 0.4, cy - ch * 0.75, cw * 0.8, this.px(1.5));
-      } else {
-        g.fillStyle(0x7d8a5c, 1);
-        g.fillEllipse(x, cy - ch * 0.55, cw, ch * 0.95);
-        g.fillStyle(0x66724a, 1);
-        g.fillEllipse(x - cw * 0.12, cy - ch * 0.7, cw * 0.4, ch * 0.3);
-      }
-    }
     // Stage pips under the barn.
     const n = ECON.barn.stages.length;
     for (let i = 0; i < n; i++) {
       const px = x + (i - (n - 1) / 2) * this.px(9);
-      g.fillStyle(i < stage ? 0xf5b700 : 0x1e2430, i < stage ? 1 : 0.5);
+      g.fillStyle(i < b.stage ? 0xf5b700 : 0x1e2430, i < b.stage ? 1 : 0.5);
       g.fillCircle(px, bottom + this.px(7), this.px(3));
     }
     this.barnRect.setTo(x - w * 0.65, top - this.px(20), w * 1.3, h + this.px(32));
+  }
+
+  /** Doorway of the barn in canvas px (where the restored car drives out). */
+  private barnDoor() {
+    const geo = this.barnGeometry();
+    const wall = geo.h * 0.62;
+    return { x: this.px(geo.x), y: this.px(geo.bottom - wall * 0.3), carW: this.px(geo.w * 0.74 * 0.86) };
+  }
+
+  /** While working, a little activity at the barn door: dust, sparks or paint mist. */
+  private barnActivity(dtMs: number) {
+    const b = this.bridge.state.barn;
+    if (b.status !== 'working' || this.calm || !this.barnImg.visible) return;
+    this.barnFx -= dtMs;
+    if (this.barnFx > 0) return;
+    this.barnFx = 650;
+    const d = this.barnDoor();
+    if (b.stage === 1 || b.stage === 2) this.sparks.explode(3, d.x + (b.stage === 1 ? d.carW * 0.3 : -d.carW * 0.1), d.y);
+    else this.smoke.emitParticleAt(d.x + Phaser.Math.Between(-10, 10), d.y + this.px(6), 1);
   }
 
   /** Slow-motion reveal with light rays. Calls `shown` once the car is uncovered; returns a closer. */
@@ -620,14 +629,12 @@ export class YardScene extends Phaser.Scene {
     }
     rays.setScale(0.01);
     const car = this.add.image(cx, cy, key).setScale(carScale * 0.85).setDepth(22).setAlpha(0);
-    const tarp = this.add.graphics().setDepth(23).setPosition(cx, cy).setAlpha(0);
+    if (!this.textures.exists('reveal-tarp')) {
+      this.canvasTexture('reveal-tarp', (ctx) => paintTarp(ctx, TEX_W * 0.02, TEX_W * 0.98, TEX_H * 0.93, TEX_H, true));
+    }
+    const tarp = this.add.image(cx, cy, 'reveal-tarp').setDepth(23).setScale(carScale * 0.85).setAlpha(0);
     const tw = TEX_W * carScale;
     const th = TEX_H * carScale;
-    tarp.fillStyle(0x7d8a5c, 1);
-    tarp.fillEllipse(0, th * 0.08, tw * 1.02, th * 0.78);
-    tarp.fillStyle(0x66724a, 1);
-    tarp.fillEllipse(-tw * 0.15, -th * 0.06, tw * 0.45, th * 0.25);
-    tarp.fillEllipse(tw * 0.22, th * 0.12, tw * 0.3, th * 0.2);
     const sparkle = this.add
       .particles(0, 0, 'star', {
         speed: { min: 80, max: 420 },
@@ -640,12 +647,26 @@ export class YardScene extends Phaser.Scene {
       })
       .setDepth(24);
     const objs: Phaser.GameObjects.GameObject[] = [dim, rays, car, tarp, sparkle];
-    this.tweens.add({ targets: dim, alpha: 0.8, duration: 350 });
-    this.tweens.add({ targets: [car, tarp], alpha: 1, duration: 350 });
+    // The covered car rolls out of the barn door and up to the front first (skipped with reduce motion).
+    const lead = this.calm ? 0 : 1000;
+    this.tweens.add({ targets: dim, alpha: 0.8, duration: 350, delay: lead * 0.5 });
+    if (lead > 0) {
+      this.barnCarOut = true;
+      const door = this.barnDoor();
+      const k = door.carW / (tw * 0.85);
+      car.setPosition(door.x, door.y).setScale(carScale * 0.85 * k).setAlpha(1);
+      tarp.setPosition(door.x, door.y).setScale(carScale * 0.85 * k).setAlpha(1);
+      sfx.engine();
+      this.tweens.add({ targets: car, x: cx, y: cy, scale: carScale * 0.85, duration: lead, ease: 'Cubic.easeInOut' });
+      this.tweens.add({ targets: tarp, x: cx, y: cy, scale: carScale * 0.85, duration: lead, ease: 'Cubic.easeInOut' });
+      for (let i = 0; i < 5; i++) {
+        this.time.delayedCall(i * 160, () => this.smoke.emitParticleAt(car.x - car.displayWidth * 0.4, car.y + car.displayHeight * 0.3, 2));
+      }
+    } else this.tweens.add({ targets: [car, tarp], alpha: 1, duration: 350 });
     if (!this.calm) this.tweens.add({ targets: rays, angle: 360, duration: 14000, repeat: -1 });
     // Pause, wiggle the tarp, then whip it off.
-    this.tweens.add({ targets: tarp, angle: { from: -2, to: 2 }, yoyo: true, repeat: 2, duration: 120, delay: 450 });
-    this.time.delayedCall(1150, () => {
+    this.tweens.add({ targets: tarp, angle: { from: -2, to: 2 }, yoyo: true, repeat: 2, duration: 120, delay: lead + 450 });
+    this.time.delayedCall(lead + 1150, () => {
       this.tweens.add({ targets: tarp, y: cy - H * 0.35, x: cx + W * 0.2, angle: -25, alpha: 0, duration: 550, ease: 'Cubic.easeIn' });
       this.tweens.add({ targets: rays, scale: 1, duration: 700, ease: 'Back.easeOut' });
       this.tweens.add({ targets: car, scale: carScale, duration: 500, ease: 'Back.easeOut' });
@@ -664,6 +685,7 @@ export class YardScene extends Phaser.Scene {
         duration: 300,
         onComplete: () => {
           for (const o of objs) o.destroy();
+          this.barnCarOut = false;
           this.barnKey = '';
         },
       });
