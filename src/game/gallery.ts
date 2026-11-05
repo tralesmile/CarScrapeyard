@@ -1,0 +1,30 @@
+// Debug-only car gallery (?debug=1&gallery=1): every family in every rarity, for art review
+// and the e2e screenshot. Not reachable in normal play.
+
+import { ECON, PAINTS, type CarFamily, type Rarity } from '../core/config';
+import { paintCar, paintRust } from './carArt';
+
+export function showCarGallery(): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'car-gallery';
+  root.style.cssText =
+    'position:fixed;inset:0;z-index:999;overflow:auto;background:#d9c7a7;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:6px;align-content:start;';
+  const rarities = Object.keys(ECON.rarity) as Rarity[];
+  (Object.keys(ECON.families) as CarFamily[]).forEach((family, i) => {
+    rarities.forEach((_r, j) => {
+      if (j > 1) return; // two looks per family, three columns: fits one phone screen
+      const c = document.createElement('canvas');
+      c.width = 360;
+      c.height = 180;
+      c.style.width = '100%';
+      c.dataset.family = family;
+      const ctx = c.getContext('2d')!;
+      ctx.scale(0.5, 0.5);
+      paintCar(ctx, { family, paint: PAINTS[(i * 3 + j) % PAINTS.length]!, rarity: j === 0 ? 'common' : rarities[(i % 3) + 1]! }, 720, 360);
+      if (j === 1 && i % 2 === 0) paintRust(ctx, family, 720, 360, i + 1);
+      root.append(c);
+    });
+  });
+  document.body.append(root);
+  return root;
+}

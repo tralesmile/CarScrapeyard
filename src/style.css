@@ -1,0 +1,780 @@
+:root {
+  --rust: #e8762b;
+  --rust-dark: #b9561a;
+  --teal: #1f9e9a;
+  --asphalt: #1e2430;
+  --asphalt-2: #2a3242;
+  --asphalt-3: #36405280;
+  --cash: #3bc45a;
+  --gem: #8b5cf6;
+  --red: #e5484d;
+  --gold: #f5b700;
+  --text: #f6f7f9;
+  --muted: #a9b2c3;
+  --panel-h: min(40dvh, 330px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: 'Nunito', system-ui, sans-serif;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #12161e;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: relative;
+  width: min(100vw, 520px);
+  height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--asphalt);
+}
+
+#game,
+#game canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+.display {
+  font-family: 'Lilita One', 'Nunito', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Top bar ---- */
+.hud {
+  position: absolute;
+  top: calc(8px + var(--safe-top));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 14px;
+  background: rgba(30, 36, 48, 0.88);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  backdrop-filter: blur(6px);
+}
+
+.hud .cash {
+  font-size: 26px;
+  color: #fff;
+  min-width: 0;
+  transition: transform 0.12s;
+}
+
+.hud .cash.bump {
+  transform: scale(1.12);
+}
+
+.hud .rate {
+  font-size: 13px;
+  color: var(--cash);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hud .spacer {
+  flex: 1;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--asphalt-2);
+  color: var(--text);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+/* ---- Hint ---- */
+.hint {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--hint-top, 50%));
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(30, 36, 48, 0.92);
+  border: 2px solid var(--rust);
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none !important;
+  animation: bob 1.4s ease-in-out infinite;
+  transition: opacity 0.2s;
+}
+
+.hint.beside-crush {
+  left: 12px;
+  transform: none;
+  white-space: normal;
+  max-width: calc(100% - 128px);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+.hint.hidden {
+  opacity: 0;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -5px;
+  }
+}
+
+/* ---- Sell button ---- */
+.sell {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--panel-h) + 18px + var(--safe-bottom));
+  transform: translateX(-50%) scale(1);
+  padding: 12px 28px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(#4fd86e, #2ea94a);
+  box-shadow: 0 5px 0 #1f7a35, 0 8px 18px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 0.08s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.sell:active {
+  transform: translateX(-50%) translateY(4px) scale(0.97);
+  box-shadow: 0 1px 0 #1f7a35;
+}
+
+.sell.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) scale(0.8);
+}
+
+.sell small {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.9;
+  letter-spacing: 0;
+}
+
+/* ---- Parts counter ---- */
+.hud .parts {
+  font: 800 15px 'Nunito', sans-serif;
+  color: #d6dbe4;
+  background: var(--asphalt-2);
+  border-radius: 10px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.hud .parts.hidden {
+  display: none;
+}
+
+/* ---- Crush button ---- */
+.crush {
+  position: absolute;
+  right: 12px;
+  bottom: calc(var(--panel-h) + 18px + var(--safe-bottom));
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(#6b7487, #485062);
+  box-shadow: 0 4px 0 #2b3241, 0 6px 14px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.08s, opacity 0.15s;
+  text-align: center;
+}
+
+.crush small {
+  display: block;
+  font: 800 11px 'Nunito', sans-serif;
+  color: var(--gold);
+}
+
+.crush:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #2b3241;
+}
+
+.crush:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.crush.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- Bottom panel ---- */
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--panel-h) + var(--safe-bottom));
+  padding: 10px 10px calc(10px + var(--safe-bottom));
+  background: var(--asphalt);
+  border-top: 3px solid var(--rust);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tab,
+.mode {
+  border: 0;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font: 800 14px 'Nunito', sans-serif;
+  background: var(--asphalt-2);
+  color: var(--muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.tab.active,
+.mode.active {
+  background: var(--rust);
+  color: #fff;
+}
+
+.tab .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  display: none;
+}
+
+.tab .dot.on {
+  display: block;
+}
+
+.cards {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-content: start;
+  touch-action: pan-y;
+  padding-bottom: 4px;
+}
+
+.card {
+  background: var(--asphalt-2);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 2px solid transparent;
+  min-width: 0;
+}
+
+.card.ready {
+  border-color: rgba(59, 196, 90, 0.6);
+}
+
+.card .title {
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.card .lvl {
+  color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.card .desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+  min-height: 2.6em;
+}
+
+.card .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #ffffff14;
+  overflow: hidden;
+}
+
+.card .bar > i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+}
+
+.buy {
+  margin-top: 4px;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 6px;
+  font: 400 17px 'Lilita One', sans-serif;
+  background: linear-gradient(#f08a45, var(--rust));
+  box-shadow: 0 3px 0 var(--rust-dark);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.06s;
+}
+
+.buy:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.buy:disabled {
+  background: #3a4356;
+  box-shadow: 0 3px 0 #2b3241;
+  color: #8a93a6;
+  cursor: default;
+}
+
+.buy.done {
+  background: var(--teal);
+  box-shadow: 0 3px 0 #157570;
+}
+
+/* ---- Banner (barn find, etc.) ---- */
+.banner {
+  position: absolute;
+  left: 50%;
+  top: calc(30% + var(--safe-top));
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  padding: 12px 22px;
+  border-radius: 18px;
+  background: linear-gradient(#ffd34d, var(--gold));
+  color: #4a3500;
+  text-align: center;
+  font-size: 24px;
+  box-shadow: 0 10px 30px rgba(245, 183, 0, 0.45);
+  transition: transform 0.3s cubic-bezier(0.2, 1.6, 0.4, 1), opacity 0.3s;
+  pointer-events: none !important;
+  white-space: nowrap;
+}
+
+.banner small {
+  display: block;
+  font: 800 14px 'Nunito', sans-serif;
+}
+
+.banner.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: absolute;
+  left: 50%;
+  top: calc(64px + var(--safe-top));
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(229, 72, 77, 0.95);
+  font-weight: 800;
+  font-size: 13px;
+  max-width: 90%;
+  text-align: center;
+  pointer-events: none !important;
+}
+
+/* ---- Modal ---- */
+.modal-back {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.65);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  animation: fade 0.2s;
+}
+
+.modal-back.reveal {
+  background: transparent;
+  place-items: end center;
+  padding-bottom: calc(28px + var(--safe-bottom, 0px));
+}
+
+.modal {
+  width: min(100%, 360px);
+  background: #fbf3e4;
+  color: #2b2118;
+  border-radius: 20px;
+  padding: 22px 20px 18px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: pop 0.3s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.modal h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  color: var(--rust-dark);
+}
+
+.modal p {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.modal .note {
+  font-style: italic;
+  background: #fff9ee;
+  border: 2px dashed #e3c9a0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.modal .big {
+  font-size: 34px;
+  color: #2ea94a;
+  margin: 6px 0 12px;
+}
+
+.modal .buy {
+  width: 100%;
+  font-size: 20px;
+  padding: 12px;
+}
+
+.modal .secondary {
+  margin-top: 8px;
+  border: 0;
+  background: none;
+  color: #7a6a58;
+  font: 700 14px 'Nunito', sans-serif;
+  cursor: pointer;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation: none;
+  }
+  .modal,
+  .modal-back {
+    animation: none;
+  }
+}
+
+/* ---- Buyer strip (customer personalities) ---- */
+.buyer {
+  position: absolute;
+  top: calc(68px + var(--safe-top));
+  left: 16px;
+  right: 16px;
+  padding: 4px 12px 5px;
+  background: rgba(30, 36, 48, 0.82);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font: 800 13px 'Nunito', sans-serif;
+  pointer-events: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.buyer.hidden {
+  display: none;
+}
+
+.buyer-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.buyer-bar {
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.buyer-bar i {
+  display: block;
+  height: 100%;
+  background: var(--teal);
+  transition: width 0.1s linear;
+}
+
+.buyer.match {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(245, 183, 0, 0.45);
+}
+
+.sell.match {
+  background: linear-gradient(#ffd24a, #f5a700);
+  box-shadow: 0 5px 0 #b37600, 0 8px 18px rgba(0, 0, 0, 0.35);
+  color: #3a2600;
+}
+
+/* ---- Haggle slider ---- */
+.haggle {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--panel-h) + 14px + var(--safe-bottom));
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 32px));
+  padding: 8px 14px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(30, 36, 48, 0.94);
+  box-shadow: 0 0 0 3px var(--rust), 0 8px 18px rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.haggle.hidden {
+  display: none;
+}
+
+.haggle-label {
+  font-size: 19px;
+  margin-bottom: 8px;
+}
+
+.haggle-track {
+  position: relative;
+  height: 26px;
+  border-radius: 13px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--gold) 30%, var(--cash) 44%, var(--cash) 56%, var(--gold) 70%, var(--red) 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.haggle-track .zone-perfect {
+  position: absolute;
+  left: 44%;
+  width: 12%;
+  top: -3px;
+  bottom: -3px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+}
+
+.haggle-needle {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 6px;
+  margin-left: -3px;
+  left: 0;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 0 0 2px #1e2430;
+}
+
+.haggle.stopped.perfect {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(245, 183, 0, 0.8);
+  animation: pop 0.3s ease-out;
+}
+
+.haggle.stopped.great .haggle-label,
+.haggle.stopped.perfect .haggle-label {
+  color: var(--gold);
+}
+
+.haggle.stopped.poor .haggle-label {
+  color: #ff9a9d;
+}
+
+@keyframes pop {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .haggle.stopped.perfect {
+    animation: none;
+  }
+}
+
+/* ---- Settings sheet ---- */
+.modal.settings {
+  text-align: left;
+}
+
+.modal.settings h2 {
+  text-align: center;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e8dcc6;
+}
+
+.set-label {
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.set-label small {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  color: #7a6a58;
+}
+
+.toggle {
+  min-width: 64px;
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font: 800 14px 'Nunito', sans-serif;
+  background: #d9ccb6;
+  color: #5a4c3d;
+  cursor: pointer;
+}
+
+.toggle.on {
+  background: var(--green, #3bc45a);
+  color: #fff;
+}
+
+.seg {
+  display: flex;
+  background: #e8dcc6;
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.seg-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: 800 14px 'Nunito', sans-serif;
+  background: none;
+  color: #5a4c3d;
+  cursor: pointer;
+}
+
+.seg-btn.on {
+  background: var(--rust);
+  color: #fff;
+}
+
+.modal .danger {
+  display: block;
+  width: 100%;
+  margin: 14px 0 6px;
+  border: 2px solid #e5484d;
+  border-radius: 10px;
+  padding: 8px;
+  background: none;
+  color: #c9363b;
+  font: 800 14px 'Nunito', sans-serif;
+  cursor: pointer;
+}
+
+.credits {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #7a6a58;
+  text-align: center;
+  margin: 6px 0 4px;
+}
+
+.modal.settings .buy {
+  width: 100%;
+}
+
+/* Player setting (same as the OS preference). */
+.reduce-motion .hint,
+.reduce-motion .modal,
+.reduce-motion .modal-back,
+.reduce-motion .haggle.stopped.perfect,
+.reduce-motion .banner {
+  animation: none;
+  transition: none;
+}
