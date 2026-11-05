@@ -5,7 +5,7 @@ export type UpgradeKind = 'wash' | 'repair' | 'quality' | 'press';
 export type ManagerKind = 'mechanic' | 'washer' | 'seller' | 'scrapper';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
-export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family';
+export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
 
 export const ECON = {
   /** Seconds between new wrecks arriving while a lot slot is free. */
@@ -154,13 +154,25 @@ export const ECON = {
     /** Seconds until the next buyer after one leaves or is served. */
     gap: 8,
     kinds: {
-      bargain: { name: 'Bargain Hunter', icon: '🤑', wants: 'a Hatchback', families: ['hatch'], minRarity: null, bonus: 0.15 },
-      collector: { name: 'Collector', icon: '🧐', wants: 'a Rare+ car', families: null, minRarity: 'rare', bonus: 0.4 },
-      speed: { name: 'Speed Freak', icon: '😎', wants: 'a fast car', families: ['muscle', 'sports', 'hyper'], minRarity: null, bonus: 0.25 },
-      family: { name: 'Family', icon: '👪', wants: 'a family car', families: ['sedan', 'van', 'suv'], minRarity: null, bonus: 0.2 },
+      bargain: { name: 'Bargain Hunter', icon: '🤑', wants: 'a Hatchback', families: ['hatch'], minRarity: null, bonus: 0.15, unlockCarsSold: 0 },
+      collector: { name: 'Collector', icon: '🧐', wants: 'a Rare+ car', families: null, minRarity: 'rare', bonus: 0.4, unlockCarsSold: 0 },
+      speed: { name: 'Speed Freak', icon: '😎', wants: 'a fast car', families: ['muscle', 'sports', 'hyper'], minRarity: null, bonus: 0.25, unlockCarsSold: 0 },
+      family: { name: 'Family', icon: '👪', wants: 'a family car', families: ['sedan', 'van', 'suv'], minRarity: null, bonus: 0.2, unlockCarsSold: 0 },
+      tradie: { name: 'Tradie', icon: '👷', wants: 'a Pickup', families: ['pickup'], minRarity: null, bonus: 0.2, unlockCarsSold: 20 },
+      /** Arrives once sports cars do; pays big for a show-off car. */
+      influencer: { name: 'Influencer', icon: '🤳', wants: 'a Sports Car or Hypercar', families: ['sports', 'hyper'], minRarity: null, bonus: 0.5, unlockCarsSold: 100 },
     } satisfies Record<
       BuyerKind,
-      { name: string; icon: string; wants: string; families: readonly CarFamily[] | null; minRarity: Rarity | null; bonus: number }
+      {
+        name: string;
+        icon: string;
+        wants: string;
+        families: readonly CarFamily[] | null;
+        minRarity: Rarity | null;
+        bonus: number;
+        /** This buyer starts showing up after this many sales. */
+        unlockCarsSold: number;
+      }
     >,
   },
 
@@ -176,7 +188,7 @@ export const ECON = {
       { name: 'Fresh paint', cashMult: 8, parts: 0, seconds: 90 },
     ],
     /** Sale value = expected car value x this, at the reveal. */
-    saleMult: 55,
+    saleMult: 50,
     /** Each finished restoration makes the next one cost and pay this much more. */
     growthPerRestore: 0.15,
     /** Seconds until the next barn find after one is sold (runs offline too). */

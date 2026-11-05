@@ -82,6 +82,12 @@ families with weight 1 (no orders for 3 Hypercars). Run 5 sim: active Salesperso
 | Collector | Rare, Epic or Legendary | +40% |
 | Speed Freak | Muscle, Sports Car, Hypercar | +25% |
 | Family | Sedan, Van, SUV | +20% |
+| Tradie (after 20 sales) | Pickup | +20% |
+| Influencer (after 100 sales) | Sports Car, Hypercar | +50% |
+
+Skip haggling (setting) sells at the asking price without the slider (the one-time lesson still plays).
+Run 7: a 12-seed sim (`many seeds`) is the real pacing check: active Salesperson avg 9m52s (worst 10m57s), barn share
+avg 18% (max 24%) after the barn sale went x55 -> x50; seed 12345 alone read 25.2%.
 
 Unlock after 10 sales. One buyer at a time, waits 75 s, next buyer 8 s after one leaves or is served.
 Bonuses apply to crew sales too and stack with haggle. Sim limit: manual haggle + buyer bonus < 15% of
@@ -93,7 +99,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | --- | --- |
 | Unlock | 60 cars sold |
 | Stages (cash = expected car value x) | Tow 2x / 20 s · Engine 4x + 6 parts / 45 s · Body 6x + 12 parts / 60 s · Paint 8x / 90 s |
-| Sale | expected car value x 55 at the reveal (2.75x the cash cost; was x60 until run 5) |
+| Sale | expected car value x 50 at the reveal (2.5x the cash cost; x60 until run 5, x55 in run 6) |
 | Growth | +15% cost and value per restoration sold |
 | Next find | 5 min after a sale (runs offline) |
 | Share of income | sim limit < 25% of first-15-minute earnings (active 21%; relaxed bot reaches stage 3) |

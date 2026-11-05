@@ -17,6 +17,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 5: new car art, four new car types (Vans after 15 sales, SUVs after 40, Sports Cars after 100,
       Hypercars after 200) and vibration on Android phones (Settings → Vibration). Do the new cars feel worth waiting
       for? Is the vibration too strong, too weak, or annoying on rapid taps?
+      New since runs 6-7: Hydraulic Press upgrade and the Scrapper (after the crusher), a free Swap on each job,
+      customers drawn as characters walking into the yard, Tradie and Influencer buyers, and "Skip haggling" in Settings.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

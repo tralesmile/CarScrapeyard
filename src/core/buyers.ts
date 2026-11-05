@@ -31,8 +31,13 @@ export function buyerMultiplier(state: GameState, car: Car): number {
   return 1 + ECON.buyers.kinds[state.buyer.kind].bonus;
 }
 
+/** Buyer personalities that can show up after this many sales. */
+export function unlockedBuyerKinds(carsSold: number): BuyerKind[] {
+  return (Object.keys(ECON.buyers.kinds) as BuyerKind[]).filter((k) => carsSold >= ECON.buyers.kinds[k].unlockCarsSold);
+}
+
 function newBuyer(state: GameState): void {
-  state.buyer = { kind: pick(state, Object.keys(ECON.buyers.kinds) as BuyerKind[]), timeLeft: ECON.buyers.patience };
+  state.buyer = { kind: pick(state, unlockedBuyerKinds(state.carsSold)), timeLeft: ECON.buyers.patience };
 }
 
 export function tickBuyers(state: GameState, dt: number, events: BuyerSink): void {

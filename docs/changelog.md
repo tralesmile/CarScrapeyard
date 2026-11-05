@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 - 2026-11-05 (run 7)
+
+- **Customers you can see:** every buyer is a little character drawn in code who walks into the yard, waits beside
+  the bay and walks off when served or tired of waiting (no walking with reduce motion).
+- **Two new buyers:** the Tradie (after 20 sales) pays +20% for a Pickup, so every car type now has a buyer; the
+  Influencer (after 100 sales) pays +50% for a Sports Car or Hypercar.
+- **Skip haggling** setting: sell at the asking price without the slider.
+- Balance: the barn sale goes x55 -> x50 of the expected car value, and a new 12-seed balance check replaces luck of a
+  single seed (Salesperson avg 9m52s, barn share avg 18%, max 24%).
+- 4 new unit tests (110 total); e2e checks the customer standing in the yard, the skip-haggling sale and all six
+  customers in the art gallery.
+
 ## 0.6.0 - 2026-11-05 (run 6)
 
 - **Hydraulic Press upgrade** (Upgrades tab once the crusher unlocks): each level makes the press faster (down to

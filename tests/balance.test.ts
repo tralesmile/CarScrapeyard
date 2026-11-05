@@ -80,8 +80,8 @@ function earlyUpgrades(s: GameState): void {
   }
 }
 
-function run(profile: BotProfile, seconds: number) {
-  const s = newGame(0, 12345);
+function run(profile: BotProfile, seconds: number, seed = 12345) {
+  const s = newGame(0, seed);
   const marks: Record<string, number> = {};
   const dt = 0.1;
   let cooldown = 0;
@@ -188,8 +188,31 @@ describe('second quarter hour', () => {
     expect(marks.scrapper).toBeGreaterThan(15 * 60);
     expect(marks.scrapper).toBeLessThan(30 * 60);
     expect(s.levels.press).toBeGreaterThan(5);
-    expect(scrapperCrushes).toBeGreaterThan(0);
+    // Whether it has to crush at all depends on how many parts the player made (seed luck); that it does crush
+    // when the bin runs low is covered over many seeds in press-scrapper.test.ts.
     // The Scrapper only tops up the bin: far fewer crushes than sales.
     expect(scrapperCrushes).toBeLessThan(s.carsSold * 0.25);
+  });
+});
+
+describe('many seeds', () => {
+  // One fixed seed can pass or fail by luck (run 7: the barn share read 25.2% on seed 12345 but averaged 18%).
+  // Averages over seeds are what the pacing targets mean; single-seed tests above stay as the readable timeline.
+  it('active player: full crew and barn share hold on average over 12 seeds', () => {
+    const sellers: number[] = [];
+    const shares: number[] = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const r = run(ACTIVE, 15 * 60, seed);
+      sellers.push(r.marks.seller ?? 15 * 60);
+      shares.push(r.barnCash / r.s.lifetimeEarnings);
+    }
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    console.log(
+      `--- active bot, 12 seeds ---\nSalesperson avg ${formatDuration(avg(sellers))} (worst ${formatDuration(Math.max(...sellers))}), ` +
+        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%)`,
+    );
+    expect(avg(sellers)).toBeLessThan(12 * 60);
+    expect(avg(shares)).toBeLessThan(0.22);
+    expect(Math.max(...shares)).toBeLessThan(0.3);
   });
 });

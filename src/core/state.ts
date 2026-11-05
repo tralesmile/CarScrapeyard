@@ -112,6 +112,8 @@ export interface GameState {
     numberFormat: NumberFormat;
     /** Vibrate on taps, sales and crushes (phones that support it). */
     vibration: boolean;
+    /** Sell at the asking price without the haggle slider. */
+    skipHaggle: boolean;
   };
   stats: {
     legendaryFound: number;
@@ -151,7 +153,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     rng: seed >>> 0 || 1,
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }

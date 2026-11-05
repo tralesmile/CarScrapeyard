@@ -96,3 +96,15 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the active-order branch, so a finished order kept the grey swap look on its Claim button; only the screenshot showed
   it. Set every state class at the top of `update()` from the current state, then fill in text per branch. The e2e
   now asserts the Claim button has no swap style.
+
+## 2026-11-05 (run 7)
+
+- **Single-seed balance tests fail by luck.** Adding two buyer kinds changed the RNG stream; seed 12345 then read a
+  25.2% barn share (limit 25%) and a minute slower Salesperson, but over 12 seeds the change cost only +23 s and the
+  barn share averaged 18%. Before tuning numbers after a failing sim, sweep seeds (the `many seeds` test does it) to
+  tell a real shift from noise, then tune for the average with margin.
+- **Stashing one file to compare "before" broke the build** (the old config no longer matched the new types), so
+  the comparison printed nothing. Compare by switching the new feature off inside the current code (e.g. set its
+  unlock to 99999) instead of stashing.
+- **Phaser depth is not enough to put a new sprite behind an older one** at the same depth; created-later draws on
+  top. Use `children.moveBelow(sprite, bigCar)` for a figure that must stand behind the bay car.

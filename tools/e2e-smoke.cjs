@@ -149,6 +149,13 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.sell.match:not(.hidden)');
     assert((await page.textContent('.buyer')).includes('Speed Freak'), 'buyer strip names the customer');
     assert(await page.$eval('.buyer', (e) => e.classList.contains('match')), 'buyer strip lights up for a matching car');
+    await page.waitForTimeout(1300); // walk-in
+    const figure = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('yard');
+      const b = sc.buyerSprite;
+      return b ? { kind: b.getData('kind'), x: b.x, w: sc.scale.width, visible: b.visible } : null;
+    });
+    assert(figure && figure.kind === 'speed' && figure.visible && figure.x > figure.w * 0.5 && figure.x < figure.w, 'the customer stands in the yard');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-10-buyer.png') });
     await page.click('.sell');
     // A buyer match is a big sale: haggle opens. Let it time out (sells at asking price).
@@ -440,8 +447,32 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate((n) => window.__vib.length === n, vibCount), 'no haptics while vibration is off');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate((n) => window.__jye.state.settings.vibration && window.__vib.length > n, vibCount), 'vibration switches back on with a test buzz');
+    await page.click('.toggle[aria-label="Skip haggling"]');
     await page.click('.modal.settings .buy');
     assert(!(await page.$('.modal.settings')), 'Done closes the settings');
+    // Skip haggling: a Rare car sells straight away at the asking price.
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.managers.seller = false;
+      s.buyer = null;
+    });
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    const rareSale = await page.evaluate(() => {
+      const s = window.__jye.state;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.rarity = 'rare';
+      c.dirt = 0;
+      c.damage = 0;
+      return { sold: s.carsSold, cash: s.cash, value: c.value };
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    await page.waitForTimeout(200);
+    const afterRare = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash }));
+    const haggleHidden = await page.$eval('.haggle', (e) => e.classList.contains('hidden'));
+    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, 'skip haggling sells a Rare car at the asking price, no slider');
+    await page.evaluate(() => (window.__jye.state.managers.seller = true));
     await page.evaluate(() => window.__jye.saveNow());
     await page.reload();
     await page.waitForFunction(() => window.__jye && window.__jye.state);
@@ -470,7 +501,7 @@ async function waitForServer(url, ms = 15000) {
     await gal.waitForSelector('.car-gallery canvas');
     await gal.waitForTimeout(300);
     const art = await gal.evaluate(() =>
-      [...document.querySelectorAll('.car-gallery canvas')].map((c) => {
+      [...document.querySelectorAll('.car-gallery canvas[data-family]')].map((c) => {
         const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
         let solid = 0;
         let soft = 0;
@@ -483,6 +514,8 @@ async function waitForServer(url, ms = 15000) {
     );
     const fams = [...new Set(art.map((a) => a.family))];
     assert(fams.length === 8, `gallery draws all 8 families (${fams.join(', ')})`);
+    const buyerArt = await gal.$$eval('.car-gallery canvas[data-buyer]', (cs) => cs.map((c) => c.dataset.buyer));
+    assert(buyerArt.length === 6, `gallery draws all 6 customers (${buyerArt.join(', ')})`);
     assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
     assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
     await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });

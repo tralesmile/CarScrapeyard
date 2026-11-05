@@ -6,6 +6,8 @@ import { carStage, findCar, focusCar, repairTap, tick, washCar, type GameEvent }
 import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
 import { mudSpots, paintCar, paintRust } from './carArt';
+import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
+import type { BuyerKind } from '../core/config';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 /** Car textures are drawn at this size and scaled for display. */
@@ -49,6 +51,9 @@ export class YardScene extends Phaser.Scene {
   private barnLabel!: Phaser.GameObjects.Text;
   private barnKey = '';
   private barnRect = new Phaser.Geom.Rectangle();
+  /** The waiting customer standing in the yard (mirrors state.buyer). */
+  private buyerSprite: Phaser.GameObjects.Image | null = null;
+  private buyerShown: BuyerKind | null = null;
 
   private lastPointer: Phaser.Math.Vector2 | null = null;
   private smokeTimer = 0;
@@ -174,6 +179,10 @@ export class YardScene extends Phaser.Scene {
   /** Re-place everything after a resize or orientation change. */
   layout() {
     this.drawBackground();
+    if (this.buyerSprite) {
+      const spot = this.buyerSpot();
+      this.buyerSprite.setPosition(spot.x, spot.y);
+    }
     this.barnKey = '';
     this.placeBigCar();
     this.rebuildSlots();
@@ -188,6 +197,7 @@ export class YardScene extends Phaser.Scene {
     this.syncBigCar();
     this.syncSlots();
     this.syncBarn();
+    this.syncBuyer();
 
     // Smoke from damaged engines.
     const car = this.focused();
@@ -334,6 +344,65 @@ export class YardScene extends Phaser.Scene {
   }
 
   // ---- barn find (covered classic at the back of the yard) ------------------
+
+  /** Where the customer stands: across the yard from the barn, on the horizon behind the bay. */
+  private buyerSpot() {
+    const geo = this.barnGeometry();
+    return { x: this.px(this.cssW - geo.x), y: this.px(geo.bottom + 6) };
+  }
+
+  private buyerTexture(kind: BuyerKind): string {
+    const key = `buyer-${kind}`;
+    if (!this.textures.exists(key)) {
+      const tex = this.textures.createCanvas(key, BUYER_W * 2, BUYER_H * 2);
+      if (tex) {
+        const ctx = tex.getContext();
+        ctx.scale(2, 2);
+        paintBuyer(ctx, kind);
+        tex.refresh();
+      }
+    }
+    return key;
+  }
+
+  /** A customer walks in when one arrives and walks off when served or tired of waiting. */
+  private syncBuyer() {
+    const want = this.bridge.state.buyer?.kind ?? null;
+    if (want === this.buyerShown) return;
+    const spot = this.buyerSpot();
+    const scale = this.px(Math.min(60, this.cssW * 0.15)) / (BUYER_H * 2);
+    const old = this.buyerSprite;
+    if (old) {
+      this.tweens.killTweensOf(old);
+      if (this.calm) old.destroy();
+      else {
+        old.setFlipX(false);
+        this.tweens.add({ targets: old, x: this.scale.width + old.displayWidth, duration: 900, ease: 'Quad.easeIn', onComplete: () => old.destroy() });
+      }
+    }
+    this.buyerSprite = null;
+    this.buyerShown = want;
+    if (!want) return;
+    const img = this.add.image(spot.x, spot.y, this.buyerTexture(want)).setOrigin(0.5, 1).setScale(scale);
+    // Behind the bay car, in front of the backdrop.
+    this.children.moveBelow(img as Phaser.GameObjects.GameObject, this.bigCar as Phaser.GameObjects.GameObject);
+    img.setData('kind', want);
+    this.buyerSprite = img;
+    if (this.calm) return;
+    // Walk in from the right edge (facing left), with a little bounce per step, then idle-bob.
+    img.setX(this.scale.width + img.displayWidth).setFlipX(true);
+    this.tweens.add({
+      targets: img,
+      x: spot.x,
+      duration: 1100,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        img.setFlipX(false);
+        this.tweens.add({ targets: img, scaleY: scale * 1.03, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      },
+    });
+    this.tweens.add({ targets: img, y: spot.y - this.px(3), duration: 140, yoyo: true, repeat: 3, ease: 'Sine.easeOut' });
+  }
 
   private barnGeometry() {
     const a = this.focusArea();

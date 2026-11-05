@@ -905,6 +905,7 @@ export class Ui {
       }),
       toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
       toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+      toggle('Skip haggling', 'Sell at the asking price, no slider', () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
       toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {
         s.settings.vibration = v;
         haptics.enabled = v;

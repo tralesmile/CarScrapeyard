@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON, type BuyerKind } from '../src/core/config';
-import { buyerMatches, buyerMultiplier, buyersUnlocked, tickBuyers } from '../src/core/buyers';
+import { buyerMatches, buyerMultiplier, buyersUnlocked, tickBuyers, unlockedBuyerKinds } from '../src/core/buyers';
 import { clampHaggle, haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../src/core/haggle';
 import { deserialize, serialize } from '../src/core/save';
 import { holdForHaggle, sellCar, tick, type GameEvent } from '../src/core/sim';
@@ -117,10 +117,46 @@ describe('customer personalities', () => {
     expect(buyerMatches('collector', mk({ rarity: 'legendary' }))).toBe(true);
   });
 
-  it('every car family is wanted by at least one buyer except pickups (their buyer comes in P0.14d)', () => {
+  it('every car family is wanted by at least one buyer', () => {
     const wanted = new Set<string>(Object.values(ECON.buyers.kinds).flatMap((b) => b.families ?? []));
     const unwanted = Object.keys(ECON.families).filter((f) => !wanted.has(f));
-    expect(unwanted).toEqual(['pickup']);
+    expect(unwanted).toEqual([]);
+  });
+
+  it('a buyer never wants a family that has not started arriving yet when they show up', () => {
+    for (const [kind, b] of Object.entries(ECON.buyers.kinds)) {
+      if (!b.families) continue;
+      const firstFamily = Math.min(...b.families.map((f) => ECON.families[f].unlockCarsSold));
+      expect(b.unlockCarsSold, kind).toBeGreaterThanOrEqual(firstFamily);
+    }
+  });
+
+  it('Tradie and Influencer only show up after enough sales', () => {
+    expect(unlockedBuyerKinds(0)).toEqual(['bargain', 'collector', 'speed', 'family']);
+    expect(unlockedBuyerKinds(ECON.buyers.kinds.tradie.unlockCarsSold)).toContain('tradie');
+    expect(unlockedBuyerKinds(99)).not.toContain('influencer');
+    expect(unlockedBuyerKinds(100)).toContain('influencer');
+    const s = newGame(T0, 4);
+    s.carsSold = ECON.buyers.unlockCarsSold;
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      s.buyer = null;
+      s.buyerTimer = 0;
+      tickBuyers(s, 0.1, []);
+      seen.add(s.buyer!.kind);
+    }
+    expect(seen.has('tradie') || seen.has('influencer')).toBe(false);
+    expect(buyerMatches('tradie', { family: 'pickup', rarity: 'common' } as Car)).toBe(true);
+    expect(buyerMatches('influencer', { family: 'hyper', rarity: 'common' } as Car)).toBe(true);
+  });
+
+  it('the skip-haggle setting sells at the asking price, except the one-time lesson', () => {
+    const s = newGame(T0, 4);
+    s.carsSold = 5;
+    s.settings.skipHaggle = true;
+    expect(wantsHaggle(s, { family: 'sedan', rarity: 'epic' } as Car)).toBe(false);
+    s.settings.skipHaggle = false;
+    expect(wantsHaggle(s, { family: 'sedan', rarity: 'epic' } as Car)).toBe(true);
   });
 
   it('buyers unlock after enough sales, arrive, wait and leave', () => {

@@ -3,6 +3,8 @@
 
 import { ECON, PAINTS, type CarFamily, type Rarity } from '../core/config';
 import { paintCar, paintRust } from './carArt';
+import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
+import type { BuyerKind } from '../core/config';
 
 export function showCarGallery(): HTMLElement {
   const root = document.createElement('div');
@@ -25,6 +27,19 @@ export function showCarGallery(): HTMLElement {
       root.append(c);
     });
   });
+  // Customers, one per personality.
+  for (const kind of Object.keys(ECON.buyers.kinds) as BuyerKind[]) {
+    const c = document.createElement('canvas');
+    c.width = BUYER_W * 2;
+    c.height = BUYER_H * 2;
+    c.style.height = '110px';
+    c.style.justifySelf = 'center';
+    c.dataset.buyer = kind;
+    const ctx = c.getContext('2d')!;
+    ctx.scale(2, 2);
+    paintBuyer(ctx, kind);
+    root.append(c);
+  }
   document.body.append(root);
   return root;
 }
