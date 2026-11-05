@@ -108,3 +108,7 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   unlock to 99999) instead of stashing.
 - **Phaser depth is not enough to put a new sprite behind an older one** at the same depth; created-later draws on
   top. Use `children.moveBelow(sprite, bigCar)` for a figure that must stand behind the bay car.
+- **`npm run check | grep ... && git commit` pushed a failing run.** grep matched the "Tests" line even though e2e
+  printed FAILED, so the `&&` chain went on to commit and push (fixed straight after). Gate commits on the exit code:
+  `npm run check > /tmp/check.log 2>&1 && git commit ...`, then grep the log. The flaky step was a cash assertion that
+  the Scrapper's scrap cash could disturb; switch off every other income source while measuring one sale.

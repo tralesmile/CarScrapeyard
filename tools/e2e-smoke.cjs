@@ -454,7 +454,9 @@ async function waitForServer(url, ms = 15000) {
     await page.evaluate(() => {
       const s = window.__jye.state;
       s.managers.seller = false;
+      s.managers.scrapper = false; // its scrap cash would muddle the sale amount
       s.buyer = null;
+      s.buyerTimer = 999;
     });
     await page.waitForFunction(() => window.__jye.state.cars.length > 0);
     const rareSale = await page.evaluate(() => {
@@ -472,7 +474,10 @@ async function waitForServer(url, ms = 15000) {
     const afterRare = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash }));
     const haggleHidden = await page.$eval('.haggle', (e) => e.classList.contains('hidden'));
     assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, 'skip haggling sells a Rare car at the asking price, no slider');
-    await page.evaluate(() => (window.__jye.state.managers.seller = true));
+    await page.evaluate(() => {
+      window.__jye.state.managers.seller = true;
+      window.__jye.state.managers.scrapper = true;
+    });
     await page.evaluate(() => window.__jye.saveNow());
     await page.reload();
     await page.waitForFunction(() => window.__jye && window.__jye.state);
