@@ -48,6 +48,7 @@ pacing is unchanged (Salesperson 9m01s, barn sold 13m24s, barn share 20%).
 | Timer | 10 min (game time); new order 45 s after claim or expiry |
 | Reward | expected car value x target x (sell any 0.4, body type 0.9, Rare+ 2.5, crush 0.7) |
 | Sizes | sell any 6-10, body type 2-4, Rare+ 1-2, crush 2-4 (+4 parts per crushed car) |
+| Swap | one free swap per order: a different order with a fresh 10-min timer (progress resets); the new order can't be swapped |
 | Share of income | must stay under 30% of first-15-minute earnings (sim: 18% active, 25% relaxed) |
 
 ## Haggle

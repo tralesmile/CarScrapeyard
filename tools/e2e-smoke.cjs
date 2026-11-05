@@ -255,6 +255,15 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => document.querySelectorAll('.cards .contract').length === 3);
     const labels = await page.$$eval('.cards .contract .title', (els) => els.map((e) => e.textContent));
     assert(labels.every((l) => l && l.length > 4), `three orders on the board (${labels.join(' | ')})`);
+    // Free reroll: the second order swaps once, then the button goes back to "In progress".
+    const before2 = await page.evaluate(() => ({ id: window.__jye.state.contracts[1].id, label: document.querySelectorAll('.cards .contract .title')[1].textContent }));
+    assert((await page.textContent('.cards .contract:nth-child(2) .buy')).includes('Swap'), 'active orders offer a free swap');
+    await page.click('.cards .contract:nth-child(2) .buy');
+    const after2 = await page.evaluate(() => ({ id: window.__jye.state.contracts[1].id, rerolled: window.__jye.state.contracts[1].rerolled }));
+    await page.waitForTimeout(150);
+    const btn2 = await page.$eval('.cards .contract:nth-child(2) .buy', (b) => ({ text: b.textContent, disabled: b.disabled }));
+    const label2 = await page.$$eval('.cards .contract .title', (els) => els[1].textContent);
+    assert(after2.id !== before2.id && after2.rerolled && btn2.disabled && btn2.text.includes('In progress'), `swap gives a new order once (${before2.label} -> ${label2})`);
     await page.evaluate(() => {
       const c = window.__jye.state.contracts[0];
       c.progress = c.target;
@@ -263,6 +272,7 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.cards .contract.ready .buy:not(:disabled)');
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-07-contracts.png') });
+    assert(!(await page.$eval('.cards .contract.ready .buy', (b) => b.classList.contains('swap'))), 'a finished order shows a normal Claim button (no swap style)');
     const claim = await page.evaluate(() => ({ cash: window.__jye.state.cash, reward: window.__jye.state.contracts[0].rewardCash }));
     await page.click('.cards .contract.ready .buy');
     const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));

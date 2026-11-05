@@ -7,13 +7,14 @@ import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
 import { bulkCost, crusherCooldown, crushParts, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
 import { formatCash, formatDuration, setNumberFormat, type NumberFormat } from '../core/format';
 import { version } from '../../package.json';
-import { claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
+import { canRerollContract, claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
 import {
   buySlot,
   buyUpgrade,
   canCrush,
   carStage,
   crushCar,
+  rerollContract,
   crusherUnlocked,
   findCar,
   hireManager,
@@ -359,6 +360,16 @@ export class Ui {
       const s = this.deps.state();
       const c = s.contracts[index];
       if (!c) return;
+      if (canRerollContract(c)) {
+        const events = rerollContract(s, c.id);
+        if (events.length) {
+          sfx.buy();
+          this.deps.onEvents(events);
+          this.deps.onChange();
+          this.render();
+        }
+        return;
+      }
       const reward = claimContract(s, c.id);
       if (reward.cash > 0 || reward.parts > 0) {
         sfx.fanfare();
@@ -370,6 +381,7 @@ export class Ui {
     const update = (s: GameState) => {
       const c = s.contracts[index];
       root.classList.toggle('ready', c?.status === 'done');
+      btn.classList.toggle('swap', canRerollContract(c));
       if (!c || c.status === 'empty') {
         setText(name, 'New order');
         setText(lvl, '');
@@ -389,8 +401,9 @@ export class Ui {
         btn.disabled = false;
       } else {
         setText(desc, `Reward ${reward} · ${formatDuration(Math.ceil(c.timeLeft))} left`);
-        setText(btn, 'In progress');
-        btn.disabled = true;
+        const swap = canRerollContract(c);
+        setText(btn, swap ? '🔄 Swap order (free)' : 'In progress');
+        btn.disabled = !swap;
       }
     };
     return { root, lvl, desc, bar, btn, update };

@@ -26,7 +26,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.14b Crusher upgrades: Hydraulic Press (faster press, more parts) and the Scrapper crew member who tops up the parts bin (run 6)
 - [ ] P0.14j Scrapper polish (found in run 6): offline income ignores the Scrapper; show the press animation for
       auto-crushes of thumbnail cars too, and a small Scrapper character beside the press
-- [ ] P0.14c Contracts polish: one free reroll per order; let timers run offline once push notifications exist (found in run 2)
+- [x] P0.14c Contracts polish: one free swap per order (run 6). Offline contract timers moved to P2.5 (they need push notifications)
 - [ ] P0.14d Buyers polish: draw the buyer as a little character walking in; Influencer buyer; give pickups a buyer once vans/SUVs exist; a "skip haggle" setting (found in run 3)
 - [x] P0.14e Floating texts overlap when several rewards land at once: they stack now; banners queue (run 5)
 - [ ] P0.14f Barn polish: the restored car drives out of the barn into the bay before the reveal; stage art inside the barn (engine hoist, paint booth); keep classics for the Collection book (P1.4) instead of only selling (found in run 4)
@@ -62,7 +62,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [ ] P2.2 AdMob rewarded ads adapter (double offline, 2x boost)
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation
-- [ ] P2.5 Push notifications (garage full, offline cap reached)
+- [ ] P2.5 Push notifications (garage full, offline cap reached); then let contract timers run offline (from P0.14c)
 - [ ] P2.6 Store assets: icon, screenshots, preview video script, store text
 - [ ] P2.7 Privacy policy, terms, data safety and age-rating answers
 

@@ -400,6 +400,14 @@ body {
   box-shadow: 0 3px 0 #157570;
 }
 
+/* Free contract reroll: a quieter button than a purchase. */
+.buy.swap {
+  background: #3a4356;
+  box-shadow: 0 3px 0 #2b3241;
+  color: #e6ebf2;
+  font-size: 15px;
+}
+
 /* ---- Banner (barn find, etc.) ---- */
 .banner {
   position: absolute;

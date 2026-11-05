@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
-import { contractLabel, contractsUnlocked, generateContract } from '../src/core/contracts';
+import { canRerollContract, contractLabel, contractsUnlocked, generateContract } from '../src/core/contracts';
 import { checksum, deserialize, serialize } from '../src/core/save';
 import {
   canCrush,
@@ -8,6 +8,7 @@ import {
   claimContract,
   crushCar,
   crusherUnlocked,
+  rerollContract,
   sellCar,
   tick,
   washCar,
@@ -198,7 +199,7 @@ describe('contracts board', () => {
 
   it('rewards scale with car quality', () => {
     const s = newGame(T0, 9);
-    s.contracts = [{ id: 0, status: 'empty', kind: 'sellAny', family: null, target: 1, progress: 0, timeLeft: 0, rewardCash: 0, rewardParts: 0 }];
+    s.contracts = [{ id: 0, status: 'empty', kind: 'sellAny', family: null, target: 1, progress: 0, timeLeft: 0, rewardCash: 0, rewardParts: 0, rerolled: false }];
     const slot = s.contracts[0]!;
     s.rng = 42;
     generateContract(s, slot);
@@ -240,5 +241,56 @@ describe('contracts board', () => {
     expect(back.state.parts).toBe(0);
     expect(back.state.contracts).toEqual([]);
     expect(back.state.crusherCooldown).toBe(0);
+  });
+});
+
+describe('contract reroll', () => {
+  function board(seed: number): GameState {
+    const s = newGame(T0, seed);
+    s.carsSold = ECON.contracts.unlockCarsSold;
+    tick(s, 0.1);
+    tick(s, 0.1);
+    expect(s.contracts.every((c) => c.status === 'active')).toBe(true);
+    return s;
+  }
+
+  it('swaps an active order for a different one with a fresh timer, once', () => {
+    for (let seed = 1; seed < 200; seed++) {
+      const s = board(seed);
+      const c = s.contracts[0]!;
+      tick(s, 30);
+      const before = { kind: c.kind, family: c.family, id: c.id };
+      const events = rerollContract(s, c.id);
+      expect(events.map((e) => e.type)).toEqual(['contractNew']);
+      expect(c.kind !== before.kind || c.family !== before.family).toBe(true);
+      expect(c.id).not.toBe(before.id);
+      expect(c.timeLeft).toBe(ECON.contracts.duration);
+      expect(c.progress).toBe(0);
+      expect(c.rerolled).toBe(true);
+      // Still no duplicates on the board.
+      const keys = s.contracts.map((x) => `${x.kind}:${x.family}`);
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(rerollContract(s, c.id)).toEqual([]);
+    }
+  });
+
+  it('done orders cannot be rerolled; the next order in the slot gets a fresh reroll', () => {
+    const s = board(3);
+    const c = s.contracts[0]!;
+    rerollContract(s, c.id);
+    c.status = 'done';
+    expect(canRerollContract(c)).toBe(false);
+    claimContract(s, c.id);
+    tick(s, ECON.contracts.refresh + 0.1);
+    expect(c.status).toBe('active');
+    expect(canRerollContract(c)).toBe(true);
+  });
+
+  it('old saves without the reroll flag load with a reroll available', () => {
+    const s = board(5);
+    const raw = JSON.parse(JSON.stringify(s)) as GameState;
+    for (const c of raw.contracts) delete (c as Partial<typeof c>).rerolled;
+    const loaded = deserialize(serialize(raw, T0), T0)!.state;
+    expect(loaded.contracts.every((c) => c.rerolled === false)).toBe(true);
   });
 });

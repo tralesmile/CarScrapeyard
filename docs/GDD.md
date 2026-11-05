@@ -39,7 +39,8 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Contracts board** (Jobs tab, unlocks after 45 sales, about minute 5): three orders at a time —
   sell N cars, sell N of a body type, sell Rare+ cars, crush N wrecks — each with a 10-minute timer and a
   cash reward (crush orders also pay parts). Finished orders wait to be claimed; a new order arrives
-  45 s after one is claimed or expires. The same order never sits on the board twice.
+  45 s after one is claimed or expires. The same order never sits on the board twice. Each order can be swapped
+  once for free ("🔄 Swap order"): a different order with a fresh timer. The swapped-in order can't be swapped again.
 - **Haggle** (from the 2nd sale): a timing slider on big manual sales. A needle sweeps a red-gold-green bar;
   tapping stops it and the price is multiplied by 0.9 (edge) to 1.3 (PERFECT, centre zone). Only big sales
   haggle — the lesson on the 2nd sale ever (slow needle, always at least x1.2), Rare+ cars, and cars the waiting

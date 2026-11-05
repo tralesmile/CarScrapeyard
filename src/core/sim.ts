@@ -20,7 +20,14 @@ import {
   washPerPixel,
 } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
-import { claimContract as claimContractRule, onCarCrushed, onCarSold, tickContracts, type ContractEvent } from './contracts';
+import {
+  claimContract as claimContractRule,
+  onCarCrushed,
+  onCarSold,
+  rerollContract as rerollContractRule,
+  tickContracts,
+  type ContractEvent,
+} from './contracts';
 import type { Car, GameState } from './state';
 import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
@@ -292,6 +299,13 @@ export function crushCar(state: GameState, id: number): GameEvent[] {
 
 export function claimContract(state: GameState, id: number): { cash: number; parts: number } {
   return claimContractRule(state, id);
+}
+
+/** Swap an active order for a different one (free, once per order). */
+export function rerollContract(state: GameState, id: number): GameEvent[] {
+  const events: GameEvent[] = [];
+  rerollContractRule(state, id, events);
+  return events;
 }
 
 export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 'max' = 1): boolean {

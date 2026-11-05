@@ -35,6 +35,8 @@ export interface Contract {
   timeLeft: number;
   rewardCash: number;
   rewardParts: number;
+  /** True once this slot's order was swapped with the free reroll (one per order). */
+  rerolled: boolean;
 }
 
 export interface Buyer {

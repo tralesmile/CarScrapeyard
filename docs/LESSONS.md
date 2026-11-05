@@ -92,3 +92,7 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   "cheapest option" list instead.
 - **`console.log` in vitest only prints with `--reporter=verbose`** (that is why `npm run sim` uses it); use it for
   throwaway debug tests, then delete the file.
+- **Class toggles set in one branch of an `update()` leak into the others.** The "swap" style was only toggled in
+  the active-order branch, so a finished order kept the grey swap look on its Claim button; only the screenshot showed
+  it. Set every state class at the top of `update()` from the current state, then fill in text per branch. The e2e
+  now asserts the Claim button has no swap style.

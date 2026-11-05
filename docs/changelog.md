@@ -10,7 +10,9 @@
 - The Crew tab's "something to buy" dot ignores the Scrapper while it is locked.
 - Balance bots buy press levels and hire the Scrapper; a new 30-minute sim checks the Scrapper only tops up the
   bin (under 25% of sales; it crushes about 3%).
-- 9 new unit tests (103 total); e2e buys a press level, hires the Scrapper and waits for an auto-crush.
+- **Free order swap** on the Jobs board: each active order can be swapped once for a different one with a fresh
+  timer ("🔄 Swap order (free)"); the swapped-in order can't be swapped again.
+- 12 new unit tests (106 total); e2e buys a press level, hires the Scrapper, waits for an auto-crush and swaps an order.
 
 ## 0.5.0 - 2026-11-05 (run 5)
 
