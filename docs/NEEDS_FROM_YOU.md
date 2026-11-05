@@ -19,6 +19,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       for? Is the vibration too strong, too weak, or annoying on rapid taps?
       New since runs 6-7: Hydraulic Press upgrade and the Scrapper (after the crusher), a free Swap on each job,
       customers drawn as characters walking into the yard, Tradie and Influencer buyers, and "Skip haggling" in Settings.
+      New since run 8: the barn shows each restoration stage inside (hoist, welder, paint booth) and the classic drives
+      out before the reveal; the Scrapper stands by a little press next to the barn and fills the parts bin while you're
+      away; the barn card is now first in the Yard tab. Does the barn read clearly at phone size?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 
