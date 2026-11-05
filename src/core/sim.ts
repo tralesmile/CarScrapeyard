@@ -9,6 +9,7 @@ import {
   baseCarValue,
   crusherCooldown,
   crushParts,
+  expectedCommonValue,
   familyUnlockedAt,
   familyWeights,
   bulkCost,
@@ -340,14 +341,44 @@ export function hireManager(state: GameState, kind: ManagerKind): boolean {
  * the time since `lastSeen`. If the clock went backwards, nothing is awarded
  * and `lastSeen` stays put, so moving the clock back then forward gains nothing.
  */
-export function applyElapsed(state: GameState, now: number): { seconds: number; earned: number } {
-  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0 };
+export interface ElapsedResult {
+  seconds: number;
+  /** Cash earned while away (sales plus the Scrapper's scrap cash). */
+  earned: number;
+  /** Parts the Scrapper added to the bin while away. */
+  parts: number;
+}
+
+/**
+ * The Scrapper while you're away: it tops the parts bin up to its target (no further, as in play),
+ * crushing at most one Common wreck per rest period of the time that counts offline.
+ * Only while the yard runs on its own (full crew), so wrecks keep arriving.
+ */
+export function offlineScrapper(state: GameState, seconds: number): { crushes: number; parts: number; cash: number } {
+  const none = { crushes: 0, parts: 0, cash: 0 };
+  if (!state.managers.scrapper || !crusherUnlocked(state) || idleIncomePerSecond(state) <= 0) return none;
+  const counted = Math.max(0, Math.min(seconds, ECON.offline.capSeconds)) * ECON.offline.efficiency;
+  const c = ECON.crusher;
+  const maxCrushes = Math.floor(counted / (c.scrapperRest + ECON.arrivalInterval));
+  const per = crushParts('common', state.levels.press);
+  const need = Math.max(0, scrapperTarget(state) - state.parts);
+  const crushes = Math.min(maxCrushes, Math.ceil(need / per));
+  if (crushes <= 0) return none;
+  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * c.scrapFraction);
+  return { crushes, parts: crushes * per, cash };
+}
+
+export function applyElapsed(state: GameState, now: number): ElapsedResult {
+  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0 };
   const seconds = (now - state.lastSeen) / 1000;
   state.lastSeen = now;
-  const earned = offlineEarnings(state, seconds);
+  const scrap = offlineScrapper(state, seconds);
+  state.parts += scrap.parts;
+  state.stats.carsCrushed += scrap.crushes;
+  const earned = offlineEarnings(state, seconds) + scrap.cash;
   // The barn restoration keeps going while you're away (one stage at most).
   tickBarn(state, Math.min(seconds, ECON.offline.capSeconds), []);
-  return { seconds, earned };
+  return { seconds, earned, parts: scrap.parts };
 }
 
 /** Mark the game as running at `now`. Never moves lastSeen backwards. */
@@ -356,7 +387,7 @@ export function touch(state: GameState, now: number): void {
 }
 
 /** Queue offline earnings; they stay in the save until collected. */
-export function queueOffline(state: GameState, now: number): { seconds: number; earned: number } {
+export function queueOffline(state: GameState, now: number): ElapsedResult {
   const r = applyElapsed(state, now);
   if (r.earned > 0) state.pendingOffline += r.earned;
   return r;

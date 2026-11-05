@@ -136,6 +136,14 @@ export function offlineEarnings(state: GameState, seconds: number): number {
   return Math.floor(idleIncomePerSecond(state) * capped * ECON.offline.efficiency);
 }
 
+/** Expected value of the next Common car (what the Scrapper crushes). */
+export function expectedCommonValue(qualityLevel: number, carsSold: number): number {
+  const fams = unlockedFamilies(carsSold).map((f) => ECON.families[f]);
+  const famW = fams.reduce((s, f) => s + f.weight, 0);
+  const famAvg = fams.reduce((s, f) => s + f.weight * f.baseValue, 0) / famW;
+  return famAvg * ECON.rarity.common.valueMult * qualityMultiplier(qualityLevel);
+}
+
 /** Round a price or reward to two significant digits ($1,234 -> $1,200), at least $10. */
 export function roundNice(x: number): number {
   if (x < 100) return Math.max(10, Math.round(x / 5) * 5);

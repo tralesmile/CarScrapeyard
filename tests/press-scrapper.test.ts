@@ -2,8 +2,18 @@
 
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
-import { crushParts, crusherCooldown, upgradeCost } from '../src/core/formulas';
-import { buyUpgrade, crushCar, hireManager, scrapperPick, scrapperTarget, tick, type GameEvent } from '../src/core/sim';
+import { crushParts, crusherCooldown, offlineEarnings, upgradeCost } from '../src/core/formulas';
+import {
+  applyElapsed,
+  buyUpgrade,
+  crushCar,
+  hireManager,
+  offlineScrapper,
+  scrapperPick,
+  scrapperTarget,
+  tick,
+  type GameEvent,
+} from '../src/core/sim';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, type GameState } from '../src/core/state';
 
@@ -108,5 +118,58 @@ describe('Scrapper', () => {
       expect(crushed).toBeLessThan(s.carsSold * 0.5);
       expect(crushed).toBeLessThanOrEqual(300 / ECON.crusher.scrapperRest + 1);
     }
+  });
+});
+
+describe('Scrapper while away', () => {
+  function crewYard(seed = 4): GameState {
+    const s = yard(seed);
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: true };
+    s.parts = 0;
+    return s;
+  }
+
+  it('tops the parts bin up to its target, no further, and pays scrap cash on top of sales', () => {
+    const s = crewYard();
+    const sales = offlineEarnings(s, 3600);
+    const r = applyElapsed(s, T0 + 3600_000);
+    const per = crushParts('common', s.levels.press);
+    const crushes = Math.ceil(scrapperTarget(s) / per);
+    expect(r.parts).toBe(crushes * per);
+    expect(s.parts).toBe(crushes * per);
+    expect(s.parts).toBeGreaterThanOrEqual(scrapperTarget(s));
+    expect(s.parts).toBeLessThan(scrapperTarget(s) + per);
+    expect(s.stats.carsCrushed).toBe(crushes);
+    expect(r.earned).toBeGreaterThan(sales);
+    // Scrap cash is small next to an hour of sales.
+    expect(r.earned - sales).toBeLessThan(sales * 0.01);
+  });
+
+  it('adds nothing when the bin is already full, the Scrapper is not hired, or the crew is incomplete', () => {
+    const full = crewYard();
+    full.parts = scrapperTarget(full);
+    expect(applyElapsed(full, T0 + 3600_000).parts).toBe(0);
+    const noScrapper = crewYard();
+    noScrapper.managers.scrapper = false;
+    expect(offlineScrapper(noScrapper, 3600).crushes).toBe(0);
+    const noSeller = crewYard();
+    noSeller.managers.seller = false;
+    expect(offlineScrapper(noSeller, 3600).crushes).toBe(0);
+  });
+
+  it('a short absence allows only a few crushes (one per rest period of counted time)', () => {
+    const s = crewYard();
+    s.barn.status = 'covered';
+    s.barn.stage = 2; // next stage wants 12 parts
+    const seconds = 30;
+    const max = Math.floor((seconds * ECON.offline.efficiency) / (ECON.crusher.scrapperRest + ECON.arrivalInterval));
+    expect(offlineScrapper(s, seconds).crushes).toBe(max);
+    expect(offlineScrapper(s, 0).crushes).toBe(0);
+  });
+
+  it('gives nothing when the clock goes backwards', () => {
+    const s = crewYard();
+    expect(applyElapsed(s, T0 - 3600_000)).toEqual({ seconds: 0, earned: 0, parts: 0 });
+    expect(s.parts).toBe(0);
   });
 });

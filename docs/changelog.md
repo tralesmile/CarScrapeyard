@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 - 2026-11-05 (run 8)
+
+- **Scrapper while you're away:** with the full crew and the Scrapper hired, the parts bin is topped up to the
+  Scrapper's target while you're away (plus a little scrap cash); the welcome-back popup says "+N ⚙".
+- **The Scrapper on screen:** a worker in an orange hard hat stands beside a small hydraulic press next to the barn and
+  pulls the lever on every auto-crush; crushing a lot thumbnail now shows a mini press slamming the car flat.
+- Fix: empty lot slots were drawn behind the backdrop (invisible); they show as faint outlines now.
+- Fix (test): the e2e "hour away" check never really simulated an hour (the page saved over the edited save on reload);
+  it now blocks saves before the reload and asserts the popup says 1h.
+
 ## 0.7.0 - 2026-11-05 (run 7)
 
 - **Customers you can see:** every buyer is a little character drawn in code who walks into the yard, waits beside

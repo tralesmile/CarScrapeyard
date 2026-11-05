@@ -149,9 +149,9 @@ setInterval(() => {
 }, 5000);
 
 // ---- offline earnings -----------------------------------------------------
-function offerOffline(seconds: number) {
+function offerOffline(seconds: number, parts = 0) {
   if (state.pendingOffline <= 0) return;
-  ui.offlineModal(seconds, state.pendingOffline, () => {
+  ui.offlineModal(seconds, state.pendingOffline, parts, () => {
     collectOffline(state);
     saveNow();
   });
@@ -166,7 +166,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     sfx.resume();
     const r = queueOffline(state, platform.now());
-    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds);
+    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts);
   }
 });
 window.addEventListener('pagehide', () => saveNow());
@@ -174,7 +174,7 @@ window.addEventListener('pagehide', () => saveNow());
 // ---- first launch / returning player --------------------------------------
 if (loaded) {
   const r = queueOffline(state, platform.now());
-  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0));
+  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts);
 }
 if (!state.tutorial.introSeen) {
   ui.modal({

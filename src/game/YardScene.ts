@@ -2,13 +2,14 @@ import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
-import { carStage, findCar, focusCar, repairTap, tick, washCar, type GameEvent } from '../core/sim';
+import { carStage, crusherUnlocked, findCar, focusCar, repairTap, tick, washCar, type GameEvent } from '../core/sim';
 import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
 import { mudSpots, paintCar, paintRust } from './carArt';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import type { BuyerKind } from '../core/config';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
+import { PLATE_H, PLATE_W, PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintPlate, paintPress, paintScrapper } from './crewArt';
 
 /** Car textures are drawn at this size and scaled for display. */
 const TEX_W = 720;
@@ -54,6 +55,8 @@ export class YardScene extends Phaser.Scene {
   /** The waiting customer standing in the yard (mirrors state.buyer). */
   private buyerSprite: Phaser.GameObjects.Image | null = null;
   private buyerShown: BuyerKind | null = null;
+  /** The Scrapper's station on the horizon (press + worker), shown once the Scrapper is hired. */
+  private station: { scrapper: Phaser.GameObjects.Image; press: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Image } | null = null;
 
   private lastPointer: Phaser.Math.Vector2 | null = null;
   private smokeTimer = 0;
@@ -184,6 +187,7 @@ export class YardScene extends Phaser.Scene {
       this.buyerSprite.setPosition(spot.x, spot.y);
     }
     this.barnKey = '';
+    this.destroyStation();
     this.placeBigCar();
     this.rebuildSlots();
   }
@@ -198,6 +202,7 @@ export class YardScene extends Phaser.Scene {
     this.syncSlots();
     this.syncBarn();
     this.syncBuyer();
+    this.syncStation();
 
     // Smoke from damaged engines.
     const car = this.focused();
@@ -402,6 +407,98 @@ export class YardScene extends Phaser.Scene {
       },
     });
     this.tweens.add({ targets: img, y: spot.y - this.px(3), duration: 140, yoyo: true, repeat: 3, ease: 'Sine.easeOut' });
+  }
+
+  // ---- the Scrapper's station (press + worker beside the barn) -------------
+
+  /** Paint a Canvas 2D texture once (2x for sharpness). */
+  private paintedTexture(key: string, w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void): string {
+    if (!this.textures.exists(key)) {
+      const tex = this.textures.createCanvas(key, w * 2, h * 2);
+      if (tex) {
+        const ctx = tex.getContext();
+        ctx.scale(2, 2);
+        paint(ctx);
+        tex.refresh();
+      }
+    }
+    return key;
+  }
+
+  /** Station geometry in CSS px: the press stands right of the barn, the Scrapper beside it. */
+  private stationGeometry() {
+    const geo = this.barnGeometry();
+    const pressH = Math.min(38, geo.w * 0.58);
+    const pressW = (pressH * PRESS_W) / PRESS_H;
+    const pressX = geo.x + geo.w * 0.65 + 8 + pressW / 2;
+    const workerH = pressH * 1.35;
+    return { pressX, pressW, pressH, workerX: pressX + pressW / 2 + 8, workerH, bottom: geo.bottom + 2 };
+  }
+
+  private destroyStation() {
+    if (!this.station) return;
+    for (const o of Object.values(this.station)) {
+      this.tweens.killTweensOf(o);
+      o.destroy();
+    }
+    this.station = null;
+  }
+
+  private syncStation() {
+    const st = this.bridge.state;
+    const want = st.managers.scrapper && crusherUnlocked(st);
+    if (want === !!this.station) return;
+    if (!want) return this.destroyStation();
+    const g = this.stationGeometry();
+    const press = this.add
+      .image(this.px(g.pressX), this.px(g.bottom), this.paintedTexture('station-press', PRESS_W, PRESS_H, paintPress))
+      .setOrigin(0.5, 1)
+      .setScale(this.px(g.pressH) / (PRESS_H * 2));
+    const ps = press.scale;
+    const plate = this.add
+      .image(press.x, this.plateRestY(press), this.paintedTexture('station-plate', PLATE_W, PLATE_H, paintPlate))
+      .setOrigin(0.5, 0)
+      .setScale(ps);
+    const scrapper = this.add
+      .image(this.px(g.workerX), this.px(g.bottom + 2), this.paintedTexture('crew-scrapper', SCRAPPER_W, SCRAPPER_H, paintScrapper))
+      .setOrigin(0.5, 1)
+      .setScale(this.px(g.workerH) / (SCRAPPER_H * 2));
+    // Behind the bay car (and the customer), in front of the backdrop.
+    for (const o of [press, plate, scrapper]) this.children.moveBelow(o as Phaser.GameObjects.GameObject, this.bigCar as Phaser.GameObjects.GameObject);
+    this.station = { scrapper, press, plate };
+    if (!this.calm) {
+      const sy = scrapper.scaleY;
+      this.tweens.add({ targets: scrapper, scaleY: sy * 1.03, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  /** Plate y (top edge) when raised: just under the piston rod. In texture px x scale. */
+  private plateRestY(press: Phaser.GameObjects.Image): number {
+    return press.y - press.displayHeight + 34 * 2 * press.scaleY;
+  }
+
+  /** The Scrapper pulls the lever: the little press slams once. */
+  private stationCrush() {
+    const s = this.station;
+    if (!s) return;
+    const base = s.press.y - 14 * 2 * s.press.scaleY - s.plate.displayHeight;
+    const rest = this.plateRestY(s.press);
+    this.tweens.killTweensOf(s.plate);
+    s.plate.setY(rest);
+    if (this.calm) return;
+    this.tweens.add({
+      targets: s.plate,
+      y: base,
+      duration: 180,
+      ease: 'Quad.easeIn',
+      yoyo: true,
+      hold: 260,
+      onYoyo: () => {
+        this.sparks.explode(10, s.press.x, base + s.plate.displayHeight);
+        this.smoke.emitParticleAt(s.press.x, s.press.y, 2);
+      },
+    });
+    this.tweens.add({ targets: s.scrapper, y: s.scrapper.y - this.px(5), duration: 120, yoyo: true, repeat: 1, ease: 'Sine.easeOut' });
   }
 
   private barnGeometry() {
@@ -752,8 +849,8 @@ export class YardScene extends Phaser.Scene {
 
   private drawEmptySlots(count: number, used: number) {
     this.emptySlots?.destroy();
+    // Same depth as the backdrop (depth sorts before display order), then sent behind the lot cars.
     const g = this.add.graphics();
-    g.setDepth(-0.5);
     for (let i = used; i < count; i++) {
       const geo = this.slotGeometry(i, count);
       g.lineStyle(this.px(1.5), 0xffffff, 0.35);
@@ -813,7 +910,10 @@ export class YardScene extends Phaser.Scene {
           sfx.fanfare();
           break;
         case 'crushed':
-          if (e.auto) this.floatText(this.scale.width / 2, this.px(this.focusArea().cy) - this.px(70), '♻ Scrapper', '#e8762b', 22);
+          if (e.auto) {
+            this.stationCrush();
+            this.floatText(this.scale.width / 2, this.px(this.focusArea().cy) - this.px(70), '♻ Scrapper', '#e8762b', 22);
+          }
           this.onCrushed(e.car.id, e.parts, e.cash);
           break;
         case 'partsUsed':
@@ -889,11 +989,52 @@ export class YardScene extends Phaser.Scene {
       const slot = this.slots.find((s) => s.carId === carId);
       const x = slot?.container.x ?? this.scale.width / 2;
       const y = slot?.container.y ?? this.scale.height / 2;
+      if (slot && !this.calm) this.miniCrush(slot);
       this.floatText(x, y, `+${parts} ⚙`, '#f5b700', 24);
-      this.time.delayedCall(800, () => this.releaseCarTextures(carId));
+      this.time.delayedCall(1200, () => this.releaseCarTextures(carId));
       return;
     }
     this.crushAnimation(carId, parts, cash);
+  }
+
+  /** A small press slams onto a lot thumbnail: the car folds flat and fades (the slot itself is rebuilt next frame). */
+  private miniCrush(slot: SlotView) {
+    const img = slot.image;
+    const x = slot.container.x + img.x;
+    const groundY = slot.container.y + img.y + img.displayHeight * 0.42;
+    const ghost = this.add.image(x, groundY, img.texture.key).setOrigin(0.5, 0.92).setScale(img.scaleX).setDepth(6);
+    const w = img.displayWidth * 1.05;
+    const plateH = this.px(8);
+    const plate = this.add.graphics().setDepth(7);
+    plate.fillStyle(0x4a5263, 1);
+    plate.fillRect(-w / 2, -plateH, w, plateH);
+    plate.fillStyle(0xf5b700, 1);
+    plate.fillRect(-w / 2, -this.px(3), w, this.px(2));
+    plate.fillStyle(0x2b2f36, 1);
+    plate.fillRect(-this.px(4), -plateH - this.px(120), this.px(8), this.px(120));
+    const topY = groundY - img.displayHeight * 0.9;
+    plate.setPosition(x, topY - this.px(40));
+    const crushedH = img.displayHeight * 0.25;
+    this.tweens.add({
+      targets: plate,
+      y: groundY - crushedH,
+      duration: 220,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        this.sparks.explode(8, x, groundY - crushedH / 2);
+        this.tweens.add({ targets: plate, y: topY - this.px(60), alpha: 0, delay: 200, duration: 300, onComplete: () => plate.destroy() });
+      },
+    });
+    this.tweens.add({
+      targets: ghost,
+      scaleY: img.scaleY * 0.25,
+      scaleX: img.scaleX * 0.85,
+      delay: 160,
+      duration: 70,
+      ease: 'Quad.easeIn',
+      onComplete: () =>
+        this.tweens.add({ targets: ghost, alpha: 0, y: groundY + this.px(4), delay: 350, duration: 300, onComplete: () => ghost.destroy() }),
+    });
   }
 
   /** A hydraulic press slams down, the car folds into a cube, the cube slides away. */

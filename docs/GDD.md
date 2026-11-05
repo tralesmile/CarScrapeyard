@@ -33,7 +33,9 @@ to automate it, open new car businesses, then sell your empire and start again i
   **Hydraulic Press** (Upgrades tab, after the crusher unlocks): faster press and more parts per crush.
   **Scrapper** (Crew tab, after the crusher unlocks, $40K): keeps the parts bin topped up by crushing a fresh
   Common wreck every 8 s or so while parts are low (more if the barn's next stage needs them). It never touches
-  Rare+ cars or a car anyone has started washing; a "♻ Scrapper" text shows each auto-crush.
+  Rare+ cars or a car anyone has started washing; a "♻ Scrapper" text shows each auto-crush. Once hired, the Scrapper
+  stands beside a little press next to the barn and pulls the lever on each auto-crush; lot thumbnails get a mini press too.
+  While you're away it keeps working: the welcome-back popup says how many parts it added (it only fills the bin to its target).
   Finished cars can't be crushed (sell them). **Parts** show in the top bar: when a car finishes washing
   and you have 2+ parts, 2 are spent automatically to halve its damage ("Spare parts!").
 - **Contracts board** (Jobs tab, unlocks after 45 sales, about minute 5): three orders at a time —

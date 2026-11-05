@@ -968,10 +968,11 @@ export class Ui {
     done.focus();
   }
 
-  offlineModal(seconds: number, earned: number, onCollect: () => void) {
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void) {
+    const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     this.modal({
       title: 'Welcome back!',
-      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>`,
+      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,

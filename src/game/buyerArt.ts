@@ -6,7 +6,7 @@ import type { BuyerKind } from '../core/config';
 export const BUYER_W = 64;
 export const BUYER_H = 128;
 
-interface Look {
+export interface Look {
   shirt: string;
   pants: string;
   skin: string;
@@ -22,9 +22,9 @@ const LOOKS: Record<BuyerKind, Look> = {
   influencer: { shirt: '#ec4899', pants: '#f2f4f7', skin: '#f0c8a8', hair: '#f5b700' },
 };
 
-const OUTLINE = '#1e2430';
+export const OUTLINE = '#1e2430';
 
-function person(ctx: CanvasRenderingContext2D, x: number, scale: number, look: Look): { headY: number; headR: number } {
+export function person(ctx: CanvasRenderingContext2D, x: number, scale: number, look: Look): { headY: number; headR: number } {
   const s = scale;
   const foot = BUYER_H - 4;
   const legH = 30 * s;

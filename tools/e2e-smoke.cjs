@@ -375,9 +375,19 @@ async function waitForServer(url, ms = 15000) {
       s.scrapperRest = 0;
       return s.stats.carsCrushed;
     });
+    const station = await page.evaluate(() => {
+      const st = window.__jye.game.scene.getScene('yard').station;
+      return st ? { press: st.press.visible, worker: st.scrapper.visible, y: st.press.y } : null;
+    });
+    assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
     await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
+    const plateMoved = await page.evaluate(() => {
+      const st = window.__jye.game.scene.getScene('yard').station;
+      return st.plate.scene.tweens.isTweening(st.plate);
+    });
+    assert(plateMoved, 'the press slams when the Scrapper crushes a wreck');
     const afterScrap = await page.evaluate(() => ({ parts: window.__jye.state.parts, rest: window.__jye.state.scrapperRest }));
     assert(afterScrap.parts > 0 && afterScrap.rest > 0, `Scrapper crushes a wreck when parts run low (+${afterScrap.parts} parts)`);
 
@@ -401,6 +411,7 @@ async function waitForServer(url, ms = 15000) {
     await page.evaluate(() => {
       const s = window.__jye.state;
       s.lastSeen = Date.now() - 3600 * 1000;
+      s.parts = 0; // the Scrapper refills the bin while away
     });
     await page.evaluate(() => {
       // Write the save directly without touching lastSeen.
@@ -411,11 +422,17 @@ async function waitForServer(url, ms = 15000) {
       const env = JSON.stringify({ v: state.version, savedAt: Date.now() + 10, sum: (h >>> 0).toString(16).padStart(8, '0'), data });
       localStorage.setItem('jye_save_a', env);
       localStorage.setItem('jye_save_b', env);
+      // Stop this page from saving over it (the 5 s save loop and pagehide would reset lastSeen).
+      Storage.prototype.setItem = function () {};
     });
     await page.reload();
     await page.waitForSelector('.modal .buy', { timeout: 5000 });
     const title = await page.textContent('.modal h2');
-    assert(title.includes('Welcome back'), 'welcome-back popup appears after an hour away');
+    const awayText = await page.textContent('.modal');
+    assert(title.includes('Welcome back') && /for (59m|1h)/.test(awayText), `welcome-back popup appears after an hour away (${awayText.match(/for [^.]+/)?.[0]})`);
+    const scrapLine = (await page.textContent('.modal .offline-parts').catch(() => '')) || '';
+    const partsBack = await page.evaluate(() => window.__jye.state.parts);
+    assert(/\+\d+ ⚙/.test(scrapLine) && partsBack > 0, `the Scrapper topped up parts while away (${scrapLine.trim()})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');

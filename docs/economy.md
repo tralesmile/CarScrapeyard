@@ -9,6 +9,9 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 - Car value: `familyBase × rarityMult × 1.08^(junkSupplierLevel − 1) × (0.9 … 1.1)`
 - Idle income: pipeline throughput (slowest stage, limited by slots / full cycle) × expected car value
 - Offline: `idle income × min(seconds away, 2 h) × 50%`
+- Offline Scrapper (full crew + Scrapper): tops parts up to its target, at most `floor(counted seconds / (8 s rest + 2.5 s arrival))`
+  crushes, where counted seconds = `min(away, 2 h) × 50%`; each pays Common parts and 15% of an expected Common car as scrap
+  cash (added to the offline cash). Crushed cars are not subtracted from offline sales (at most a handful out of thousands).
 
 ## Current numbers
 
