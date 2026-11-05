@@ -24,7 +24,7 @@ import {
 } from '../core/sim';
 import type { Car, GameState } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
-import { barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
+import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs';
@@ -289,7 +289,7 @@ export class Ui {
   }
 
   private slotCard(): CardView {
-    const root = el('div', 'card');
+    const root = el('div', 'card slot');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
     title.append(document.createTextNode('Lot Space'), lvl);
@@ -316,7 +316,7 @@ export class Ui {
   }
 
   private crusherCard(): CardView {
-    const root = el('div', 'card');
+    const root = el('div', 'card crusher');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
     title.append(document.createTextNode('Car Crusher'), lvl);
@@ -484,7 +484,13 @@ export class Ui {
     this.cardsBox.innerHTML = '';
     if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality', 'press'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
     else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller', 'scrapper'] as ManagerKind[]).map((k) => this.managerCard(k));
-    else if (this.tab === 'yard') this.cards = [this.slotCard(), this.crusherCard(), this.barnCard(), this.teaserCard()];
+    else if (this.tab === 'yard') {
+      // Once the barn is open it leads the tab, so it is never below the fold on a phone.
+      const barnFirst = barnUnlocked(this.deps.state());
+      const barn = this.barnCard();
+      const rest = [this.slotCard(), this.crusherCard()];
+      this.cards = barnFirst ? [barn, ...rest, this.teaserCard()] : [...rest, barn, this.teaserCard()];
+    }
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -564,12 +570,19 @@ export class Ui {
 
   /** Open the Yard tab (the scene calls this when the barn is tapped). */
   showYard() {
-    if (this.tab !== 'yard') {
+    if (this.tab !== 'yard' || !this.cardsBox.firstElementChild?.classList.contains('barn')) {
       this.tab = 'yard';
       this.buildCards();
     }
     sfx.tap();
     this.render();
+    const card = this.cardsBox.querySelector<HTMLElement>('.card.barn');
+    if (card) {
+      card.scrollIntoView({ block: 'nearest', behavior: this.deps.state().settings.reduceMotion ? 'auto' : 'smooth' });
+      card.classList.remove('flash');
+      void card.offsetWidth; // restart the animation
+      card.classList.add('flash');
+    }
   }
 
   private onBarn() {
@@ -754,11 +767,7 @@ export class Ui {
   }
 
   private barnHasAction(s: GameState): boolean {
-    const b = s.barn;
-    if (b.status === 'finished' || b.status === 'revealed') return true;
-    if (b.status !== 'covered') return false;
-    const cost = barnStageCost(s);
-    return s.cash >= cost.cash && s.parts >= cost.parts;
+    return barnHasAction(s);
   }
 
   private renderHint(s: GameState) {

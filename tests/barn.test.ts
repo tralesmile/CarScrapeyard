@@ -2,6 +2,7 @@ import { barnScene, type BarnLook } from '../src/game/barnArt';
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
 import {
+  barnHasAction,
   barnReservesParts,
   barnStageCost,
   barnUnlocked,
@@ -192,5 +193,27 @@ describe('barn art scene', () => {
 
   it('has a work prop for every restoration stage', () => {
     for (let i = 0; i < ECON.barn.stages.length; i++) expect(barnScene(look('working', i)).props.length).toBe(2);
+  });
+});
+
+describe('barn action dot', () => {
+  it('shows for an affordable stage, a reveal or a sale, and not while working or away', () => {
+    const s = newGame(1_800_000_000_000, 3);
+    s.carsSold = ECON.barn.unlockCarsSold;
+    tick(s, 0.1);
+    expect(s.barn.status).toBe('covered');
+    s.cash = 0;
+    expect(barnHasAction(s)).toBe(false);
+    s.cash = 1e9;
+    s.parts = 1000;
+    expect(barnHasAction(s)).toBe(true);
+    s.barn.status = 'working';
+    expect(barnHasAction(s)).toBe(false);
+    s.barn.status = 'finished';
+    expect(barnHasAction(s)).toBe(true);
+    s.barn.status = 'revealed';
+    expect(barnHasAction(s)).toBe(true);
+    s.barn.status = 'away';
+    expect(barnHasAction(s)).toBe(false);
   });
 });

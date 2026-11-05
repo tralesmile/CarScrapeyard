@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 7; next run is run 8). Runs now start every 3 hours.
+Last updated: 2026-11-05 (run 8; next run is run 9). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -32,7 +32,8 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.14f Barn polish: the covered classic drives out of the barn before the reveal; stage art inside the barn (tow chain,
       engine hoist, welder, paint booth, clean tarp) with work sparks/dust; banners hide during the reveal (run 8).
       "Keep classics for the Collection book" moved to P1.4.
-- [ ] P0.14g Yard tab now has 4 cards and the barn card sits below the fold on phones: compact cards or a dot on the barn itself (found in run 4)
+- [x] P0.14g Barn card below the fold: the barn card now leads the Yard tab once the barn opens, tapping the barn scrolls to
+      and flashes it, and a red dot on the barn sign shows when a stage is affordable or the classic is ready (run 8)
 - [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
       is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
       size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills on Canvas 2D too (the barn, tarp, Scrapper

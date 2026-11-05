@@ -112,3 +112,20 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   printed FAILED, so the `&&` chain went on to commit and push (fixed straight after). Gate commits on the exit code:
   `npm run check > /tmp/check.log 2>&1 && git commit ...`, then grep the log. The flaky step was a cash assertion that
   the Scrapper's scrap cash could disturb; switch off every other income source while measuring one sale.
+
+## 2026-11-05 (run 8)
+
+- **A passing e2e check can test nothing.** The "welcome back after an hour" check passed for runs because it only
+  looked at the popup title and "cash went up": the page's own `pagehide` save overwrote the edited save on reload, so the
+  popup really showed 0 s and a few dollars. Only adding a new assertion on the popup's content exposed it. When an e2e
+  step fakes time or storage, assert the faked value itself shows up (here "for 1h"), and block the page from saving
+  over test data (`Storage.prototype.setItem = () => {}` just before the reload).
+- **Phaser sorts by depth before display order.** The empty lot slots had `setDepth(-0.5)` and `sendToBack(bg)`, so the
+  backdrop (depth 0) always covered them and nobody noticed for six runs. Keep backdrop layers at the same depth and order
+  them with `sendToBack`/`moveBelow`, and look for missing pieces in screenshots, not only for overlaps.
+- **Pixel checks catch art bugs that eyes miss at thumbnail size.** The first reveal tarp let a van's roof poke out; a
+  gallery check that counts car-paint pixels above the tarp's hem (48 → 0) found and proved the fix. For art that must
+  cover or avoid something, paint it on a known colour in the debug gallery and count pixels.
+- **Mutation-test UI-order checks by flipping the feature off** (`barnFirst = false && ...`) and confirming the e2e fails,
+  then restore it and grep the line. A "card is on screen" check first passed even with the card third in the list,
+  because it only tested the card's top edge; it now checks the whole button fits on the phone screen.

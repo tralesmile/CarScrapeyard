@@ -89,6 +89,15 @@ export function tickBarn(state: GameState, dt: number, events: BarnSink): void {
   }
 }
 
+/** Something to do at the barn: reveal, sell, or start a stage the player can afford. */
+export function barnHasAction(state: GameState): boolean {
+  const b = state.barn;
+  if (b.status === 'finished' || b.status === 'revealed') return true;
+  if (b.status !== 'covered') return false;
+  const cost = barnStageCost(state);
+  return state.cash >= cost.cash && state.parts >= cost.parts;
+}
+
 /** Pay for and start the next restoration stage. */
 export function startBarnStage(state: GameState): boolean {
   const st = nextBarnStage(state);

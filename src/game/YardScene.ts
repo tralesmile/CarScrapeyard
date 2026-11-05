@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
+import { barnHasAction } from '../core/barn';
 import { carStage, crusherUnlocked, findCar, focusCar, repairTap, tick, washCar, type GameEvent } from '../core/sim';
 import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
@@ -58,6 +59,8 @@ export class YardScene extends Phaser.Scene {
   /** True while the restored car is out of the barn for the reveal. */
   private barnCarOut = false;
   private barnFx = 0;
+  /** Red "something to do" dot on the barn sign (same rule as the Yard tab dot). */
+  private barnDot!: Phaser.GameObjects.Arc;
   /** The waiting customer standing in the yard (mirrors state.buyer). */
   private buyerSprite: Phaser.GameObjects.Image | null = null;
   private buyerShown: BuyerKind | null = null;
@@ -135,6 +138,7 @@ export class YardScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 1)
       .setVisible(false);
+    this.barnDot = this.add.circle(0, 0, this.px(5), 0xe5484d).setStrokeStyle(this.px(1.5), 0xffffff).setVisible(false);
 
     this.bigCar = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.bigRust = this.add.image(0, 0, '__WHITE').setVisible(false);
@@ -525,6 +529,7 @@ export class YardScene extends Phaser.Scene {
     this.barnImg.setVisible(visible);
     if (!visible) {
       this.barnLabel.setVisible(false);
+      this.barnDot.setVisible(false);
       return;
     }
     const geo = this.barnGeometry();
@@ -545,6 +550,12 @@ export class YardScene extends Phaser.Scene {
     if (this.barnLabel.text !== label) this.barnLabel.setText(label);
     const pulse = b.status === 'finished' || b.status === 'revealed' ? 1 + 0.08 * Math.sin(this.time.now / 160) : 1;
     this.barnLabel.setPosition(this.px(geo.x), this.px(geo.bottom - geo.h - 14)).setScale(pulse);
+    const dot = this.barnLabel.visible && barnHasAction(this.bridge.state);
+    this.barnDot.setVisible(dot);
+    if (dot) {
+      const r = this.barnLabel.getBounds();
+      this.barnDot.setPosition(r.right - this.px(1), r.top + this.px(1)).setScale(this.calm ? 1 : 1 + 0.15 * Math.sin(this.time.now / 200));
+    }
   }
 
   /** The barn (Canvas 2D texture per restoration state) and the stage pips under it. */

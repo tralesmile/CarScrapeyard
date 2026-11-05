@@ -56,7 +56,8 @@ to automate it, open new car businesses, then sell your empire and start again i
   sunglasses, parent with a kid, hard hat, selfie phone) who walks into the yard, idles, and walks off.
   **Skip haggling** in Settings sells at the asking price without the slider.
 - **Barn find** (after 60 sales, about minute 5–8): a little red barn appears at the back of the yard with a
-  car under a tarp. Tapping it opens its card in the Yard tab. Four stages — Tow it out, Rebuild the engine,
+  car under a tarp. Tapping it opens its card, which leads the Yard tab; a red dot on the barn sign means there is
+  something to do. Four stages — Tow it out, Rebuild the engine,
   Fix the body, Fresh paint — each cost cash (and parts for the engine and body) and take 20 s to 90 s; the
   timer keeps going while the game is closed (one stage at most). While the next stage needs parts, spare parts
   are not spent on repairs. The barn doorway shows the work in progress (tow chain, engine hoist, welder, paint-booth

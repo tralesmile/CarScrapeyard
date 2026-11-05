@@ -305,12 +305,21 @@ async function waitForServer(url, ms = 15000) {
     await page.mouse.click(barnPt.x, barnPt.y);
     await page.waitForSelector('.cards .barn');
     assert(true, 'tapping the barn opens the Yard tab');
+    assert(await page.isVisible('.cards .card:nth-child(1).barn'), 'the barn card leads the Yard tab once the barn is open');
+    const inView = await page.$eval('.cards .card.barn', (c) => {
+      // The whole card, including its button, fits on the phone screen.
+      const r = c.querySelector('.buy').getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight;
+    });
+    assert(inView, 'the barn card is on screen after tapping the barn');
     await page.evaluate(() => {
       const s = window.__jye.state;
       s.cash += 1e7;
       s.lifetimeEarnings += 1e7;
       s.parts += 100;
     });
+    await page.waitForTimeout(150);
+    assert(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnDot.visible), 'a red dot on the barn sign shows a stage is affordable');
     for (let i = 0; i < 4; i++) {
       await page.waitForSelector('.cards .barn .buy:not(:disabled)');
       await page.click('.cards .barn .buy');
@@ -380,7 +389,7 @@ async function waitForServer(url, ms = 15000) {
     assert(m.mechanic && m.washer && m.seller, 'all three crew members hired');
     assert(m.scrapper, 'Scrapper hired');
     await page.click('.tab:nth-child(3)');
-    await page.click('.cards .card:nth-child(1) .buy');
+    await page.click('.cards .card.slot .buy');
     const slots = await page.evaluate(() => window.__jye.state.slots);
     assert(slots === 2, 'lot space bought');
 

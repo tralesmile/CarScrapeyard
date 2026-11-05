@@ -13,7 +13,12 @@
 - **Drive-out reveal:** tapping Reveal rolls the covered classic out of the barn door and up to the front before the
   tarp comes off (skipped with reduce motion). The new tarp is antialiased and covers every body shape; banners such as
   "RESTORED!" no longer cover the reveal.
+- **Barn card up front:** once the barn opens, its card leads the Yard tab (it used to sit below the fold on phones);
+  tapping the barn scrolls to the card and flashes it, and a red dot on the barn sign shows when there is something to
+  do (an affordable stage, a reveal or a sale).
 - Fix: empty lot slots were drawn behind the backdrop (invisible); they show as faint outlines now.
+- 8 new unit tests (118 total); e2e checks the Scrapper station and its press, the offline parts line, the barn art for
+  every stage, the drive-out, the barn card position and dot, and that the reveal tarp covers vans, SUVs and pickups.
 - Fix (test): the e2e "hour away" check never really simulated an hour (the page saved over the edited save on reload);
   it now blocks saves before the reload and asserts the popup says 1h.
 
