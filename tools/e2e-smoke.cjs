@@ -103,6 +103,76 @@ async function waitForServer(url, ms = 15000) {
     const cashText = await page.textContent('.hud .cash');
     assert(cashText.startsWith('$'), `cash counter shows ${cashText}`);
 
+    console.log('car crusher');
+    let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
+    assert(!hasCrush, 'crusher is hidden for a new player');
+    await page.evaluate(() => (window.__jye.state.carsSold = 25));
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0 && window.__jye.state.crusherCooldown === 0);
+    await page.evaluate(() => {
+      const c = window.__jye.state.cars[0];
+      c.rarity = 'common';
+      c.dirt = 1;
+    });
+    await page.waitForSelector('.crush:not(.hidden):not(:disabled)');
+    await page.waitForTimeout(400); // car drive-in
+    assert(await page.isVisible('.hud .parts'), 'parts counter appears once the crusher unlocks');
+    await page.click('.crush');
+    await page.waitForTimeout(450);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-06-crusher.png') });
+    let crushed = await page.evaluate(() => ({ n: window.__jye.state.stats.carsCrushed, parts: window.__jye.state.parts }));
+    assert(crushed.n === 1 && crushed.parts > 0, `crushing a wreck gives parts (${crushed.parts})`);
+    await page.waitForTimeout(1200);
+    // Epic cars ask before crushing.
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0 && window.__jye.state.crusherCooldown === 0, null, { timeout: 8000 });
+    await page.evaluate(() => {
+      const c = window.__jye.state.cars[0];
+      c.rarity = 'epic';
+      c.dirt = 1;
+    });
+    await page.waitForSelector('.crush:not(.hidden):not(:disabled)');
+    await page.click('.crush');
+    await page.waitForSelector('.modal .buy');
+    assert((await page.textContent('.modal h2')).includes('Crush'), 'crushing an Epic car asks first');
+    await page.click('.modal .buy');
+    crushed = await page.evaluate(() => ({ n: window.__jye.state.stats.carsCrushed, cars: window.__jye.state.cars.length }));
+    assert(crushed.n === 1 && crushed.cars === 1, '"Keep it" keeps the car');
+    // Washing with parts in stock uses them.
+    const used = await page.evaluate(() => {
+      const s = window.__jye.state;
+      const before = s.parts;
+      const c = s.cars[0];
+      c.dirt = 0.001;
+      return before;
+    });
+    await page.mouse.move(geo.x - 50, geo.y);
+    await page.mouse.down();
+    await page.mouse.move(geo.x + 50, geo.y, { steps: 5 });
+    await page.mouse.up();
+    const partsNow = await page.evaluate(() => window.__jye.state.parts);
+    assert(partsNow === used - 2, 'washing a car spends 2 spare parts');
+
+    console.log('contracts board');
+    let jobsVisible = await page.isVisible('.tab:nth-child(4)');
+    assert(!jobsVisible, 'Jobs tab is hidden before contracts unlock');
+    await page.evaluate(() => (window.__jye.state.carsSold = 45));
+    await page.waitForSelector('.tab:nth-child(4)', { state: 'visible' });
+    await page.click('.tab:nth-child(4)');
+    await page.waitForFunction(() => document.querySelectorAll('.cards .contract').length === 3);
+    const labels = await page.$$eval('.cards .contract .title', (els) => els.map((e) => e.textContent));
+    assert(labels.every((l) => l && l.length > 4), `three orders on the board (${labels.join(' | ')})`);
+    await page.evaluate(() => {
+      const c = window.__jye.state.contracts[0];
+      c.progress = c.target;
+      c.status = 'done';
+    });
+    await page.waitForSelector('.cards .contract.ready .buy:not(:disabled)');
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-07-contracts.png') });
+    const claim = await page.evaluate(() => ({ cash: window.__jye.state.cash, reward: window.__jye.state.contracts[0].rewardCash }));
+    await page.click('.cards .contract.ready .buy');
+    const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));
+    assert(claimed.cash >= claim.cash + claim.reward && claimed.status === 'empty', `claiming pays ${claim.reward}`);
+
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
       const s = window.__jye.state;

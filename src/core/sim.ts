@@ -16,6 +16,7 @@ import {
   washPerPixel,
 } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
+import { claimContract as claimContractRule, onCarCrushed, onCarSold, tickContracts, type ContractEvent } from './contracts';
 import type { Car, GameState } from './state';
 
 export type GameEvent =
@@ -23,7 +24,10 @@ export type GameEvent =
   | { type: 'washed'; carId: number }
   | { type: 'repaired'; carId: number }
   | { type: 'sold'; carId: number; amount: number; auto: boolean }
-  | { type: 'legendary'; car: Car };
+  | { type: 'legendary'; car: Car }
+  | { type: 'crushed'; car: Car; parts: number; cash: number }
+  | { type: 'partsUsed'; carId: number; parts: number }
+  | ContractEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -74,11 +78,36 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   state.cars = state.cars.filter((c) => c.id !== car.id);
   state.tutorial.firstSale = true;
   events.push({ type: 'sold', carId: car.id, amount: car.value, auto });
+  onCarSold(state, car, events);
   ensureFocus(state);
+}
+
+/** A car just finished washing: spare parts (if any) take a chunk off its damage. */
+function onWashed(state: GameState, car: Car, events: GameEvent[]): void {
+  events.push({ type: 'washed', carId: car.id });
+  const cost = ECON.crusher.partsPerFix;
+  if (car.damage > 0 && state.parts >= cost) {
+    state.parts -= cost;
+    car.damage *= 1 - ECON.crusher.fixFraction;
+    if (car.damage < 0.005) car.damage = 0;
+    events.push({ type: 'partsUsed', carId: car.id, parts: cost });
+    if (car.damage === 0) events.push({ type: 'repaired', carId: car.id });
+  }
+}
+
+export function crusherUnlocked(state: GameState): boolean {
+  return state.stats.carsCrushed > 0 || state.carsSold >= ECON.crusher.unlockCarsSold;
+}
+
+/** Can this car go in the crusher right now? Finished cars should be sold instead. */
+export function canCrush(state: GameState, car: Car | undefined): car is Car {
+  return !!car && crusherUnlocked(state) && state.crusherCooldown <= 0 && carStage(car) !== 'ready';
 }
 
 function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
+  if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
+  tickContracts(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -104,7 +133,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
     const car = state.cars.find((c) => c.dirt > 0);
     if (car) {
       car.dirt = Math.max(0, car.dirt - washRate * dt);
-      if (car.dirt === 0) events.push({ type: 'washed', carId: car.id });
+      if (car.dirt === 0) onWashed(state, car, events);
     }
   }
   const repairRate = managerRate(state, 'mechanic');
@@ -148,7 +177,9 @@ export function washCar(state: GameState, id: number, pixels: number): GameEvent
   const car = findCar(state, id);
   if (!car || car.dirt <= 0 || !(pixels > 0)) return [];
   car.dirt = Math.max(0, car.dirt - washPerPixel(state) * pixels);
-  return car.dirt === 0 ? [{ type: 'washed', carId: car.id }] : [];
+  const events: GameEvent[] = [];
+  if (car.dirt === 0) onWashed(state, car, events);
+  return events;
 }
 
 /** One tap on a clean, damaged car. */
@@ -167,6 +198,27 @@ export function sellCar(state: GameState, id: number): GameEvent[] {
   const events: GameEvent[] = [];
   sellInternal(state, car, false, events);
   return events;
+}
+
+/** Crush an unfinished wreck: Parts plus a little scrap cash. */
+export function crushCar(state: GameState, id: number): GameEvent[] {
+  const car = findCar(state, id);
+  if (!canCrush(state, car)) return [];
+  const parts = ECON.crusher.parts[car.rarity];
+  const cash = Math.floor(car.value * ECON.crusher.scrapFraction);
+  state.cars = state.cars.filter((c) => c.id !== car.id);
+  state.parts += parts;
+  addCash(state, cash);
+  state.crusherCooldown = ECON.crusher.cooldown;
+  state.stats.carsCrushed += 1;
+  const events: GameEvent[] = [{ type: 'crushed', car, parts, cash }];
+  onCarCrushed(state, events);
+  ensureFocus(state);
+  return events;
+}
+
+export function claimContract(state: GameState, id: number): { cash: number; parts: number } {
+  return claimContractRule(state, id);
 }
 
 export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 'max' = 1): boolean {

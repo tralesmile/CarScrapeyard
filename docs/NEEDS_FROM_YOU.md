@@ -7,6 +7,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 - [ ] **Play the prototype and give feedback.** Run `npm install && npm run dev` (or open the PR's
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
+      New since run 2: the car crusher (after ~25 sales) and the Jobs board (after ~45 sales) —
+      do they feel rewarding, and is the Crush button easy to find?
 - [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
       Claude works on `dev` and never pushes to `main`.
 

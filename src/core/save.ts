@@ -79,10 +79,18 @@ function isValidCar(c: unknown): boolean {
   return typeof c.family === 'string' && typeof c.rarity === 'string' && typeof c.model === 'string';
 }
 
+function isValidContract(c: unknown): boolean {
+  if (!isPlainObject(c)) return false;
+  const nums = ['id', 'target', 'progress', 'timeLeft', 'rewardCash', 'rewardParts'];
+  if (!nums.every((k) => typeof c[k] === 'number' && Number.isFinite(c[k] as number))) return false;
+  return ['active', 'done', 'empty'].includes(c.status as string) && typeof c.kind === 'string';
+}
+
 /** Reject values no honest game can reach. */
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
   if (state.cash > state.lifetimeEarnings + 1) return false;
+  if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;
   return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l < 100_000);
 }
@@ -104,6 +112,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     const migrated = migrate(raw, env.v);
     const state = withDefaults(migrated, newGame(now));
     state.cars = state.cars.filter(isValidCar);
+    state.contracts = state.contracts.filter(isValidContract);
     if (!sane(state)) return null;
     return { state, savedAt: env.savedAt };
   } catch {

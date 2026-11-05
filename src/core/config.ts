@@ -75,6 +75,39 @@ export const ECON = {
 
   /** Random spread on car value, +/- this fraction. */
   valueSpread: 0.1,
+
+  /** Car crusher: turn an unfinished wreck into Parts (and a little scrap cash). */
+  crusher: {
+    /** Unlocks after this many cars sold (plan: around minute 3). */
+    unlockCarsSold: 25,
+    /** Seconds the press needs before it can crush again. */
+    cooldown: 3,
+    /** Parts per crushed car, by rarity. */
+    parts: { common: 6, rare: 10, epic: 16, legendary: 30 } satisfies Record<Rarity, number>,
+    /** Scrap cash paid as a fraction of the car's sale value. */
+    scrapFraction: 0.15,
+    /** Parts spent automatically when a washed car still needs repair. */
+    partsPerFix: 2,
+    /** Fraction of the remaining damage that spare parts remove at once. */
+    fixFraction: 0.5,
+  },
+
+  /** Contracts board: three timed orders with rewards. */
+  contracts: {
+    /** Unlocks after this many cars sold (plan: around minute 5). */
+    unlockCarsSold: 45,
+    board: 3,
+    /** Seconds to finish an order (game time; paused while away). */
+    duration: 600,
+    /** Seconds before an empty board slot gets a new order. */
+    refresh: 45,
+    /** Cash reward = expected car value x target x this (per kind). */
+    rewardMult: { sellAny: 0.4, sellFamily: 0.9, sellRare: 2.5, crush: 0.7 },
+    /** Order sizes [min, max]. */
+    targets: { sellAny: [6, 10], sellFamily: [2, 4], sellRare: [1, 2], crush: [2, 4] },
+    /** Extra parts on crush orders, per car. */
+    crushPartsPerTarget: 4,
+  },
 } as const;
 
 export const PAINTS = [

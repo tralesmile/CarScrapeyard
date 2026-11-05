@@ -19,6 +19,23 @@ export interface Car {
   sellProgress: number;
 }
 
+export type ContractKind = 'sellAny' | 'sellFamily' | 'sellRare' | 'crush';
+
+export interface Contract {
+  id: number;
+  /** 'active' counts progress, 'done' waits to be claimed, 'empty' waits for a new order. */
+  status: 'active' | 'done' | 'empty';
+  kind: ContractKind;
+  /** Only for sellFamily. */
+  family: CarFamily | null;
+  target: number;
+  progress: number;
+  /** Seconds left: time to finish when active, time to the next order when empty. */
+  timeLeft: number;
+  rewardCash: number;
+  rewardParts: number;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -30,6 +47,12 @@ export interface GameState {
   levels: Record<UpgradeKind, number>;
   slots: number;
   managers: Record<ManagerKind, boolean>;
+  /** Parts from the crusher; spent automatically to speed up repairs. */
+  parts: number;
+  /** Seconds until the crusher can be used again. */
+  crusherCooldown: number;
+  contracts: Contract[];
+  nextContractId: number;
   cars: Car[];
   focusedId: number | null;
   /** Offline earnings waiting to be collected (kept in the save so a crash never loses them). */
@@ -41,6 +64,8 @@ export interface GameState {
     introSeen: boolean;
     firstSale: boolean;
     firstUpgrade: boolean;
+    crusherSeen: boolean;
+    contractsSeen: boolean;
   };
   settings: {
     sound: boolean;
@@ -48,6 +73,8 @@ export interface GameState {
   stats: {
     legendaryFound: number;
     playSeconds: number;
+    carsCrushed: number;
+    contractsDone: number;
   };
 }
 
@@ -62,6 +89,10 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     levels: { wash: 1, repair: 1, quality: 1 },
     slots: ECON.slots.start,
     managers: { mechanic: false, washer: false, seller: false },
+    parts: 0,
+    crusherCooldown: 0,
+    contracts: [],
+    nextContractId: 1,
     cars: [],
     focusedId: null,
     pendingOffline: 0,
@@ -69,8 +100,8 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false },
     settings: { sound: true },
-    stats: { legendaryFound: 0, playSeconds: 0 },
+    stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0 },
   };
 }

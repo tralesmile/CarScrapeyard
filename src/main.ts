@@ -49,7 +49,11 @@ function onEvents(events: GameEvent[]) {
   for (const e of events) {
     if (e.type === 'sold') sales.push({ t: performance.now(), amount: e.amount });
     if (e.type === 'legendary') ui.showBanner('BARN FIND!', `Legendary ${e.car.model}`);
-    if (e.type === 'sold' || e.type === 'arrived') dirty = true;
+    if (e.type === 'contractDone') {
+      ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
+      sfx.repaired();
+    }
+    if (e.type === 'sold' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract')) dirty = true;
   }
   ui.render();
 }

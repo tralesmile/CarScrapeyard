@@ -104,6 +104,20 @@ class Sfx {
   engine() {
     this.tone(70, 0.6, 'sawtooth', 0.12, 160);
   }
+  /** Hydraulic press: hiss, then a heavy metal crunch. */
+  crushStart() {
+    this.noise(0.25, 900, 0.12);
+    this.tone(110, 0.25, 'sawtooth', 0.08, 70);
+  }
+  crush() {
+    this.noise(0.45, 300, 0.45);
+    this.noise(0.25, 1800, 0.2);
+    this.tone(55, 0.5, 'square', 0.22, 35);
+  }
+  parts() {
+    this.tone(1200, 0.05, 'square', 0.08);
+    this.tone(1600, 0.08, 'square', 0.08, undefined, 0.05);
+  }
   fanfare() {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, undefined, i * 0.12));
   }

@@ -531,6 +531,15 @@ export class YardScene extends Phaser.Scene {
         case 'legendary':
           sfx.fanfare();
           break;
+        case 'crushed':
+          this.onCrushed(e.car.id, e.parts, e.cash);
+          break;
+        case 'partsUsed':
+          if (e.carId === this.bigCarId) {
+            sfx.parts();
+            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.4, `Spare parts! −${e.parts} ⚙`, '#f5b700', 20);
+          }
+          break;
         case 'arrived':
           break;
       }
@@ -564,6 +573,104 @@ export class YardScene extends Phaser.Scene {
       this.time.delayedCall(800, () => this.releaseCarTextures(carId));
     }
     this.coinBurst(from.x, from.y, amount);
+  }
+
+  private floatText(x: number, y: number, msg: string, color: string, size: number) {
+    const text = this.add
+      .text(x, y, msg, {
+        fontFamily: '"Lilita One", sans-serif',
+        fontSize: `${this.px(size)}px`,
+        color,
+        stroke: '#1e2430',
+        strokeThickness: this.px(5),
+      })
+      .setOrigin(0.5)
+      .setDepth(11);
+    this.tweens.add({ targets: text, y: y - this.px(50), alpha: 0, duration: 1300, ease: 'Cubic.easeOut', onComplete: () => text.destroy() });
+  }
+
+  private onCrushed(carId: number, parts: number, cash: number) {
+    if (carId !== this.bigCarId) {
+      const slot = this.slots.find((s) => s.carId === carId);
+      const x = slot?.container.x ?? this.scale.width / 2;
+      const y = slot?.container.y ?? this.scale.height / 2;
+      this.floatText(x, y, `+${parts} ⚙`, '#f5b700', 24);
+      this.time.delayedCall(800, () => this.releaseCarTextures(carId));
+      return;
+    }
+    this.crushAnimation(carId, parts, cash);
+  }
+
+  /** A hydraulic press slams down, the car folds into a cube, the cube slides away. */
+  private crushAnimation(carId: number, parts: number, cash: number) {
+    this.carLeaving = true;
+    this.bigCarId = null;
+    const targets = [this.bigCar, this.bigRust, this.bigDirt];
+    const b = this.bigCar.getBounds();
+    const groundY = b.bottom - b.height * 0.08;
+    const crushedH = b.height * 0.28;
+    const plateW = b.width * 1.08;
+    const plateH = this.px(34);
+
+    const plate = this.add.graphics().setDepth(5);
+    plate.fillStyle(0x4a5263, 1);
+    plate.fillRect(-plateW / 2, -plateH / 2, plateW, plateH);
+    // Hazard stripes.
+    plate.fillStyle(0xf5b700, 1);
+    const stripe = this.px(16);
+    for (let x = -plateW / 2; x < plateW / 2; x += stripe * 2) {
+      plate.fillTriangle(x, plateH / 2, x + stripe, plateH / 2, x + stripe * 1.6, plateH / 2 - this.px(10));
+    }
+    plate.fillStyle(0x2b2f36, 1);
+    plate.fillRect(-this.px(14), -plateH / 2 - this.px(400), this.px(28), this.px(400));
+    plate.setPosition(b.centerX, -plateH);
+
+    sfx.crushStart();
+    const impactY = groundY - crushedH - plateH / 2;
+    this.tweens.add({
+      targets: plate,
+      y: b.top - plateH / 2,
+      duration: 260,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        // Squash the car under the plate.
+        this.tweens.add({ targets: plate, y: impactY, duration: 160, ease: 'Quad.easeIn' });
+        this.tweens.add({
+          targets: targets,
+          scaleY: this.bigScale * 0.28,
+          scaleX: this.bigScale * 0.82,
+          y: groundY - crushedH / 2,
+          duration: 160,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            sfx.crush();
+            this.cameras.main.shake(220, 0.012);
+            this.sparks.explode(26, b.centerX, groundY - crushedH * 0.2);
+            for (let i = 0; i < 8; i++) {
+              this.smoke.emitParticleAt(b.centerX + (i - 3.5) * (b.width / 9), groundY, 2);
+            }
+            this.floatText(b.centerX, groundY - crushedH - this.px(60), `+${parts} ⚙ Parts`, '#f5b700', 30);
+            if (cash > 0) this.coinBurst(b.centerX, groundY - crushedH, cash);
+            // Raise the press, slide the cube away.
+            this.tweens.add({ targets: plate, y: -plateH * 2, duration: 420, delay: 250, ease: 'Quad.easeOut', onComplete: () => plate.destroy() });
+            this.tweens.add({
+              targets: targets,
+              x: this.scale.width + b.width,
+              delay: 450,
+              duration: 450,
+              ease: 'Cubic.easeIn',
+              onComplete: () => {
+                for (const o of targets) o.setScale(this.bigScale);
+                this.carLeaving = false;
+                this.hideBigCar();
+                this.placeBigCar();
+                this.releaseCarTextures(carId);
+              },
+            });
+          },
+        });
+      },
+    });
   }
 
   private driveOff(carId: number) {

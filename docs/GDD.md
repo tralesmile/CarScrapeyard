@@ -20,9 +20,22 @@ to automate it, open new car businesses, then sell your empire and start again i
   (Common, Rare, Epic, Legendary at 0.5% — the "barn find"). Rare+ cars get trim stripes.
 - **Offline earnings:** with the full crew hired, the yard earns while you're away
   (50% rate, up to 2 hours). Shown in a "Welcome back" popup; kept in the save until collected.
+- **Car crusher** (unlocks after 25 sales, about minute 3): a Crush button beside the bay squashes the
+  current unfinished wreck under a hydraulic press (shake, sparks, dust) for Parts (6/10/16/30 by rarity)
+  plus 15% of its value as scrap cash. 3-second cooldown. Epic and Legendary cars ask first.
+  Finished cars can't be crushed (sell them). **Parts** show in the top bar: when a car finishes washing
+  and you have 2+ parts, 2 are spent automatically to halve its damage ("Spare parts!").
+- **Contracts board** (Jobs tab, unlocks after 45 sales, about minute 5): three orders at a time —
+  sell N cars, sell N of a body type, sell Rare+ cars, crush N wrecks — each with a 10-minute timer and a
+  cash reward (crush orders also pay parts). Finished orders wait to be claimed; a new order arrives
+  45 s after one is claimed or expires. The same order never sits on the board twice.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
+
+- Contract timers run in game time (paused while the game is closed), so orders never expire
+  while the player sleeps. Revisit when push notifications exist.
+- Parts are spent automatically (no extra button) so the crew and offline play use them too.
 
 - First 5 cars are always Common so the tutorial pacing is predictable.
 - UI is DOM over the Phaser canvas (crisp text, accessibility, translation).
