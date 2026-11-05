@@ -13,11 +13,30 @@ function suffix(tier: number): string {
   return first + second;
 }
 
-export function formatNumber(value: number): string {
+/** 'short' = 1.23K, 4.50M, 1.00aa · 'scientific' = 1.23e3, 4.50e6. */
+export type NumberFormat = 'short' | 'scientific';
+
+let mode: NumberFormat = 'short';
+
+/** Player setting; every formatCash/formatNumber call after this uses it. */
+export function setNumberFormat(m: NumberFormat): void {
+  mode = m === 'scientific' ? 'scientific' : 'short';
+}
+
+export function formatNumber(value: number, fmt: NumberFormat = mode): string {
   if (!Number.isFinite(value)) return '∞';
   const sign = value < 0 ? '-' : '';
   const v = Math.abs(value);
   if (v < 1000) return sign + Math.floor(v).toString();
+  if (fmt === 'scientific') {
+    let exp = Math.floor(Math.log10(v));
+    let mant = v / Math.pow(10, exp);
+    if (mant >= 9.995) {
+      mant = 1;
+      exp += 1;
+    }
+    return `${sign}${mant.toFixed(2)}e${exp}`;
+  }
   const tier = Math.floor(Math.log10(v) / 3);
   const scaled = v / Math.pow(1000, tier);
   // Guard against 999.995 rounding up to "1000.00K".

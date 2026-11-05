@@ -94,6 +94,8 @@ function validBuyer(b: unknown): Buyer | null {
   return { kind: b.kind as Buyer['kind'], timeLeft: b.timeLeft };
 }
 
+const BARN_STATUS: GameState['barn']['status'][] = ['locked', 'covered', 'working', 'finished', 'revealed', 'away'];
+
 /** Reject values no honest game can reach. */
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
@@ -122,6 +124,8 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract);
     state.buyer = validBuyer(state.buyer);
+    if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
+    if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;
     return { state, savedAt: env.savedAt };
   } catch {

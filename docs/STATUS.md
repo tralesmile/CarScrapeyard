@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 3; next run is run 4)
+Last updated: 2026-11-05 (run 4; next run is run 5)
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -20,13 +20,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.9 Contracts board: 3 timed orders ("sell 3 pickups in 10 min") with cash/parts rewards
 - [x] P0.10 Haggle mini-game on big manual sales (timing slider, 0.9x–1.3x, lesson on the 2nd sale)
 - [x] P0.11 Customer personalities (Bargain Hunter, Collector, Speed Freak, Family): buyer-match bonus
-- [ ] P0.12 Barn find + restoration project: covered car at the back of the yard, multi-stage restore, reveal
-- [ ] P0.13 Settings sheet: sound, music, reduce motion, number format, reset progress (with confirm), credits
+- [x] P0.12 Barn find + restoration project: covered car at the back of the yard, multi-stage restore, reveal
+- [x] P0.13 Settings sheet: sound, music, reduce motion, number format, reset progress (with confirm), credits
 - [ ] P0.14 Juice pass: haptics (navigator.vibrate), better car art (rounded bodies, antialiasing), more car families (SUV, van, sports, hyper)
 - [ ] P0.14b Crusher upgrades: faster press / more parts per crush; a "Scrapper" crew member who auto-crushes when the lot is full (found in run 2)
 - [ ] P0.14c Contracts polish: one free reroll per order; let timers run offline once push notifications exist (found in run 2)
 - [ ] P0.14d Buyers polish: draw the buyer as a little character walking in; Influencer buyer; give pickups a buyer once vans/SUVs exist; a "skip haggle" setting (found in run 3)
 - [ ] P0.14e Floating texts overlap when several rewards land at once (crush shows "+6 Parts" on top of "+$110"): stack them (found in run 3)
+- [ ] P0.14f Barn polish: the restored car drives out of the barn into the bay before the reveal; stage art inside the barn (engine hoist, paint booth); keep classics for the Collection book (P1.4) instead of only selling (found in run 4)
+- [ ] P0.14g Yard tab now has 4 cards and the barn card sits below the fold on phones: compact cards or a dot on the barn itself (found in run 4)
 - [ ] P0.15 Playtest gate: owner plays 15+ minutes; collect feedback in NEEDS_FROM_YOU
 
 ## Phase 1 — Web MVP

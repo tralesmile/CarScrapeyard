@@ -142,11 +142,38 @@ export const ECON = {
       { name: string; icon: string; wants: string; families: readonly CarFamily[] | null; minRarity: Rarity | null; bonus: number }
     >,
   },
+
+  /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */
+  barn: {
+    /** Unlocks after this many cars sold (after contracts). */
+    unlockCarsSold: 60,
+    /** Restoration stages, in order. Cash cost = expected car value x cashMult (at the time you start). */
+    stages: [
+      { name: 'Tow it out', cashMult: 2, parts: 0, seconds: 20 },
+      { name: 'Rebuild the engine', cashMult: 4, parts: 6, seconds: 45 },
+      { name: 'Fix the body', cashMult: 6, parts: 12, seconds: 60 },
+      { name: 'Fresh paint', cashMult: 8, parts: 0, seconds: 90 },
+    ],
+    /** Sale value = expected car value x this, at the reveal. */
+    saleMult: 60,
+    /** Each finished restoration makes the next one cost and pay this much more. */
+    growthPerRestore: 0.15,
+    /** Seconds until the next barn find after one is sold (runs offline too). */
+    nextFindSeconds: 300,
+  },
 } as const;
 
 export const PAINTS = [
   0xe5484d, 0x3b82f6, 0x1f9e9a, 0xe8762b, 0xf5b700, 0x3bc45a, 0xeadbc8, 0x2b2f36, 0xf2f4f7, 0x8b5cf6,
 ] as const;
+
+/** Fictional classics for barn finds (fictional brands only). */
+export const CLASSIC_NAMES: Record<CarFamily, readonly string[]> = {
+  sedan: ["Regalia Duchess '58", "Vortex Starlight '61"],
+  hatch: ["Kaze Kitsune '71", "Regalia Pebble '66"],
+  pickup: ["Stallion Prospector '54", "Vortex Mule '59"],
+  muscle: ["Stallion Wildfire '67", "Vortex Nightjar '69"],
+};
 
 /** Fictional brands only. Never use real car makers' names or logos. */
 export const MODEL_NAMES: Record<CarFamily, readonly string[]> = {

@@ -42,7 +42,7 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Timer | 10 min (game time); new order 45 s after claim or expiry |
 | Reward | expected car value x target x (sell any 0.4, body type 0.9, Rare+ 2.5, crush 0.7) |
 | Sizes | sell any 6-10, body type 2-4, Rare+ 1-2, crush 2-4 (+4 parts per crushed car) |
-| Share of income | must stay under 30% of first-15-minute earnings (sim: 17% active, 19% relaxed) |
+| Share of income | must stay under 30% of first-15-minute earnings (sim: 18% active, 25% relaxed) |
 
 ## Haggle
 
@@ -65,6 +65,17 @@ Unlock after 10 sales. One buyer at a time, waits 75 s, next buyer 8 s after one
 Bonuses apply to crew sales too and stack with haggle. Sim limit: manual haggle + buyer bonus < 15% of
 first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 haggles, the relaxed bot x1.05.
 
+## Barn find
+
+| Item | Value |
+| --- | --- |
+| Unlock | 60 cars sold |
+| Stages (cash = expected car value x) | Tow 2x / 20 s · Engine 4x + 6 parts / 45 s · Body 6x + 12 parts / 60 s · Paint 8x / 90 s |
+| Sale | expected car value x 60 at the reveal (3x the cash cost) |
+| Growth | +15% cost and value per restoration sold |
+| Next find | 5 min after a sale (runs offline) |
+| Share of income | sim limit < 25% of first-15-minute earnings (active 18%; relaxed bot reaches stage 3) |
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -73,10 +84,13 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Mechanic hired | 2-3 min (bot is faster than a human) | 1m 6s | 1m 44s |
 | Crusher unlocks | about 3 min | 2m 13s | 3m 21s |
 | Contracts unlock | about 5 min | 3m 54s | 5m 56s |
-| Washer hired | - | 3m 12s | 6m 23s |
-| Salesperson hired (full automation) | < 15 min for active players | 8m 28s | 14m 41s |
+| Washer hired | - | 3m 12s | 6m 14s |
+| Barn find opens | after contracts | 5m 15s | 7m 40s |
+| Salesperson hired (full automation) | < 15 min for active players | 8m 7s | 12m 18s |
+| First barn classic sold | < 15 min for active players | 12m 12s | next session |
 
-The bots claim every finished contract and crush a fresh wreck when a crush order is open.
+The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
+parts, and save up for the next barn stage once the crew is hired.
 Bot tapping is deterministic (no `Math.random`), so the same code always prints the same timeline.
 
 Bots are faster than first-time humans (no reading, perfect swipes), so bot times sit at the low end on purpose.

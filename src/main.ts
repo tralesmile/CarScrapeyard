@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { sfx } from './audio/sfx';
 import { ECON } from './core/config';
 import { SaveManager } from './core/save';
+import { setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
 import type { Bridge } from './game/bridge';
@@ -21,6 +22,7 @@ const saves = new SaveManager(platform.storage);
 const loaded = saves.load(platform.now());
 const state: GameState = loaded ?? newGame(platform.now());
 sfx.enabled = state.settings.sound;
+setNumberFormat(state.settings.numberFormat);
 
 // ---- income rate (rolling 30 s window of real sales) ------------------------
 const sales: { t: number; amount: number }[] = [];
@@ -35,7 +37,10 @@ function incomePerSecond(): number {
 // ---- saving --------------------------------------------------------------
 let dirty = false;
 let saveWarned = false;
+/** Set while progress is being deleted, so nothing writes the old game back. */
+let resetting = false;
 function saveNow() {
+  if (resetting) return;
   touch(state, platform.now());
   const ok = saves.save(state, platform.now());
   dirty = false;
@@ -48,13 +53,22 @@ function saveNow() {
 function onEvents(events: GameEvent[]) {
   for (const e of events) {
     if (e.type === 'sold') sales.push({ t: performance.now(), amount: e.amount });
-    if (e.type === 'legendary') ui.showBanner('BARN FIND!', `Legendary ${e.car.model}`);
+    if (e.type === 'legendary') ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
+    if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
+      ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
+      sfx.repaired();
+    }
+    if (e.type === 'barnFinished') {
+      ui.showBanner('RESTORED!', 'Reveal your classic in the Yard tab');
+      sfx.fanfare();
+    }
+    if (e.type === 'barnFound' && state.barn.restored > 0) ui.toast('Grandpa Joe found another covered classic!', 3000);
     if (e.type === 'contractDone') {
       ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
       sfx.repaired();
     }
     if (e.type === 'buyerArrived') sfx.bell();
-    if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract')) dirty = true;
+    if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
   ui.render();
 }
@@ -68,6 +82,19 @@ const ui = new Ui(document.getElementById('ui')!, {
     dirty = true;
   },
   incomePerSecond,
+  barnReveal: (shown) => {
+    const sc = scene();
+    if (!sc) {
+      shown();
+      return () => {};
+    }
+    return sc.barnReveal(shown);
+  },
+  resetProgress: () => {
+    resetting = true;
+    saves.wipe();
+    location.reload();
+  },
 });
 
 // ---- Phaser --------------------------------------------------------------
@@ -80,6 +107,7 @@ const bridge: Bridge = {
   cashTarget: () => ui.cashTarget(),
   onEvents,
   onInput: () => sfx.unlock(),
+  onBarnTap: () => ui.showYard(),
 };
 
 const game = new Phaser.Game({

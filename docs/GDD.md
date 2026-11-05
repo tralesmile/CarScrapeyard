@@ -37,9 +37,24 @@ to automate it, open new car businesses, then sell your empire and start again i
   patience bar 75 s). Bargain Hunter wants a Hatchback (+15%), Collector a Rare+ car (+40%), Speed Freak a
   Muscle car (+25%), Family a Sedan (+20%). Selling a matching car pays the bonus (also for crew sales) and the
   next buyer arrives 8 s later; the Sell button turns gold and names the buyer when the car matches.
+- **Barn find** (after 60 sales, about minute 5–8): a little red barn appears at the back of the yard with a
+  car under a tarp. Tapping it opens its card in the Yard tab. Four stages — Tow it out, Rebuild the engine,
+  Fix the body, Fresh paint — each cost cash (and parts for the engine and body) and take 20 s to 90 s; the
+  timer keeps going while the game is closed (one stage at most). While the next stage needs parts, spare parts
+  are not spent on repairs. When done, "Reveal!" dims the yard, wiggles and whips off the tarp, light rays spin
+  and the car pops out ("LEGENDARY CLASSIC!"); a collector buys it for about 3x what the stages cost.
+  Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
+  (e.g. Stallion Wildfire '67).
+- **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
+  the OS asks for it), number format (short 1.5M or scientific 1.5e6), reset progress (two-step confirm),
+  credits with the version.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
+
+- Barn timers run offline (unlike contracts): a restoration is a "come back later" hook, and only one stage can
+  finish while away, so it never skips the fun of starting the next one.
+- The barn sale price is fixed at the reveal, so "Later" never loses money.
 
 - Contract timers run in game time (paused while the game is closed), so orders never expire
   while the player sleeps. Revisit when push notifications exist.

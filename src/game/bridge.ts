@@ -14,4 +14,6 @@ export interface Bridge {
   onEvents(events: GameEvent[]): void;
   /** Called on any player input (audio unlock, save scheduling). */
   onInput(): void;
+  /** The covered car at the back of the yard was tapped. */
+  onBarnTap(): void;
 }

@@ -107,3 +107,10 @@ export function offlineEarnings(state: GameState, seconds: number): number {
   const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
   return Math.floor(idleIncomePerSecond(state) * capped * ECON.offline.efficiency);
 }
+
+/** Round a price or reward to two significant digits ($1,234 -> $1,200), at least $10. */
+export function roundNice(x: number): number {
+  if (x < 100) return Math.max(10, Math.round(x / 5) * 5);
+  const mag = Math.pow(10, Math.floor(Math.log10(x)) - 1);
+  return Math.round(x / mag) * mag;
+}

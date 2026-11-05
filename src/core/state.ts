@@ -1,5 +1,6 @@
 import type { BuyerKind, CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
+import type { NumberFormat } from './format';
 
 export const SAVE_VERSION = 1;
 
@@ -42,6 +43,25 @@ export interface Buyer {
   timeLeft: number;
 }
 
+export interface Barn {
+  /**
+   * locked: not unlocked yet · covered: waiting for the next stage to start · working: a stage timer runs ·
+   * finished: all stages done, waiting for the reveal · revealed: shown, waiting to be sold · away: next find on its way
+   */
+  status: 'locked' | 'covered' | 'working' | 'finished' | 'revealed' | 'away';
+  /** Stages finished so far. */
+  stage: number;
+  /** Seconds left: on the stage when working, until the next find when away. */
+  timeLeft: number;
+  family: CarFamily;
+  model: string;
+  paint: number;
+  /** Sale price, fixed at the reveal. */
+  value: number;
+  /** Restorations sold so far (makes the next one bigger). */
+  restored: number;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -60,6 +80,7 @@ export interface GameState {
   contracts: Contract[];
   nextContractId: number;
   cars: Car[];
+  barn: Barn;
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -76,9 +97,15 @@ export interface GameState {
     firstUpgrade: boolean;
     crusherSeen: boolean;
     contractsSeen: boolean;
+    barnSeen: boolean;
   };
   settings: {
     sound: boolean;
+    /** Saved now; music arrives with P1.8. */
+    music: boolean;
+    /** No camera shake or flashes, fewer CSS animations. */
+    reduceMotion: boolean;
+    numberFormat: NumberFormat;
   };
   stats: {
     legendaryFound: number;
@@ -107,6 +134,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     contracts: [],
     nextContractId: 1,
     cars: [],
+    barn: { status: 'locked', stage: 0, timeLeft: 0, family: 'muscle', model: '', paint: 0, value: 0, restored: 0 },
     buyer: null,
     buyerTimer: 0,
     focusedId: null,
@@ -115,8 +143,8 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false },
-    settings: { sound: true },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short' },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }

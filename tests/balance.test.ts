@@ -21,6 +21,7 @@ import {
   washCar,
 } from '../src/core/sim';
 import { contractsUnlocked } from '../src/core/contracts';
+import { barnStageCost, barnUnlocked, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../src/core/barn';
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
@@ -50,6 +51,14 @@ function spendSmart(s: GameState): void {
       return; // save up for the next manager before anything else...
     }
   }
+  // ...then the barn restoration when the next stage is affordable...
+  // (a player saves up for it: upgrades only from cash beyond the stage price).
+  let reserve = 0;
+  if (nextBarnStage(s)) {
+    const c = barnStageCost(s);
+    if (s.cash >= c.cash && s.parts >= c.parts) startBarnStage(s);
+    else reserve = c.cash;
+  }
   // ...then the cheapest of slot / upgrades.
   const options: { cost: number; buy: () => boolean }[] = (['wash', 'repair', 'quality'] as UpgradeKind[]).map(
     (k) => ({ cost: upgradeCost(k, s.levels[k]), buy: () => buyUpgrade(s, k) }),
@@ -58,7 +67,7 @@ function spendSmart(s: GameState): void {
   if (sc !== null) options.push({ cost: sc, buy: () => buySlot(s) });
   options.sort((a, b) => a.cost - b.cost);
   const best = options[0];
-  if (best && best.cost <= s.cash) best.buy();
+  if (best && best.cost <= s.cash - reserve) best.buy();
 }
 
 function earlyUpgrades(s: GameState): void {
@@ -77,12 +86,14 @@ function run(profile: BotProfile, seconds: number) {
   let tapBudget = 0;
   let contractsClaimed = 0;
   let extraCash = 0;
+  let barnCash = 0;
   for (let t = 0; t < seconds; t += dt) {
     tick(s, dt);
     const car = s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0];
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
-    const wantsCrush = s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
-    if (car && wantsCrush && cooldown <= 0 && canCrush(s, car) && car.dirt === 1) {
+    const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
+    const wantsCrush = barnNeedsParts || s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
+    if (car && wantsCrush && cooldown <= 0 && canCrush(s, car) && car.dirt > 0) {
       crushCar(s, car.id);
       cooldown = profile.reaction;
     } else if (car) {
@@ -111,6 +122,7 @@ function run(profile: BotProfile, seconds: number) {
         contractCash += claimContract(s, c.id).cash;
         contractsClaimed++;
       }
+      if (revealBarn(s)) barnCash += sellBarnCar(s);
       earlyUpgrades(s);
       spendSmart(s);
     }
@@ -119,20 +131,23 @@ function run(profile: BotProfile, seconds: number) {
     if (s.slots >= 2 && marks.slot2 === undefined) marks.slot2 = t;
     if (crusherUnlocked(s) && marks.crusher === undefined) marks.crusher = t;
     if (contractsUnlocked(s) && marks.contracts === undefined) marks.contracts = t;
+    if (barnUnlocked(s) && marks.barn === undefined) marks.barn = t;
+    if (s.barn.restored > 0 && marks.barnSold === undefined) marks.barnSold = t;
   }
-  return { s, marks, contractCash, contractsClaimed, extraCash };
+  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash };
 }
 
 describe('opening pacing', () => {
   for (const profile of [ACTIVE, RELAXED]) {
     it(`${profile.name} player hits the first-session targets`, () => {
-      const { s, marks, contractCash, contractsClaimed, extraCash } = run(profile, 15 * 60);
+      const { s, marks, contractCash, contractsClaimed, extraCash, barnCash } = run(profile, 15 * 60);
       const line = (k: string) => `${k.padEnd(10)} ${marks[k] === undefined ? 'never' : formatDuration(marks[k]!)}`;
       console.log(
-        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'washer', 'seller', 'slot2'].map(line),
+        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'barnSold', 'slot2'].map(line),
           `cash ${formatCash(s.cash)}, sold ${s.carsSold}, levels ${JSON.stringify(s.levels)}, slots ${s.slots}`,
           `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`,
-          `haggles ${s.stats.haggles}, buyers served ${s.stats.buyersServed}, manual haggle+buyer bonus ${formatCash(extraCash)} (${((extraCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings)`].join('\n'),
+          `haggles ${s.stats.haggles}, buyers served ${s.stats.buyersServed}, manual haggle+buyer bonus ${formatCash(extraCash)} (${((extraCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings)`,
+          `barn restored ${s.barn.restored} for ${formatCash(barnCash)} (${((barnCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), barn now ${s.barn.status} stage ${s.barn.stage}`].join('\n'),
       );
       // Plan target: first sale within ~30 s, first manager within 2-3 minutes.
       expect(marks.firstSale).toBeLessThan(45);
@@ -147,6 +162,11 @@ describe('opening pacing', () => {
       // Haggle and buyer bonuses reward attention but must not carry the economy.
       expect(extraCash / s.lifetimeEarnings).toBeLessThan(0.15);
       expect(s.stats.buyersServed).toBeGreaterThan(0);
+      // Plan: the barn find opens after contracts; one restoration fits in the first session for an active player
+      // but it is a big bonus, not the main income.
+      expect(marks.barn).toBeGreaterThan(marks.contracts!);
+      expect(barnCash / s.lifetimeEarnings).toBeLessThan(0.25);
+      if (profile === ACTIVE) expect(marks.barnSold).toBeLessThan(15 * 60);
       // Full automation inside the first session for an active player.
       if (profile === ACTIVE) expect(marks.seller).toBeLessThan(15 * 60);
     });

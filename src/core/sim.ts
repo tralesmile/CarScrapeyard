@@ -21,6 +21,7 @@ import type { Car, GameState } from './state';
 import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
+import { barnReservesParts, tickBarn, type BarnEvent } from './barn';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -41,7 +42,8 @@ export type GameEvent =
   | { type: 'crushed'; car: Car; parts: number; cash: number }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
-  | BuyerEvent;
+  | BuyerEvent
+  | BarnEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -103,7 +105,7 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
 function onWashed(state: GameState, car: Car, events: GameEvent[]): void {
   events.push({ type: 'washed', carId: car.id });
   const cost = ECON.crusher.partsPerFix;
-  if (car.damage > 0 && state.parts >= cost) {
+  if (car.damage > 0 && state.parts >= cost && !barnReservesParts(state)) {
     state.parts -= cost;
     car.damage *= 1 - ECON.crusher.fixFraction;
     if (car.damage < 0.005) car.damage = 0;
@@ -126,6 +128,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
+  tickBarn(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -288,6 +291,8 @@ export function applyElapsed(state: GameState, now: number): { seconds: number; 
   const seconds = (now - state.lastSeen) / 1000;
   state.lastSeen = now;
   const earned = offlineEarnings(state, seconds);
+  // The barn restoration keeps going while you're away (one stage at most).
+  tickBarn(state, Math.min(seconds, ECON.offline.capSeconds), []);
   return { seconds, earned };
 }
 

@@ -11,6 +11,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       do they feel rewarding, and is the Crush button easy to find?
       New since run 3: haggling (the slider on your 2nd sale and on rare cars) and the customer strip under
       the top bar (after ~10 sales). Is the haggle needle too fast or too slow? Do you want haggling on every sale?
+      New since run 4: the barn find (red barn at the back of the yard after ~60 sales; four timed restoration
+      stages and a big reveal) and the settings menu (☰ top right). Is the reveal exciting enough? Would you rather
+      keep restored classics for a collection than sell them?
 - [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
       Claude works on `dev` and never pushes to `main`.
 

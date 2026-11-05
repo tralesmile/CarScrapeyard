@@ -227,6 +227,53 @@ async function waitForServer(url, ms = 15000) {
     const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));
     assert(claimed.cash >= claim.cash + claim.reward && claimed.status === 'empty', `claiming pays ${claim.reward}`);
 
+    console.log('barn find');
+    await page.click('.tab:nth-child(3)');
+    await page.waitForSelector('.cards .barn');
+    assert((await page.textContent('.cards .barn .buy')).includes('Locked'), 'barn card is locked before 60 sales');
+    await page.evaluate(() => (window.__jye.state.carsSold = 60));
+    await page.waitForFunction(() => window.__jye.state.barn.status === 'covered');
+    await page.waitForTimeout(3200); // unlock banner
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-11-barn.png') });
+    // Tapping the barn in the yard opens the Yard tab.
+    await page.click('.tab:nth-child(1)');
+    const barnPt = await page.evaluate(() => {
+      const g = window.__jye.game;
+      const r = g.scene.getScene('yard').barnRect;
+      const z = g.scale.zoom;
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      return { x: c.x + r.centerX * z, y: c.y + (r.y + r.height * 0.6) * z };
+    });
+    await page.mouse.click(barnPt.x, barnPt.y);
+    await page.waitForSelector('.cards .barn');
+    assert(true, 'tapping the barn opens the Yard tab');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.cash += 1e7;
+      s.lifetimeEarnings += 1e7;
+      s.parts += 100;
+    });
+    for (let i = 0; i < 4; i++) {
+      await page.waitForSelector('.cards .barn .buy:not(:disabled)');
+      await page.click('.cards .barn .buy');
+      const st = await page.evaluate(() => window.__jye.state.barn.status);
+      if (i === 0) assert(st === 'working', 'starting a stage pays and runs the timer');
+      await page.evaluate(() => (window.__jye.state.barn.timeLeft = 0.05));
+      await page.waitForFunction((n) => window.__jye.state.barn.stage === n, i + 1);
+    }
+    await page.waitForFunction(() => window.__jye.state.barn.status === 'finished');
+    assert((await page.textContent('.cards .barn .buy')).includes('Reveal'), 'finished restoration offers a reveal');
+    await page.click('.cards .barn .buy');
+    await page.waitForSelector('.modal-back.reveal .modal .buy', { timeout: 5000 });
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12-barn-reveal.png') });
+    const sale = await page.evaluate(() => ({ cash: window.__jye.state.cash, value: window.__jye.state.barn.value }));
+    assert(sale.value > 0, `reveal fixes the price (${sale.value})`);
+    await page.click('.modal .buy');
+    const sold = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.barn.status, n: window.__jye.state.barn.restored }));
+    assert(sold.cash >= sale.cash + sale.value && sold.status === 'away' && sold.n === 1, 'selling the classic pays and the barn waits for the next find');
+    await page.waitForTimeout(500);
+
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
       const s = window.__jye.state;
@@ -296,6 +343,43 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.modal .buy');
     const cashAfter = await page.evaluate(() => window.__jye.state.cash);
     assert(cashAfter > cashBefore, 'collecting adds offline earnings');
+
+    console.log('settings');
+    await page.click('.settings-btn');
+    await page.waitForSelector('.modal.settings');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-13-settings.png') });
+    await page.click('.toggle[aria-label="Reduce motion"]');
+    const calm = await page.evaluate(() => ({ s: window.__jye.state.settings.reduceMotion, cls: document.getElementById('ui').classList.contains('reduce-motion') }));
+    assert(calm.s && calm.cls, 'reduce motion switches on');
+    await page.click('.seg-btn[data-fmt="scientific"]');
+    await page.waitForFunction(() => /e\d/.test(document.querySelector('.hud .cash').textContent));
+    assert(true, `scientific numbers in the top bar (${await page.textContent('.hud .cash')})`);
+    await page.click('.seg-btn[data-fmt="short"]');
+    await page.click('.toggle[aria-label="Sound effects"]');
+    assert((await page.textContent('.hud .icon-btn')).includes('🔇'), 'sound toggle mutes the game');
+    await page.click('.toggle[aria-label="Sound effects"]');
+    await page.click('.modal.settings .buy');
+    assert(!(await page.$('.modal.settings')), 'Done closes the settings');
+    await page.evaluate(() => window.__jye.saveNow());
+    await page.reload();
+    await page.waitForFunction(() => window.__jye && window.__jye.state);
+    assert(await page.evaluate(() => window.__jye.state.settings.reduceMotion === true), 'settings survive a reload');
+    // Reset: "Keep playing" keeps everything, "Delete everything" starts over.
+    await page.waitForTimeout(300);
+    if (await page.$('.modal .buy')) await page.click('.modal .buy'); // welcome-back after the reload
+    const soldNow = await page.evaluate(() => window.__jye.state.carsSold);
+    await page.click('.settings-btn');
+    await page.click('.modal .danger');
+    await page.waitForSelector('.modal h2:has-text("Start over")');
+    await page.click('.modal .buy');
+    assert((await page.evaluate(() => window.__jye.state.carsSold)) === soldNow, '"Keep playing" keeps progress');
+    await page.click('.settings-btn');
+    await page.click('.modal .danger');
+    await page.waitForSelector('.modal h2:has-text("Start over")');
+    await Promise.all([page.waitForNavigation(), page.click('.modal .secondary')]);
+    await page.waitForFunction(() => window.__jye && window.__jye.state);
+    const fresh = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash, intro: window.__jye.state.tutorial.introSeen }));
+    assert(fresh.sold === 0 && fresh.cash === 0 && !fresh.intro, 'reset progress starts a new game');
 
     console.log('desktop layout');
     const d = await browser.newPage({ viewport: { width: 1280, height: 800 } });

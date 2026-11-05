@@ -123,6 +123,11 @@ class Sfx {
     this.tone(1568, 0.25, 'sine', 0.12);
     this.tone(1175, 0.35, 'sine', 0.12, undefined, 0.12);
   }
+  /** Barn find reveal: a rising shimmer, then a big chord. */
+  reveal() {
+    [392, 494, 587, 698, 784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.18, 'sine', 0.12, undefined, i * 0.07));
+    [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.1, 'triangle', 0.16, undefined, 0.6));
+  }
   fanfare() {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, undefined, i * 0.12));
   }

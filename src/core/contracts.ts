@@ -3,7 +3,7 @@
 
 import type { CarFamily } from './config';
 import { ECON } from './config';
-import { expectedCarValue } from './formulas';
+import { expectedCarValue, roundNice } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { Car, Contract, ContractKind, GameState } from './state';
 
@@ -23,11 +23,6 @@ export function contractsUnlocked(state: GameState): boolean {
 
 const KIND_WEIGHTS: Record<ContractKind, number> = { sellAny: 3, sellFamily: 3, sellRare: 2, crush: 2 };
 
-function roundReward(x: number): number {
-  if (x < 100) return Math.max(10, Math.round(x / 5) * 5);
-  const mag = Math.pow(10, Math.floor(Math.log10(x)) - 1);
-  return Math.round(x / mag) * mag;
-}
 
 function rollInt(state: GameState, [min, max]: readonly [number, number]): number {
   return min + Math.floor(nextRandom(state) * (max - min + 1));
@@ -59,7 +54,7 @@ export function generateContract(state: GameState, slot: Contract): void {
   slot.target = target;
   slot.progress = 0;
   slot.timeLeft = ECON.contracts.duration;
-  slot.rewardCash = roundReward(cash);
+  slot.rewardCash = roundNice(cash);
   slot.rewardParts = kind === 'crush' ? ECON.contracts.crushPartsPerTarget * target : 0;
 }
 

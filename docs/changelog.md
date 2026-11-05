@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 - 2026-11-05 (run 4)
+
+- **Barn find** (after 60 sales): a little red barn at the back of the yard hides a covered classic. Restore it in
+  four timed stages (tow, engine, body, paint) paid with cash and parts; timers keep running while you're away.
+  Pull off the tarp for a slow-motion reveal with light rays and sell the Legendary classic to a collector.
+  The next, bigger find arrives 5 minutes later. Spare parts are saved for a stage that needs them.
+- **Settings sheet** (☰ in the top bar): sound, music (saved for later), reduce motion (no shake or flashes),
+  number format (1.5M or 1.5e6), reset progress with a confirm step, credits.
+- A random Legendary arrival now says "LEGENDARY!" (the barn has the "BARN FIND!" banner).
+- Balance bots restore the barn (saving up for stages, crushing for parts); the sim checks the barn stays a
+  bonus (< 25% of first-15-minute earnings) and that an active player sells one in the first session.
+- 14 new unit tests (76 total); e2e covers the barn (tap, all stages, reveal, sale) and every setting, including reset.
+
 ## 0.3.0 - 2026-11-05 (run 3)
 
 - **Haggle:** timing slider on big manual sales (lesson on the 2nd sale, Rare+ cars, buyer matches),

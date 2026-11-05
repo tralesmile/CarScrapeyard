@@ -45,3 +45,21 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   car queue and big car move down instead of being covered. Check the 4-slot case: thumbnails span the full width.
 - **Mini-games and automation can race.** The Salesperson could sell a car mid-haggle; `holdForHaggle()` pauses
   the seller for that car. Any future UI flow that spans time over a car needs the same kind of core-level hold.
+
+## 2026-11-05 (run 4)
+
+- **A regex sweep over config.ts clobbered unrelated numbers.** Sweeping `valueMult: \d+` to tune the barn also
+  rewrote the rarity multipliers (Common became x45) and the sim printed "Salesperson at 24 s"; only that absurd
+  timeline gave it away. Sweep scripts must edit only inside the block they tune (slice from `barn: {` to its
+  closing brace), and keys in ECON should be unique (`saleMult`, not a second `valueMult`). Check `git diff` after a sweep.
+- **Bots must play a new feature the way a player would, or the numbers lie.** The first sim showed the barn stuck:
+  the bot only crushed wrecks with `dirt === 1` (never true once the Washer is hired) and spent every dollar on cheap
+  upgrades, so it never had a stage's price. Make the bot save up and crush for parts first, then tune prices.
+- **One big payout near the end of the 15-minute window swings the share metric.** A $210K reveal at 14m56s read as
+  34% of earnings; at 12m it read as 18%. Look at when the payout lands, not only the share.
+- **Reloads in e2e can open the welcome-back popup** (any offline earnings > 0), which blocks other modals.
+  After a reload, close any open modal before testing the next screen.
+- **Reset needs a save guard.** Wiping storage then reloading would let `pagehide` save the old game back; a
+  `resetting` flag in `saveNow()` prevents it, and the e2e reset test proves it.
+- **Chained shell commands hide skipped steps.** A `grep && python3 ...` doc update silently did nothing because the
+  grep found no match. Run doc edits as their own command and check `git status` afterwards.

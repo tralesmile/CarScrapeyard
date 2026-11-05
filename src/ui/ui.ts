@@ -4,7 +4,8 @@
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
 import { bulkCost, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
-import { formatCash, formatDuration } from '../core/format';
+import { formatCash, formatDuration, setNumberFormat, type NumberFormat } from '../core/format';
+import { version } from '../../package.json';
 import { claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
 import {
   buySlot,
@@ -21,6 +22,7 @@ import {
 } from '../core/sim';
 import type { Car, GameState } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
+import { barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs';
@@ -31,6 +33,10 @@ export interface UiDeps {
   onEvents: (events: GameEvent[]) => void;
   onChange: () => void;
   incomePerSecond: () => number;
+  /** Play the barn reveal in the scene; `shown` runs when the car is on screen. Returns a function that closes it. */
+  barnReveal: (shown: () => void) => () => void;
+  /** Delete every save and start over (after the player confirmed). */
+  resetProgress: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -60,6 +66,7 @@ export class Ui {
   private partsEl!: HTMLElement;
   private crush!: HTMLButtonElement;
   private soundBtn!: HTMLButtonElement;
+  private settingsBtn!: HTMLButtonElement;
   private hint!: HTMLElement;
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
@@ -124,7 +131,10 @@ export class Ui {
       this.deps.onChange();
       this.render();
     };
-    hud.append(this.cash, this.rate, el('div', 'spacer'), this.partsEl, this.soundBtn);
+    this.settingsBtn = el('button', 'icon-btn settings-btn', '☰') as HTMLButtonElement;
+    this.settingsBtn.setAttribute('aria-label', 'Settings');
+    this.settingsBtn.onclick = () => this.openSettings();
+    hud.append(this.cash, this.rate, el('div', 'spacer'), this.partsEl, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
@@ -379,6 +389,67 @@ export class Ui {
     return { root, lvl, desc, bar, btn, update };
   }
 
+  private barnCard(): CardView {
+    const root = el('div', 'card barn');
+    const title = el('div', 'title display');
+    const lvl = el('span', 'lvl');
+    title.append(document.createTextNode('Barn Find'), lvl);
+    const desc = el('div', 'desc');
+    const barWrap = el('div', 'bar');
+    const bar = el('i');
+    barWrap.append(bar);
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, desc, barWrap, btn);
+    btn.onclick = () => this.onBarn();
+    const stages = ECON.barn.stages.length;
+    const update = (s: GameState) => {
+      const b = s.barn;
+      root.classList.toggle('ready', this.barnHasAction(s));
+      btn.classList.remove('done');
+      if (!barnUnlocked(s)) {
+        const left = ECON.barn.unlockCarsSold - s.carsSold;
+        setText(lvl, '');
+        setText(desc, `Something is hiding under a tarp… Opens after ${left} more sale${left === 1 ? '' : 's'}`);
+        bar.style.width = '0%';
+        setText(btn, 'Locked');
+        btn.disabled = true;
+        return;
+      }
+      setText(lvl, b.status === 'away' ? '' : `${Math.min(b.stage + (b.status === 'working' ? 1 : 0), stages)}/${stages}`);
+      if (b.status === 'covered') {
+        const st = nextBarnStage(s)!;
+        const cost = barnStageCost(s);
+        setText(desc, `${b.stage === 0 ? 'A covered classic! ' : ''}Next: ${st.name}. Sells for about ${formatCash(barnValue(s))}`);
+        bar.style.width = `${(b.stage / stages) * 100}%`;
+        setText(btn, `${formatCash(cost.cash)}${cost.parts ? ` + ${cost.parts} ⚙` : ''}`);
+        btn.disabled = s.cash < cost.cash || s.parts < cost.parts;
+      } else if (b.status === 'working') {
+        const st = ECON.barn.stages[b.stage]!;
+        setText(desc, `${st.name}… ${formatDuration(Math.ceil(b.timeLeft))} left (keeps going while you're away)`);
+        bar.style.width = `${((b.stage + 1 - b.timeLeft / st.seconds) / stages) * 100}%`;
+        setText(btn, 'Working…');
+        btn.disabled = true;
+      } else if (b.status === 'finished') {
+        setText(desc, 'Restoration complete! Pull off the tarp.');
+        bar.style.width = '100%';
+        setText(btn, 'Reveal!');
+        btn.disabled = false;
+      } else if (b.status === 'revealed') {
+        setText(desc, `${b.model}, Legendary classic. A collector is waiting.`);
+        bar.style.width = '100%';
+        setText(btn, `Sell ${formatCash(b.value)}`);
+        btn.disabled = false;
+      } else {
+        setText(desc, `Grandpa Joe is asking around for the next barn find… ${formatDuration(Math.ceil(b.timeLeft))}`);
+        bar.style.width = '0%';
+        setText(btn, `Restored: ${b.restored}`);
+        btn.classList.add('done');
+        btn.disabled = true;
+      }
+    };
+    return { root, lvl, desc, bar, btn, update };
+  }
+
   private teaserCard(): CardView {
     const root = el('div', 'card');
     const title = el('div', 'title display', 'Repair Garage');
@@ -393,7 +464,7 @@ export class Ui {
     this.cardsBox.innerHTML = '';
     if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
     else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller'] as ManagerKind[]).map((k) => this.managerCard(k));
-    else if (this.tab === 'yard') this.cards = [this.slotCard(), this.crusherCard(), this.teaserCard()];
+    else if (this.tab === 'yard') this.cards = [this.slotCard(), this.crusherCard(), this.barnCard(), this.teaserCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -471,6 +542,61 @@ export class Ui {
     raf = requestAnimationFrame(frame);
   }
 
+  /** Open the Yard tab (the scene calls this when the barn is tapped). */
+  showYard() {
+    if (this.tab !== 'yard') {
+      this.tab = 'yard';
+      this.buildCards();
+    }
+    sfx.tap();
+    this.render();
+  }
+
+  private onBarn() {
+    const s = this.deps.state();
+    const b = s.barn;
+    if (b.status === 'covered') {
+      if (startBarnStage(s)) {
+        sfx.buy();
+        this.deps.onChange();
+      } else sfx.denied();
+    } else if (b.status === 'finished') {
+      if (!revealBarn(s)) return;
+      this.deps.onChange();
+      this.showBarnReveal();
+    } else if (b.status === 'revealed') {
+      this.showBarnReveal();
+    }
+    this.render();
+  }
+
+  /** The big moment: light rays in the scene, then a sale offer. */
+  private showBarnReveal() {
+    const s = this.deps.state();
+    this.modalOpen = true;
+    sfx.reveal();
+    const close = this.deps.barnReveal(() => {
+      this.modal({
+        title: 'Legendary classic!',
+        body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>`,
+        big: formatCash(s.barn.value),
+        button: 'Sell it!',
+        secondary: 'Later',
+        cls: 'reveal',
+        onClose: () => {
+          close();
+          const paid = sellBarnCar(s);
+          if (paid > 0) {
+            this.deps.onEvents([{ type: 'barnSold', amount: paid }]);
+            this.deps.onChange();
+            sfx.fanfare();
+          }
+        },
+        onSecondary: () => close(),
+      });
+    });
+  }
+
   private onCrush() {
     const s = this.deps.state();
     const car = findCar(s, s.focusedId);
@@ -513,6 +639,7 @@ export class Ui {
     const ips = this.deps.incomePerSecond();
     setText(this.rate, ips > 0 ? `+${formatCash(ips)}/s` : '');
     setText(this.soundBtn, s.settings.sound ? '🔊' : '🔇');
+    this.root.classList.toggle('reduce-motion', s.settings.reduceMotion);
 
     const car = findCar(s, s.focusedId);
     const ready = car && carStage(car) === 'ready';
@@ -554,6 +681,12 @@ export class Ui {
       this.deps.onChange();
     }
 
+    if (barnUnlocked(s) && !s.tutorial.barnSeen && !this.modalOpen && s.tutorial.crusherSeen) {
+      s.tutorial.barnSeen = true;
+      setTimeout(() => this.showBanner('BARN FIND!', 'A covered classic at the back of the yard'), 2700);
+      this.deps.onChange();
+    }
+
     this.renderHint(s);
 
     for (const c of this.cards) c.update(s);
@@ -585,10 +718,18 @@ export class Ui {
     if (t === 'crew') return (Object.keys(ECON.managers) as ManagerKind[]).some((k) => !s.managers[k] && s.cash >= ECON.managers[k].cost);
     if (t === 'yard') {
       const c = slotCost(s.slots);
-      return c !== null && s.cash >= c;
+      return (c !== null && s.cash >= c) || this.barnHasAction(s);
     }
     if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
     return false;
+  }
+
+  private barnHasAction(s: GameState): boolean {
+    const b = s.barn;
+    if (b.status === 'finished' || b.status === 'revealed') return true;
+    if (b.status !== 'covered') return false;
+    const cost = barnStageCost(s);
+    return s.cash >= cost.cash && s.parts >= cost.parts;
   }
 
   private renderHint(s: GameState) {
@@ -638,9 +779,11 @@ export class Ui {
     onClose?: () => void;
     /** Called instead of onClose when the secondary button is used. */
     onSecondary?: () => void;
+    /** Extra class on the backdrop (e.g. 'reveal' keeps the top of the screen visible). */
+    cls?: string;
   }) {
     this.modalOpen = true;
-    const back = el('div', 'modal-back');
+    const back = el('div', `modal-back${opts.cls ? ` ${opts.cls}` : ''}`);
     const box = el('div', 'modal');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
@@ -672,6 +815,112 @@ export class Ui {
     back.append(box);
     this.root.append(back);
     btn.focus();
+  }
+
+  /** Settings sheet: sound, music, motion, number format, reset, credits. */
+  openSettings() {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    this.modalOpen = true;
+    sfx.tap();
+    const back = el('div', 'modal-back');
+    const box = el('div', 'modal settings');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Settings');
+    const h = el('h2', 'display', 'Settings');
+    box.append(h);
+    const close = () => {
+      if (!back.isConnected) return;
+      back.remove();
+      this.modalOpen = false;
+      this.render();
+    };
+    const toggle = (label: string, note: string, get: () => boolean, set: (v: boolean) => void) => {
+      const row = el('div', 'set-row');
+      const text = el('div', 'set-label', label);
+      if (note) text.append(el('small', '', note));
+      const btn = el('button', 'toggle') as HTMLButtonElement;
+      btn.setAttribute('role', 'switch');
+      const paint = () => {
+        btn.setAttribute('aria-checked', String(get()));
+        btn.classList.toggle('on', get());
+        btn.textContent = get() ? 'On' : 'Off';
+      };
+      btn.setAttribute('aria-label', label);
+      btn.onclick = () => {
+        set(!get());
+        paint();
+        sfx.tap();
+        this.deps.onChange();
+        this.render();
+      };
+      paint();
+      row.append(text, btn);
+      return row;
+    };
+    box.append(
+      toggle('Sound effects', '', () => s.settings.sound, (v) => {
+        s.settings.sound = v;
+        sfx.enabled = v;
+      }),
+      toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
+      toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+    );
+    // Number format: two-way switch.
+    const fmtRow = el('div', 'set-row');
+    fmtRow.append(el('div', 'set-label', 'Numbers'));
+    const seg = el('div', 'seg');
+    const opts: [NumberFormat, string][] = [
+      ['short', '1.5M'],
+      ['scientific', '1.5e6'],
+    ];
+    const segBtns = opts.map(([fmt, label]) => {
+      const b = el('button', 'seg-btn', label) as HTMLButtonElement;
+      b.dataset.fmt = fmt;
+      b.onclick = () => {
+        s.settings.numberFormat = fmt;
+        setNumberFormat(fmt);
+        for (const x of segBtns) x.classList.toggle('on', x === b);
+        sfx.tap();
+        this.deps.onChange();
+        this.render();
+      };
+      b.classList.toggle('on', s.settings.numberFormat === fmt);
+      return b;
+    });
+    seg.append(...segBtns);
+    fmtRow.append(seg);
+    box.append(fmtRow);
+
+    const reset = el('button', 'danger', 'Reset progress') as HTMLButtonElement;
+    reset.onclick = () => {
+      close();
+      this.modal({
+        title: 'Start over?',
+        body: '<p>This deletes your yard, cash, crew and everything else on this device. It cannot be undone.</p>',
+        button: 'Keep playing',
+        secondary: 'Delete everything',
+        onSecondary: () => this.deps.resetProgress(),
+      });
+    };
+    const credits = el(
+      'div',
+      'credits',
+      `<b>Junkyard to Supercar Empire</b> v${version}<br>Design, code, art and sound: Claude, for the owner<br>Engine: Phaser 3 (MIT) · Fonts: Lilita One, Nunito (SIL OFL)<br>All car brands are fictional.`,
+    );
+    const done = el('button', 'buy', 'Done') as HTMLButtonElement;
+    done.onclick = () => {
+      sfx.tap();
+      close();
+    };
+    box.append(reset, credits, done);
+    back.onclick = (e) => {
+      if (e.target === back) close();
+    };
+    back.append(box);
+    this.root.append(back);
+    done.focus();
   }
 
   offlineModal(seconds: number, earned: number, onCollect: () => void) {
