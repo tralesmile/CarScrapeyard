@@ -4,7 +4,7 @@
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
-import { bulkCost, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
+import { bulkCost, crusherCooldown, crushParts, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
 import { formatCash, formatDuration, setNumberFormat, type NumberFormat } from '../core/format';
 import { version } from '../../package.json';
 import { claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
@@ -226,13 +226,17 @@ export class Ui {
       const level = s.levels[kind];
       setText(lvl, `Lv ${level}`);
       const ms = nextMilestone(level);
+      // Crusher-only cards stay hidden until the crusher unlocks.
+      root.style.display = kind === 'press' && !crusherUnlocked(s) ? 'none' : '';
       if (kind === 'quality') {
         setText(desc, `Better wrecks: cars worth x${qualityMultiplier(level).toFixed(2)}`);
+      } else if (kind === 'press') {
+        setText(desc, `Crush every ${crusherCooldown(level).toFixed(1)}s · +${crushParts('common', level)} ⚙ per wreck`);
       } else {
         const what = kind === 'wash' ? 'Wash power' : 'Repair power';
         setText(desc, `${what} x${stationPower(level).toFixed(2)}${ms ? ` · x2 at Lv ${ms}` : ''}`);
       }
-      if (kind !== 'quality' && ms) {
+      if (kind !== 'quality' && kind !== 'press' && ms) {
         const prev = [...ECON.milestones].reverse().find((m) => m <= level) ?? 1;
         bar.style.width = `${((level - prev) / (ms - prev)) * 100}%`;
         barWrap.style.visibility = 'visible';
@@ -254,6 +258,7 @@ export class Ui {
       mechanic: 'Repairs washed cars for you',
       washer: 'Pressure-washes new wrecks',
       seller: 'Sells finished cars, even offline',
+      scrapper: `Crushes a fresh Common wreck now and then to keep ${ECON.crusher.scrapperKeepParts}+ ⚙ in the bin (more if the barn needs it)`,
     };
     const root = el('div', 'card');
     const title = el('div', 'title display');
@@ -271,6 +276,7 @@ export class Ui {
       } else sfx.denied();
     };
     const update = (s: GameState) => {
+      root.style.display = kind === 'scrapper' && !crusherUnlocked(s) ? 'none' : '';
       const hired = s.managers[kind];
       setText(lvl, hired ? 'Hired' : '');
       btn.classList.toggle('done', hired);
@@ -331,7 +337,7 @@ export class Ui {
       setText(desc, `Crush wrecks for Parts. ${ECON.crusher.partsPerFix} parts halve a washed car's damage.`);
       const car = findCar(s, s.focusedId);
       const ok = canCrush(s, car);
-      setText(btn, ok && car ? `Crush +${ECON.crusher.parts[car.rarity]} ⚙` : s.crusherCooldown > 0 ? 'Cooling…' : 'No wreck');
+      setText(btn, ok && car ? `Crush +${crushParts(car.rarity, s.levels.press)} ⚙` : s.crusherCooldown > 0 ? 'Cooling…' : 'No wreck');
       btn.disabled = !ok;
     };
     return { root, lvl, desc, btn, update };
@@ -463,8 +469,8 @@ export class Ui {
 
   private buildCards() {
     this.cardsBox.innerHTML = '';
-    if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
-    else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller'] as ManagerKind[]).map((k) => this.managerCard(k));
+    if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality', 'press'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
+    else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller', 'scrapper'] as ManagerKind[]).map((k) => this.managerCard(k));
     else if (this.tab === 'yard') this.cards = [this.slotCard(), this.crusherCard(), this.barnCard(), this.teaserCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
@@ -619,7 +625,7 @@ export class Ui {
         title: 'Crush this beauty?',
         body: `<p>This ${ECON.rarity[car.rarity].label} ${car.model} sells for ${formatCash(car.value)} once fixed.</p>`,
         button: 'Keep it',
-        secondary: `Crush for ${ECON.crusher.parts[car.rarity]} parts`,
+        secondary: `Crush for ${crushParts(car.rarity, s.levels.press)} parts`,
         onSecondary: doCrush,
       });
       return;
@@ -663,7 +669,7 @@ export class Ui {
     if (showCrush && car) {
       const cd = s.crusherCooldown;
       this.crush.disabled = cd > 0;
-      const html = cd > 0 ? `Crush<small>${cd.toFixed(1)}s</small>` : `Crush<small>+${ECON.crusher.parts[car.rarity]} ⚙</small>`;
+      const html = cd > 0 ? `Crush<small>${cd.toFixed(1)}s</small>` : `Crush<small>+${crushParts(car.rarity, s.levels.press)} ⚙</small>`;
       if (this.crush.innerHTML !== html) this.crush.innerHTML = html;
     }
 
@@ -716,7 +722,10 @@ export class Ui {
   }
 
   private tabHasAction(s: GameState, t: Tab): boolean {
-    if (t === 'crew') return (Object.keys(ECON.managers) as ManagerKind[]).some((k) => !s.managers[k] && s.cash >= ECON.managers[k].cost);
+    if (t === 'crew')
+      return (Object.keys(ECON.managers) as ManagerKind[]).some(
+        (k) => !s.managers[k] && s.cash >= ECON.managers[k].cost && (k !== 'scrapper' || crusherUnlocked(s)),
+      );
     if (t === 'yard') {
       const c = slotCost(s.slots);
       return (c !== null && s.cash >= c) || this.barnHasAction(s);

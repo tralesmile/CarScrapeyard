@@ -329,10 +329,17 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.cards .card:nth-child(2) .buy');
     lv = await page.evaluate(() => window.__jye.state.levels.repair);
     assert(lv > 10, `Max buys many Repair Bench levels (${lv})`);
+    await page.click('.mode:has-text("x1")');
+    assert(await page.isVisible('.cards .card:nth-child(4)'), 'Hydraulic Press card shows once the crusher is unlocked');
+    const pressDesc0 = await page.textContent('.cards .card:nth-child(4) .desc');
+    await page.click('.cards .card:nth-child(4) .buy');
+    const pressDesc1 = await page.textContent('.cards .card:nth-child(4) .desc');
+    assert((await page.evaluate(() => window.__jye.state.levels.press)) === 2 && pressDesc0 !== pressDesc1, `Hydraulic Press upgrade (${pressDesc1.trim()})`);
     await page.click('.tab:nth-child(2)');
-    for (const n of [1, 2, 3]) await page.click(`.cards .card:nth-child(${n}) .buy`);
+    for (const n of [1, 2, 3, 4]) await page.click(`.cards .card:nth-child(${n}) .buy`);
     const m = await page.evaluate(() => window.__jye.state.managers);
     assert(m.mechanic && m.washer && m.seller, 'all three crew members hired');
+    assert(m.scrapper, 'Scrapper hired');
     await page.click('.tab:nth-child(3)');
     await page.click('.cards .card:nth-child(1) .buy');
     const slots = await page.evaluate(() => window.__jye.state.slots);
@@ -343,6 +350,19 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction((n) => window.__jye.state.carsSold > n, soldBefore, { timeout: 30000 });
     assert(true, 'crew sold a car without input');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-03-automated.png') });
+
+    console.log('scrapper');
+    const crushedBefore = await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.parts = 0;
+      s.scrapperRest = 0;
+      return s.stats.carsCrushed;
+    });
+    await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
+    const afterScrap = await page.evaluate(() => ({ parts: window.__jye.state.parts, rest: window.__jye.state.scrapperRest }));
+    assert(afterScrap.parts > 0 && afterScrap.rest > 0, `Scrapper crushes a wreck when parts run low (+${afterScrap.parts} parts)`);
 
     console.log('save and reload');
     const before = await page.evaluate(() => {

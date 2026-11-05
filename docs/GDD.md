@@ -30,6 +30,10 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Car crusher** (unlocks after 25 sales, about minute 3): a Crush button beside the bay squashes the
   current unfinished wreck under a hydraulic press (shake, sparks, dust) for Parts (6/10/16/30 by rarity)
   plus 15% of its value as scrap cash. 3-second cooldown. Epic and Legendary cars ask first.
+  **Hydraulic Press** (Upgrades tab, after the crusher unlocks): faster press and more parts per crush.
+  **Scrapper** (Crew tab, after the crusher unlocks, $40K): keeps the parts bin topped up by crushing a fresh
+  Common wreck every 8 s or so while parts are low (more if the barn's next stage needs them). It never touches
+  Rare+ cars or a car anyone has started washing; a "♻ Scrapper" text shows each auto-crush.
   Finished cars can't be crushed (sell them). **Parts** show in the top bar: when a car finishes washing
   and you have 2+ parts, 2 are spent automatically to halve its damage ("Spare parts!").
 - **Contracts board** (Jobs tab, unlocks after 45 sales, about minute 5): three orders at a time —

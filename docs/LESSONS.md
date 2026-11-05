@@ -80,3 +80,15 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   metric in the sim, not just the unlock times.
 - **`tsc` covers tests too** (tsconfig includes `tests/`): run it after writing tests, it caught a wrong `tick()` call
   and a misused return value before vitest did.
+
+## 2026-11-05 (run 6)
+
+- **A rule that reads well on paper can never fire in play.** The Scrapper was specced to crush "when the lot is
+  full"; the 30-minute sim showed 0 crushes because a fast crew empties the lot faster than cars arrive (2.5 s), while
+  the bin sat at 1 part. Add a longer sim scenario whenever a feature is meant for later in the game, and assert it
+  actually triggers (`> 0`) as well as its upper limit. Rule now: crush while parts are low, then rest 8 s.
+- **Bots that "save up" for a new purchase can freeze everything else.** Putting the Scrapper in the bot's must-buy
+  list stopped it buying upgrades and the barn (no barn sold in 15 min). Optional purchases go into the bot's
+  "cheapest option" list instead.
+- **`console.log` in vitest only prints with `--reporter=verbose`** (that is why `npm run sim` uses it); use it for
+  throwaway debug tests, then delete the file.

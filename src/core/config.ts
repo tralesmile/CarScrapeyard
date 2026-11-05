@@ -1,8 +1,8 @@
 // All tunable numbers for the economy live here (mirrored in docs/economy.md).
 // Rule: game code never hard-codes a balance number; it reads ECON.
 
-export type UpgradeKind = 'wash' | 'repair' | 'quality';
-export type ManagerKind = 'mechanic' | 'washer' | 'seller';
+export type UpgradeKind = 'wash' | 'repair' | 'quality' | 'press';
+export type ManagerKind = 'mechanic' | 'washer' | 'seller' | 'scrapper';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family';
@@ -22,6 +22,8 @@ export const ECON = {
     wash: { name: 'Wash Bay', baseCost: 150, growth: 1.14 },
     repair: { name: 'Repair Bench', baseCost: 200, growth: 1.14 },
     quality: { name: 'Junk Supplier', baseCost: 900, growth: 1.22 },
+    /** Crusher upgrade (shown once the crusher unlocks): faster press, more parts per crush. */
+    press: { name: 'Hydraulic Press', baseCost: 1500, growth: 1.35 },
   } satisfies Record<UpgradeKind, { name: string; baseCost: number; growth: number }>,
 
   /** Each level adds this fraction of base power (wash and repair). */
@@ -45,6 +47,8 @@ export const ECON = {
     mechanic: { name: 'Mechanic', cost: 9_000, ratePerSec: 0.12 },
     washer: { name: 'Washer', cost: 30_000, ratePerSec: 0.15 },
     seller: { name: 'Salesperson', cost: 90_000, ratePerSec: 0 },
+    /** Crushes a fresh Common wreck now and then while the parts bin is low (shown once the crusher unlocks). */
+    scrapper: { name: 'Scrapper', cost: 40_000, ratePerSec: 0 },
   } satisfies Record<ManagerKind, { name: string; cost: number; ratePerSec: number }>,
 
   /** Seconds a salesperson needs to close a sale once a car is ready. */
@@ -99,6 +103,15 @@ export const ECON = {
     partsPerFix: 2,
     /** Fraction of the remaining damage that spare parts remove at once. */
     fixFraction: 0.5,
+    /** Hydraulic Press levels: cooldown = cooldown / (1 + this x (level - 1)), never below minCooldown (the press animation is ~1.3 s). */
+    pressSpeedPerLevel: 0.15,
+    minCooldown: 1.2,
+    /** Each Hydraulic Press level adds this fraction of the base parts per crush. */
+    pressPartsPerLevel: 0.1,
+    /** The Scrapper keeps at least this many parts in the bin (more if the barn's next stage needs more). */
+    scrapperKeepParts: 10,
+    /** Seconds the Scrapper rests after each crush, so it only tops up the bin (arrivals come every 2.5 s). */
+    scrapperRest: 8,
   },
 
   /** Contracts board: three timed orders with rewards. */

@@ -7,6 +7,8 @@ import type { CarFamily, ManagerKind, UpgradeKind } from './config';
 import { ECON, MODEL_NAMES, PAINTS } from './config';
 import {
   baseCarValue,
+  crusherCooldown,
+  crushParts,
   familyUnlockedAt,
   familyWeights,
   bulkCost,
@@ -23,7 +25,7 @@ import type { Car, GameState } from './state';
 import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
-import { barnReservesParts, tickBarn, type BarnEvent } from './barn';
+import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -43,7 +45,7 @@ export type GameEvent =
   | { type: 'legendary'; car: Car }
   /** A new car family starts arriving at the yard. */
   | { type: 'familyUnlocked'; family: CarFamily }
-  | { type: 'crushed'; car: Car; parts: number; cash: number }
+  | { type: 'crushed'; car: Car; parts: number; cash: number; auto: boolean }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
   | BuyerEvent
@@ -154,6 +156,14 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
     state.arrivalTimer = 0;
   }
 
+  // The Scrapper runs the press now and then while the parts bin is low.
+  if (state.scrapperRest > 0) state.scrapperRest = Math.max(0, state.scrapperRest - dt);
+  const scrap = scrapperPick(state);
+  if (scrap) {
+    crushInternal(state, scrap, true, events);
+    state.scrapperRest = ECON.crusher.scrapperRest;
+  }
+
   // Each manager works on one car at a time, oldest first.
   const washRate = managerRate(state, 'washer');
   if (washRate > 0) {
@@ -239,20 +249,44 @@ export function holdForHaggle(state: GameState, id: number): void {
   if (car) car.sellProgress = Math.min(car.sellProgress, -ECON.haggle.timeout);
 }
 
-/** Crush an unfinished wreck: Parts plus a little scrap cash. */
-export function crushCar(state: GameState, id: number): GameEvent[] {
-  const car = findCar(state, id);
-  if (!canCrush(state, car)) return [];
-  const parts = ECON.crusher.parts[car.rarity];
+function crushInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[]): void {
+  const parts = crushParts(car.rarity, state.levels.press);
   const cash = Math.floor(car.value * ECON.crusher.scrapFraction);
   state.cars = state.cars.filter((c) => c.id !== car.id);
   state.parts += parts;
   addCash(state, cash);
-  state.crusherCooldown = ECON.crusher.cooldown;
+  state.crusherCooldown = crusherCooldown(state.levels.press);
   state.stats.carsCrushed += 1;
-  const events: GameEvent[] = [{ type: 'crushed', car, parts, cash }];
+  events.push({ type: 'crushed', car, parts, cash, auto });
   onCarCrushed(state, events);
   ensureFocus(state);
+}
+
+/** Parts the Scrapper tries to keep in the bin: a floor, or what the barn's next stage needs. */
+export function scrapperTarget(state: GameState): number {
+  return Math.max(ECON.crusher.scrapperKeepParts, nextBarnStage(state)?.parts ?? 0);
+}
+
+/**
+ * The car the Scrapper would crush now, if any: only while parts are low and the Scrapper is rested,
+ * and only a fresh Common wreck nobody has started on (the newest one).
+ */
+export function scrapperPick(state: GameState): Car | undefined {
+  if (!state.managers.scrapper || !crusherUnlocked(state) || state.crusherCooldown > 0) return undefined;
+  if (state.scrapperRest > 0 || state.parts >= scrapperTarget(state)) return undefined;
+  for (let i = state.cars.length - 1; i >= 0; i--) {
+    const c = state.cars[i]!;
+    if (c.rarity === 'common' && c.dirt >= 1 && c.damage > 0) return c;
+  }
+  return undefined;
+}
+
+/** Crush an unfinished wreck: Parts plus a little scrap cash. */
+export function crushCar(state: GameState, id: number): GameEvent[] {
+  const car = findCar(state, id);
+  if (!canCrush(state, car)) return [];
+  const events: GameEvent[] = [];
+  crushInternal(state, car, false, events);
   return events;
 }
 

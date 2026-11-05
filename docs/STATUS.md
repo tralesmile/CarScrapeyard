@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 5; next run is run 6)
+Last updated: 2026-11-05 (run 6; next run is run 7)
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -23,7 +23,9 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.12 Barn find + restoration project: covered car at the back of the yard, multi-stage restore, reveal
 - [x] P0.13 Settings sheet: sound, music, reduce motion, number format, reset progress (with confirm), credits
 - [x] P0.14 Juice pass: haptics (navigator.vibrate + setting), Canvas 2D car art (rounded, antialiased), 4 new families (van, SUV, sports, hyper) unlocking by sales
-- [ ] P0.14b Crusher upgrades: faster press / more parts per crush; a "Scrapper" crew member who auto-crushes when the lot is full (found in run 2)
+- [x] P0.14b Crusher upgrades: Hydraulic Press (faster press, more parts) and the Scrapper crew member who tops up the parts bin (run 6)
+- [ ] P0.14j Scrapper polish (found in run 6): offline income ignores the Scrapper; show the press animation for
+      auto-crushes of thumbnail cars too, and a small Scrapper character beside the press
 - [ ] P0.14c Contracts polish: one free reroll per order; let timers run offline once push notifications exist (found in run 2)
 - [ ] P0.14d Buyers polish: draw the buyer as a little character walking in; Influencer buyer; give pickups a buyer once vans/SUVs exist; a "skip haggle" setting (found in run 3)
 - [x] P0.14e Floating texts overlap when several rewards land at once: they stack now; banners queue (run 5)

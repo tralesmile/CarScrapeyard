@@ -33,6 +33,12 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Scrap cash | 15% of the car's value |
 | Cooldown | 3 s |
 | Spare parts | 2 parts on wash completion halve the remaining damage |
+| Hydraulic Press (upgrade) | base $1,500, growth 1.35; cooldown `3 s / (1 + 0.15 × (level − 1))`, floor 1.2 s (the press animation); parts +10% of base per level |
+| Scrapper (crew) | $40,000; while parts < max(10, next barn stage's parts) it crushes the newest untouched Common wreck, then rests 8 s |
+
+Run 6 sim: the active bot buys 9 press levels in 15 min (16 in 30) and hires the Scrapper at 22m18s; over 30 minutes
+the Scrapper crushes 15 wrecks out of ~560 cars (3%), keeping parts stocked for two barn restorations. First-15-minute
+pacing is unchanged (Salesperson 9m01s, barn sold 13m24s, barn share 20%).
 
 ## Contracts
 

@@ -63,6 +63,17 @@ export function managerRate(state: GameState, kind: ManagerKind): number {
   return 0;
 }
 
+/** Seconds the crusher needs between crushes at this Hydraulic Press level. */
+export function crusherCooldown(pressLevel: number): number {
+  const c = ECON.crusher;
+  return Math.max(c.minCooldown, c.cooldown / (1 + c.pressSpeedPerLevel * (pressLevel - 1)));
+}
+
+/** Parts from crushing a car of this rarity at this Hydraulic Press level. */
+export function crushParts(rarity: Rarity, pressLevel: number): number {
+  return Math.round(ECON.crusher.parts[rarity] * (1 + ECON.crusher.pressPartsPerLevel * (pressLevel - 1)));
+}
+
 export function slotCost(currentSlots: number): number | null {
   const idx = currentSlots - ECON.slots.start;
   return ECON.slots.costs[idx] ?? null;

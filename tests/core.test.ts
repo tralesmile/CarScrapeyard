@@ -50,7 +50,7 @@ describe('formulas', () => {
   it('idle income is zero until all three managers are hired', () => {
     const s = newGame(T0, 1);
     expect(idleIncomePerSecond(s)).toBe(0);
-    s.managers = { mechanic: true, washer: true, seller: false };
+    s.managers = { mechanic: true, washer: true, seller: false, scrapper: false };
     expect(idleIncomePerSecond(s)).toBe(0);
     s.managers.seller = true;
     expect(idleIncomePerSecond(s)).toBeGreaterThan(0);
@@ -58,7 +58,7 @@ describe('formulas', () => {
 
   it('more lot slots raise idle income', () => {
     const s = newGame(T0, 1);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     const one = idleIncomePerSecond(s);
     s.slots = 3;
     expect(idleIncomePerSecond(s)).toBeGreaterThan(one);
@@ -66,7 +66,7 @@ describe('formulas', () => {
 
   it('offline earnings respect the cap', () => {
     const s = newGame(T0, 1);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     const capped = offlineEarnings(s, ECON.offline.capSeconds);
     expect(offlineEarnings(s, ECON.offline.capSeconds * 10)).toBe(capped);
     expect(offlineEarnings(s, -100)).toBe(0);
@@ -107,7 +107,7 @@ describe('core loop', () => {
 
   it('managers run the yard on their own', () => {
     const s = newGame(T0, 7);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     tick(s, 120);
     expect(s.carsSold).toBeGreaterThan(3);
     expect(s.cash).toBeGreaterThan(0);
@@ -154,7 +154,7 @@ describe('core loop', () => {
 describe('time and clock edge cases', () => {
   it('awards offline earnings for real elapsed time', () => {
     const s = newGame(T0, 1);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     const r = applyElapsed(s, T0 + 3_600_000);
     expect(r.seconds).toBeCloseTo(3600);
     expect(r.earned).toBe(offlineEarnings(s, 3600));
@@ -162,7 +162,7 @@ describe('time and clock edge cases', () => {
 
   it('a clock moved backwards awards nothing and does not move lastSeen back', () => {
     const s = newGame(T0, 1);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     const r = applyElapsed(s, T0 - 3_600_000);
     expect(r.earned).toBe(0);
     expect(s.lastSeen).toBe(T0);
@@ -172,7 +172,7 @@ describe('time and clock edge cases', () => {
 
   it('back-then-forward clock trick gains nothing extra', () => {
     const s = newGame(T0, 1);
-    s.managers = { mechanic: true, washer: true, seller: true };
+    s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
     applyElapsed(s, T0 + 60_000); // normal minute
     const back = applyElapsed(s, T0 - 86_400_000);
     const forward = applyElapsed(s, T0 + 120_000);

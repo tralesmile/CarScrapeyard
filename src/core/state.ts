@@ -73,6 +73,8 @@ export interface GameState {
   levels: Record<UpgradeKind, number>;
   slots: number;
   managers: Record<ManagerKind, boolean>;
+  /** Seconds until the Scrapper may crush again. */
+  scrapperRest: number;
   /** Parts from the crusher; spent automatically to speed up repairs. */
   parts: number;
   /** Seconds until the crusher can be used again. */
@@ -128,9 +130,10 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     cash: 0,
     lifetimeEarnings: 0,
     carsSold: 0,
-    levels: { wash: 1, repair: 1, quality: 1 },
+    levels: { wash: 1, repair: 1, quality: 1, press: 1 },
     slots: ECON.slots.start,
-    managers: { mechanic: false, washer: false, seller: false },
+    managers: { mechanic: false, washer: false, seller: false, scrapper: false },
+    scrapperRest: 0,
     parts: 0,
     crusherCooldown: 0,
     contracts: [],

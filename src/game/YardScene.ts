@@ -744,6 +744,7 @@ export class YardScene extends Phaser.Scene {
           sfx.fanfare();
           break;
         case 'crushed':
+          if (e.auto) this.floatText(this.scale.width / 2, this.px(this.focusArea().cy) - this.px(70), '♻ Scrapper', '#e8762b', 22);
           this.onCrushed(e.car.id, e.parts, e.cash);
           break;
         case 'partsUsed':

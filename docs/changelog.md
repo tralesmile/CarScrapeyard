@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0 - 2026-11-05 (run 6)
+
+- **Hydraulic Press upgrade** (Upgrades tab once the crusher unlocks): each level makes the press faster (down to
+  1.2 s) and adds 10% more parts per crush. The Crush button and the Epic/Legendary prompt show the upgraded parts.
+- **Scrapper** crew member ($40K, Crew tab once the crusher unlocks): while the parts bin is low (under 10, or
+  under what the next barn stage needs) it crushes a fresh Common wreck, then rests 8 s. Never Rare+ cars, never
+  a car anyone has started on.
+- The Crew tab's "something to buy" dot ignores the Scrapper while it is locked.
+- Balance bots buy press levels and hire the Scrapper; a new 30-minute sim checks the Scrapper only tops up the
+  bin (under 25% of sales; it crushes about 3%).
+- 9 new unit tests (103 total); e2e buys a press level, hires the Scrapper and waits for an auto-crush.
+
 ## 0.5.0 - 2026-11-05 (run 5)
 
 - **Four new car families:** Vans (after 15 sales), SUVs (40), Sports Cars (100, rarer) and Hypercars (200, rarest),
