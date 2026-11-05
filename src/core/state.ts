@@ -106,6 +106,8 @@ export interface GameState {
     /** No camera shake or flashes, fewer CSS animations. */
     reduceMotion: boolean;
     numberFormat: NumberFormat;
+    /** Vibrate on taps, sales and crushes (phones that support it). */
+    vibration: boolean;
   };
   stats: {
     legendaryFound: number;
@@ -144,7 +146,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     rng: seed >>> 0 || 1,
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short' },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }

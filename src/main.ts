@@ -5,6 +5,7 @@ import '@fontsource/nunito/800.css';
 import './style.css';
 
 import Phaser from 'phaser';
+import { haptics } from './platform/haptics';
 import { sfx } from './audio/sfx';
 import { ECON } from './core/config';
 import { SaveManager } from './core/save';
@@ -22,6 +23,7 @@ const saves = new SaveManager(platform.storage);
 const loaded = saves.load(platform.now());
 const state: GameState = loaded ?? newGame(platform.now());
 sfx.enabled = state.settings.sound;
+haptics.enabled = state.settings.vibration;
 setNumberFormat(state.settings.numberFormat);
 
 // ---- income rate (rolling 30 s window of real sales) ------------------------
@@ -53,6 +55,10 @@ function saveNow() {
 function onEvents(events: GameEvent[]) {
   for (const e of events) {
     if (e.type === 'sold') sales.push({ t: performance.now(), amount: e.amount });
+    if (e.type === 'familyUnlocked') {
+      ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
+      sfx.fanfare();
+    }
     if (e.type === 'legendary') ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
       ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
@@ -188,6 +194,8 @@ if (platform.storageVolatile) {
 ui.render();
 
 // Debug hook for automated tests: open the game with ?debug=1.
-if (new URLSearchParams(location.search).has('debug')) {
+const params = new URLSearchParams(location.search);
+if (params.has('debug')) {
   (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game };
+  if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }

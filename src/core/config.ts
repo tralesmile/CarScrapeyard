@@ -4,7 +4,7 @@
 export type UpgradeKind = 'wash' | 'repair' | 'quality';
 export type ManagerKind = 'mechanic' | 'washer' | 'seller';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle';
+export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family';
 
 export const ECON = {
@@ -64,12 +64,20 @@ export const ECON = {
     legendary: { weight: 0.5, valueMult: 20, label: 'Legendary' },
   } satisfies Record<Rarity, { weight: number; valueMult: number; label: string }>,
 
+  /**
+   * Car families. `weight` is how often one arrives (relative), `unlockCarsSold` when it starts arriving.
+   * Rarer, pricier families unlock later so every few minutes something new rolls in.
+   */
   families: {
-    sedan: { name: 'Sedan', baseValue: 420 },
-    hatch: { name: 'Hatchback', baseValue: 360 },
-    pickup: { name: 'Pickup', baseValue: 520 },
-    muscle: { name: 'Muscle', baseValue: 680 },
-  } satisfies Record<CarFamily, { name: string; baseValue: number }>,
+    sedan: { name: 'Sedan', baseValue: 420, weight: 1, unlockCarsSold: 0 },
+    hatch: { name: 'Hatchback', baseValue: 360, weight: 1, unlockCarsSold: 0 },
+    pickup: { name: 'Pickup', baseValue: 520, weight: 1, unlockCarsSold: 0 },
+    muscle: { name: 'Muscle', baseValue: 680, weight: 1, unlockCarsSold: 0 },
+    van: { name: 'Van', baseValue: 460, weight: 1, unlockCarsSold: 15 },
+    suv: { name: 'SUV', baseValue: 600, weight: 1, unlockCarsSold: 40 },
+    sports: { name: 'Sports Car', baseValue: 950, weight: 0.5, unlockCarsSold: 100 },
+    hyper: { name: 'Hypercar', baseValue: 1800, weight: 0.2, unlockCarsSold: 200 },
+  } satisfies Record<CarFamily, { name: string; baseValue: number; weight: number; unlockCarsSold: number }>,
 
   /** The first N cars are always Common, so the tutorial pacing is predictable. */
   tutorialCommonCars: 5,
@@ -135,8 +143,8 @@ export const ECON = {
     kinds: {
       bargain: { name: 'Bargain Hunter', icon: '🤑', wants: 'a Hatchback', families: ['hatch'], minRarity: null, bonus: 0.15 },
       collector: { name: 'Collector', icon: '🧐', wants: 'a Rare+ car', families: null, minRarity: 'rare', bonus: 0.4 },
-      speed: { name: 'Speed Freak', icon: '😎', wants: 'a Muscle car', families: ['muscle'], minRarity: null, bonus: 0.25 },
-      family: { name: 'Family', icon: '👪', wants: 'a Sedan', families: ['sedan'], minRarity: null, bonus: 0.2 },
+      speed: { name: 'Speed Freak', icon: '😎', wants: 'a fast car', families: ['muscle', 'sports', 'hyper'], minRarity: null, bonus: 0.25 },
+      family: { name: 'Family', icon: '👪', wants: 'a family car', families: ['sedan', 'van', 'suv'], minRarity: null, bonus: 0.2 },
     } satisfies Record<
       BuyerKind,
       { name: string; icon: string; wants: string; families: readonly CarFamily[] | null; minRarity: Rarity | null; bonus: number }
@@ -155,7 +163,7 @@ export const ECON = {
       { name: 'Fresh paint', cashMult: 8, parts: 0, seconds: 90 },
     ],
     /** Sale value = expected car value x this, at the reveal. */
-    saleMult: 60,
+    saleMult: 55,
     /** Each finished restoration makes the next one cost and pay this much more. */
     growthPerRestore: 0.15,
     /** Seconds until the next barn find after one is sold (runs offline too). */
@@ -173,6 +181,10 @@ export const CLASSIC_NAMES: Record<CarFamily, readonly string[]> = {
   hatch: ["Kaze Kitsune '71", "Regalia Pebble '66"],
   pickup: ["Stallion Prospector '54", "Vortex Mule '59"],
   muscle: ["Stallion Wildfire '67", "Vortex Nightjar '69"],
+  van: ["Kaze Wanderer '63", "Regalia Picnic '68"],
+  suv: ["Stallion Scout '72", "Vortex Bighorn '70"],
+  sports: ["Kaze Hayabusa '74", "Regalia Spyder '65"],
+  hyper: ["Vortex Apex '89", "Stallion Mirage '92"],
 };
 
 /** Fictional brands only. Never use real car makers' names or logos. */
@@ -181,4 +193,8 @@ export const MODEL_NAMES: Record<CarFamily, readonly string[]> = {
   hatch: ['Kaze Pip', 'Vortex Hopper', 'Regalia Mini', 'Stallion Spark'],
   pickup: ['Stallion Ranger', 'Vortex Hauler', 'Kaze Trail', 'Regalia Ox'],
   muscle: ['Stallion Thunder', 'Vortex Fury', 'Regalia Brute', 'Kaze Ronin'],
+  van: ['Kaze Caravan', 'Vortex Shuttle', 'Regalia Nomad', 'Stallion Courier'],
+  suv: ['Stallion Ridge', 'Kaze Summit', 'Vortex Grizzly', 'Regalia Atlas'],
+  sports: ['Kaze Raiden', 'Regalia Vento', 'Vortex Arrow', 'Stallion Blaze'],
+  hyper: ['Vortex Zenith', 'Stallion Phantom', 'Kaze Tempest', 'Regalia Halo'],
 };

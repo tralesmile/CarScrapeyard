@@ -117,9 +117,10 @@ describe('customer personalities', () => {
     expect(buyerMatches('collector', mk({ rarity: 'legendary' }))).toBe(true);
   });
 
-  it('every car family is wanted by at least one buyer except pickups (until vans/SUVs exist)', () => {
-    const wanted = new Set(Object.values(ECON.buyers.kinds).flatMap((b) => b.families ?? []));
-    expect([...wanted].sort()).toEqual(['hatch', 'muscle', 'sedan']);
+  it('every car family is wanted by at least one buyer except pickups (their buyer comes in P0.14d)', () => {
+    const wanted = new Set<string>(Object.values(ECON.buyers.kinds).flatMap((b) => b.families ?? []));
+    const unwanted = Object.keys(ECON.families).filter((f) => !wanted.has(f));
+    expect(unwanted).toEqual(['pickup']);
   });
 
   it('buyers unlock after enough sales, arrive, wait and leave', () => {

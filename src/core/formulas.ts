@@ -72,10 +72,27 @@ export function baseCarValue(family: CarFamily, rarity: Rarity, qualityLevel: nu
   return ECON.families[family].baseValue * ECON.rarity[rarity].valueMult * qualityMultiplier(qualityLevel);
 }
 
-/** Expected value of the next car, averaged over families and rarities. */
-export function expectedCarValue(qualityLevel: number): number {
-  const fams = Object.values(ECON.families);
-  const famAvg = fams.reduce((s, f) => s + f.baseValue, 0) / fams.length;
+/** Families that arrive at the yard after this many sales, in config order. */
+export function unlockedFamilies(carsSold: number): CarFamily[] {
+  return (Object.keys(ECON.families) as CarFamily[]).filter((f) => carsSold >= ECON.families[f].unlockCarsSold);
+}
+
+/** The family that starts arriving at exactly this many sales, if any. */
+export function familyUnlockedAt(carsSold: number): CarFamily | null {
+  const hit = (Object.keys(ECON.families) as CarFamily[]).find((f) => ECON.families[f].unlockCarsSold === carsSold && carsSold > 0);
+  return hit ?? null;
+}
+
+/** Arrival weights of the unlocked families (locked ones are left out). */
+export function familyWeights(carsSold: number): Record<CarFamily, number> {
+  return Object.fromEntries(unlockedFamilies(carsSold).map((f) => [f, ECON.families[f].weight])) as Record<CarFamily, number>;
+}
+
+/** Expected value of the next car, averaged over the unlocked families (by weight) and rarities. */
+export function expectedCarValue(qualityLevel: number, carsSold: number): number {
+  const fams = unlockedFamilies(carsSold).map((f) => ECON.families[f]);
+  const famW = fams.reduce((s, f) => s + f.weight, 0);
+  const famAvg = fams.reduce((s, f) => s + f.weight * f.baseValue, 0) / famW;
   const rar = Object.values(ECON.rarity);
   const totalW = rar.reduce((s, r) => s + r.weight, 0);
   const rarAvg = rar.reduce((s, r) => s + r.weight * r.valueMult, 0) / totalW;
@@ -99,7 +116,7 @@ export function idleIncomePerSecond(state: GameState): number {
   const stages = [washTime, repairTime, ECON.sellerDelay, ECON.arrivalInterval];
   const cycle = stages.reduce((s, t) => s + t, 0);
   const carsPerSecond = Math.min(1 / Math.max(...stages), state.slots / cycle);
-  return carsPerSecond * expectedCarValue(state.levels.quality);
+  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold);
 }
 
 /** Offline earnings for a gap of `seconds`, using the cap and efficiency. */

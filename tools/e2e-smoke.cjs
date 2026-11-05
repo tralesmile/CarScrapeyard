@@ -157,6 +157,31 @@ async function waitForServer(url, ms = 15000) {
     const buyerPaid = await page.evaluate(() => window.__jye.state.cash);
     assert(buyerPaid - matchCar.cash === Math.round(matchCar.value * 1.25), `Speed Freak pays the bonus (${buyerPaid - matchCar.cash})`);
 
+    console.log('new car families');
+    await page.evaluate(() => {
+      window.__vib = [];
+      // Phaser copies vibrate onto navigator itself, so stub the own property.
+      navigator.vibrate = (p) => (window.__vib.push(p), true);
+    });
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    await page.waitForTimeout(700);
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.carsSold = 14;
+      s.buyer = null;
+      const c = s.cars[0];
+      c.rarity = 'common';
+      c.dirt = 0;
+      c.damage = 0;
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    if (await page.$('.haggle:not(.hidden)')) await page.click('.haggle');
+    await page.waitForFunction(() => window.__jye.state.carsSold === 15, null, { timeout: 7000 });
+    await page.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('NEW CARS'), null, { timeout: 4000 });
+    assert((await page.textContent('.banner')).includes('Vans'), 'selling car #15 announces Vans');
+    assert(await page.evaluate(() => window.__vib.length > 0), 'haptics fire on sales and taps (navigator.vibrate)');
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');
@@ -175,6 +200,22 @@ async function waitForServer(url, ms = 15000) {
     await page.screenshot({ path: path.join(SHOTS, 'e2e-06-crusher.png') });
     let crushed = await page.evaluate(() => ({ n: window.__jye.state.stats.carsCrushed, parts: window.__jye.state.parts }));
     assert(crushed.n === 1 && crushed.parts > 0, `crushing a wreck gives parts (${crushed.parts})`);
+    // "+6 Parts" and "+$110" land together: they must stack, not overlap.
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text)).length >= 2, null, { timeout: 3000 });
+    const overlaps = await page.evaluate(() => {
+      const texts = window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text));
+      const r = texts.map((t) => t.getBounds());
+      let n = 0;
+      for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+        const a = r[i], b = r[j];
+        const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (ix > 0 && iy > a.height * 0.25) n++;
+      }
+      return { n, texts: texts.map((t) => t.text) };
+    });
+    assert(overlaps.n === 0, `reward texts stack without overlapping (${overlaps.texts.join(' / ')})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-06b-crush-rewards.png') });
     await page.waitForTimeout(1200);
     // Epic cars ask before crushing.
     await page.waitForFunction(() => window.__jye.state.cars.length > 0 && window.__jye.state.crusherCooldown === 0, null, { timeout: 8000 });
@@ -345,6 +386,10 @@ async function waitForServer(url, ms = 15000) {
     assert(cashAfter > cashBefore, 'collecting adds offline earnings');
 
     console.log('settings');
+    await page.evaluate(() => {
+      window.__vib = [];
+      navigator.vibrate = (p) => (window.__vib.push(p), true);
+    });
     await page.click('.settings-btn');
     await page.waitForSelector('.modal.settings');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-13-settings.png') });
@@ -358,6 +403,13 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.toggle[aria-label="Sound effects"]');
     assert((await page.textContent('.hud .icon-btn')).includes('🔇'), 'sound toggle mutes the game');
     await page.click('.toggle[aria-label="Sound effects"]');
+    await page.click('.toggle[aria-label="Vibration"]');
+    assert(await page.evaluate(() => window.__jye.state.settings.vibration === false), 'vibration switches off');
+    const vibCount = await page.evaluate(() => window.__vib.length);
+    await page.click('.seg-btn[data-fmt="short"]');
+    assert(await page.evaluate((n) => window.__vib.length === n, vibCount), 'no haptics while vibration is off');
+    await page.click('.toggle[aria-label="Vibration"]');
+    assert(await page.evaluate((n) => window.__jye.state.settings.vibration && window.__vib.length > n, vibCount), 'vibration switches back on with a test buzz');
     await page.click('.modal.settings .buy');
     assert(!(await page.$('.modal.settings')), 'Done closes the settings');
     await page.evaluate(() => window.__jye.saveNow());
@@ -380,6 +432,31 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye && window.__jye.state);
     const fresh = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash, intro: window.__jye.state.tutorial.introSeen }));
     assert(fresh.sold === 0 && fresh.cash === 0 && !fresh.intro, 'reset progress starts a new game');
+
+    console.log('car art gallery');
+    const gal = await ctx.newPage();
+    gal.on('pageerror', (e) => errors.push('gallery pageerror: ' + e.message));
+    await gal.goto(URL + '&gallery=1');
+    await gal.waitForSelector('.car-gallery canvas');
+    await gal.waitForTimeout(300);
+    const art = await gal.evaluate(() =>
+      [...document.querySelectorAll('.car-gallery canvas')].map((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let solid = 0;
+        let soft = 0;
+        for (let i = 3; i < d.length; i += 4) {
+          if (d[i] === 255) solid++;
+          else if (d[i] > 0) soft++;
+        }
+        return { family: c.dataset.family, solid, soft };
+      }),
+    );
+    const fams = [...new Set(art.map((a) => a.family))];
+    assert(fams.length === 8, `gallery draws all 8 families (${fams.join(', ')})`);
+    assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
+    assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
+    await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });
+    await gal.close();
 
     console.log('desktop layout');
     const d = await browser.newPage({ viewport: { width: 1280, height: 800 } });

@@ -107,7 +107,7 @@ describe('barn find', () => {
 
   it('pays back clearly more than it costs (worth the wait)', () => {
     const { s } = unlocked();
-    const ecv = expectedCarValue(s.levels.quality);
+    const ecv = expectedCarValue(s.levels.quality, s.carsSold);
     const cost = ECON.barn.stages.reduce((sum, st) => sum + st.cashMult, 0) * ecv;
     expect(barnValue(s) / cost).toBeGreaterThan(2);
   });

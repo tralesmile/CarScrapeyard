@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0 - 2026-11-05 (run 5)
+
+- **Four new car families:** Vans (after 15 sales), SUVs (40), Sports Cars (100, rarer) and Hypercars (200, rarest),
+  each with its own body, fictional models and barn classics, announced with a "NEW CARS!" banner. Family buyers now
+  want any family car (sedan, van, SUV), Speed Freaks any fast car (muscle, sports, hyper).
+- **New car art:** cars are painted with Canvas 2D: smooth antialiased edges, rounded corners, paint gradient and
+  gloss, wheel arches, door handles, roof racks, wings and intakes; legendary cars get gold rims; rust is clipped to
+  the body and drawn as patchy clusters. Debug art sheet at `?debug=1&gallery=1`.
+- **Haptics:** subtle vibrations on taps, repairs, sales, purchases, crushes and celebrations; new Vibration switch
+  in Settings (off = no buzz; sound has its own switch).
+- Floating reward texts stack instead of overlapping; big banners queue instead of cutting each other off.
+- Contract rewards, barn prices and idle income use the expected value of the unlocked families; barn sale x60 -> x55.
+- Saves with an unknown car family or rarity drop that car instead of crashing.
+- 18 new unit tests (94 total); e2e covers the van unlock banner, haptics, the Vibration setting, stacked crush
+  rewards and an art check (all 8 families drawn, antialiased edges) with a gallery screenshot.
+
 ## 0.4.0 - 2026-11-05 (run 4)
 
 - **Barn find** (after 60 sales): a little red barn at the back of the yard hides a covered classic. Restore it in

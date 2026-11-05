@@ -5,7 +5,8 @@ import { formatCash } from '../core/format';
 import { carStage, findCar, focusCar, repairTap, tick, washCar, type GameEvent } from '../core/sim';
 import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
-import { drawCar, drawRust, mudSpots } from './carArt';
+import { mudSpots, paintCar, paintRust } from './carArt';
+import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 /** Car textures are drawn at this size and scaled for display. */
 const TEX_W = 720;
@@ -248,14 +249,17 @@ export class YardScene extends Phaser.Scene {
   private ensureCarTextures(car: Car) {
     const key = `car-${car.id}`;
     if (this.textures.exists(key)) return key;
-    const g = this.make.graphics({}, false);
-    drawCar(g, car, TEX_W, TEX_H);
-    g.generateTexture(key, TEX_W, TEX_H);
-    g.clear();
-    drawRust(g, car.family, TEX_W, TEX_H, car.id);
-    g.generateTexture(`rust-${car.id}`, TEX_W, TEX_H);
-    g.destroy();
+    this.canvasTexture(key, (ctx) => paintCar(ctx, car, TEX_W, TEX_H));
+    this.canvasTexture(`rust-${car.id}`, (ctx) => paintRust(ctx, car.family, TEX_W, TEX_H, car.id));
     return key;
+  }
+
+  /** Paint a texture with the Canvas 2D API (antialiased on every renderer). */
+  private canvasTexture(key: string, paint: (ctx: CanvasRenderingContext2D) => void) {
+    const tex = this.textures.createCanvas(key, TEX_W, TEX_H);
+    if (!tex) return;
+    paint(tex.getContext());
+    tex.refresh();
   }
 
   private releaseCarTextures(id: number) {
@@ -435,10 +439,7 @@ export class YardScene extends Phaser.Scene {
     const b = this.bridge.state.barn;
     const key = `barncar-${b.family}-${b.paint}`;
     if (!this.textures.exists(key)) {
-      const g = this.make.graphics({}, false);
-      drawCar(g, { family: b.family, paint: b.paint, rarity: 'legendary' }, TEX_W, TEX_H);
-      g.generateTexture(key, TEX_W, TEX_H);
-      g.destroy();
+      this.canvasTexture(key, (ctx) => paintCar(ctx, { family: b.family, paint: b.paint, rarity: 'legendary' }, TEX_W, TEX_H));
     }
     const cx = W / 2;
     const cy = H * 0.3;
@@ -786,7 +787,20 @@ export class YardScene extends Phaser.Scene {
     this.coinBurst(from.x, from.y, amount);
   }
 
-  private floatText(x: number, y: number, msg: string, color: string, size: number, depth = 11) {
+  private floaters: Floater[] = [];
+
+  /** Start y for a floating text, moved up past any reward text that just appeared at the same spot. */
+  private placeFloater(x: number, y: number, size: number): number {
+    const now = this.time.now;
+    const h = this.px(size * 1.15);
+    this.floaters = pruneFloaters(this.floaters, now);
+    const sy = stackY(this.floaters, x, y, h, now, this.px(160));
+    this.floaters.push({ x, y: sy, h, born: now });
+    return sy;
+  }
+
+  private floatText(x: number, y0: number, msg: string, color: string, size: number, depth = 11) {
+    const y = this.placeFloater(x, y0, size);
     const text = this.add
       .text(x, y, msg, {
         fontFamily: '"Lilita One", sans-serif',
@@ -934,7 +948,7 @@ export class YardScene extends Phaser.Scene {
       });
     }
     const text = this.add
-      .text(x, y - this.px(40), `+${formatCash(amount)}`, {
+      .text(x, this.placeFloater(x, y - this.px(40), 30), `+${formatCash(amount)}`, {
         fontFamily: '"Lilita One", sans-serif',
         fontSize: `${this.px(30)}px`,
         color: '#3bc45a',

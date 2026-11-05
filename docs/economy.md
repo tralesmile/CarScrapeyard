@@ -52,14 +52,29 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | When | manual sales only: the 2nd sale ever (lesson: slow needle, at least x1.2), Rare+ cars, buyer matches |
 | Needle | 0.9 sweeps/s (lesson 0.45); closes at x1 after 4 s untouched |
 
+## Car families
+
+| Family | Base value | Arrival weight | Starts arriving after |
+| --- | --- | --- | --- |
+| Sedan / Hatchback / Pickup / Muscle | $420 / $360 / $520 / $680 | 1 each | first car |
+| Van | $460 | 1 | 15 sales (~1 min) |
+| SUV | $600 | 1 | 40 sales (~3 min) |
+| Sports Car | $950 | 0.5 | 100 sales (~6-8 min) |
+| Hypercar | $1,800 | 0.2 | 200 sales (~13 min, active player) |
+
+Expected car value (contract rewards, barn prices, idle income) is the weighted average over the families
+unlocked so far, so rewards grow as new families arrive. "Sell N of a family" orders only ask for unlocked
+families with weight 1 (no orders for 3 Hypercars). Run 5 sim: active Salesperson 8m07s -> 9m01s, relaxed
+12m18s -> 12m45s (bots crush more, and more varied cars), barn share 23% -> 21% after the x55 sale price.
+
 ## Customer personalities
 
 | Buyer | Wants | Bonus |
 | --- | --- | --- |
 | Bargain Hunter | Hatchback | +15% |
 | Collector | Rare, Epic or Legendary | +40% |
-| Speed Freak | Muscle | +25% |
-| Family | Sedan | +20% |
+| Speed Freak | Muscle, Sports Car, Hypercar | +25% |
+| Family | Sedan, Van, SUV | +20% |
 
 Unlock after 10 sales. One buyer at a time, waits 75 s, next buyer 8 s after one leaves or is served.
 Bonuses apply to crew sales too and stack with haggle. Sim limit: manual haggle + buyer bonus < 15% of
@@ -71,10 +86,10 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | --- | --- |
 | Unlock | 60 cars sold |
 | Stages (cash = expected car value x) | Tow 2x / 20 s · Engine 4x + 6 parts / 45 s · Body 6x + 12 parts / 60 s · Paint 8x / 90 s |
-| Sale | expected car value x 60 at the reveal (3x the cash cost) |
+| Sale | expected car value x 55 at the reveal (2.75x the cash cost; was x60 until run 5) |
 | Growth | +15% cost and value per restoration sold |
 | Next find | 5 min after a sale (runs offline) |
-| Share of income | sim limit < 25% of first-15-minute earnings (active 18%; relaxed bot reaches stage 3) |
+| Share of income | sim limit < 25% of first-15-minute earnings (active 21%; relaxed bot reaches stage 3) |
 
 ## Pacing targets (checked by `npm run sim`)
 

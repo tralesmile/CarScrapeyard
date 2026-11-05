@@ -2,9 +2,8 @@
 // to run each restoration stage on a timer, then reveals a Legendary classic and sells it.
 // Pure rules, ticked from sim.ts. Timers also run while the player is away (see advanceBarn).
 
-import type { CarFamily } from './config';
 import { CLASSIC_NAMES, ECON, PAINTS } from './config';
-import { expectedCarValue, roundNice } from './formulas';
+import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { pick } from './rng';
 import type { GameState } from './state';
 
@@ -37,13 +36,13 @@ export function nextBarnStage(state: GameState) {
 export function barnStageCost(state: GameState): { cash: number; parts: number } {
   const st = nextBarnStage(state);
   if (!st) return { cash: 0, parts: 0 };
-  return { cash: roundNice(expectedCarValue(state.levels.quality) * st.cashMult * growth(state)), parts: st.parts };
+  return { cash: roundNice(expectedCarValue(state.levels.quality, state.carsSold) * st.cashMult * growth(state)), parts: st.parts };
 }
 
 /** What the restored car will sell for (shown on the card as a teaser, fixed at the reveal). */
 export function barnValue(state: GameState): number {
   if (state.barn.status === 'revealed') return state.barn.value;
-  return roundNice(expectedCarValue(state.levels.quality) * ECON.barn.saleMult * growth(state));
+  return roundNice(expectedCarValue(state.levels.quality, state.carsSold) * ECON.barn.saleMult * growth(state));
 }
 
 /** While the next stage needs parts the player doesn't have yet, spare parts are kept for it. */
@@ -53,7 +52,7 @@ export function barnReservesParts(state: GameState): boolean {
 }
 
 function newFind(state: GameState, events: BarnSink): void {
-  const family = pick(state, Object.keys(ECON.families) as CarFamily[]);
+  const family = pick(state, unlockedFamilies(state.carsSold));
   const b = state.barn;
   b.status = 'covered';
   b.stage = 0;

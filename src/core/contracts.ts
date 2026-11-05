@@ -3,7 +3,7 @@
 
 import type { CarFamily } from './config';
 import { ECON } from './config';
-import { expectedCarValue, roundNice } from './formulas';
+import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { Car, Contract, ContractKind, GameState } from './state';
 
@@ -28,25 +28,31 @@ function rollInt(state: GameState, [min, max]: readonly [number, number]): numbe
   return min + Math.floor(nextRandom(state) * (max - min + 1));
 }
 
-/** Fill `slot` with a fresh order. Avoids repeating an order already on the board. */
+/** Families a "sell N of a family" order can ask for: unlocked and common enough to finish in time. */
+export function contractFamilies(state: GameState): CarFamily[] {
+  return unlockedFamilies(state.carsSold).filter((f) => ECON.families[f].weight >= 1);
+}
+
+/** Fill `slot` with a fresh order. Avoids repeating an order already on the board.
+ * (With 4 starting families there are 7 distinct orders for 3 slots, so a free one always exists.) */
 export function generateContract(state: GameState, slot: Contract): void {
   const others = state.contracts.filter((c) => c !== slot && c.status !== 'empty');
   let kind: ContractKind;
   let family: CarFamily | null;
   const taken = (k: ContractKind, f: CarFamily | null) => others.some((o) => o.kind === k && o.family === f);
   kind = weighted(state, KIND_WEIGHTS);
-  family = kind === 'sellFamily' ? pick(state, Object.keys(ECON.families) as CarFamily[]) : null;
+  family = kind === 'sellFamily' ? pick(state, contractFamilies(state)) : null;
   if (taken(kind, family)) {
     // Pick randomly among the orders not on the board yet (there are always some: 7 orders, 3 slots).
     const free: [ContractKind, CarFamily | null][] = [];
     for (const k of Object.keys(KIND_WEIGHTS) as ContractKind[]) {
-      const fams: (CarFamily | null)[] = k === 'sellFamily' ? (Object.keys(ECON.families) as CarFamily[]) : [null];
+      const fams: (CarFamily | null)[] = k === 'sellFamily' ? contractFamilies(state) : [null];
       for (const f of fams) if (!taken(k, f)) free.push([k, f]);
     }
     if (free.length) [kind, family] = pick(state, free);
   }
   const target = rollInt(state, ECON.contracts.targets[kind]);
-  const cash = expectedCarValue(state.levels.quality) * target * ECON.contracts.rewardMult[kind];
+  const cash = expectedCarValue(state.levels.quality, state.carsSold) * target * ECON.contracts.rewardMult[kind];
   slot.id = state.nextContractId++;
   slot.status = 'active';
   slot.kind = kind;

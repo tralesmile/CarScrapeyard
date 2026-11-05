@@ -3,10 +3,12 @@
 //
 // The UI never edits state directly: it calls these actions.
 
-import type { ManagerKind, UpgradeKind } from './config';
+import type { CarFamily, ManagerKind, UpgradeKind } from './config';
 import { ECON, MODEL_NAMES, PAINTS } from './config';
 import {
   baseCarValue,
+  familyUnlockedAt,
+  familyWeights,
   bulkCost,
   idleIncomePerSecond,
   managerRate,
@@ -39,6 +41,8 @@ export type GameEvent =
       buyerMult: number;
     }
   | { type: 'legendary'; car: Car }
+  /** A new car family starts arriving at the yard. */
+  | { type: 'familyUnlocked'; family: CarFamily }
   | { type: 'crushed'; car: Car; parts: number; cash: number }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
@@ -60,7 +64,7 @@ export function carStage(car: Car): 'dirty' | 'damaged' | 'ready' {
 }
 
 export function generateCar(state: GameState): Car {
-  const family = pick(state, Object.keys(ECON.families) as (keyof typeof ECON.families)[]);
+  const family = weighted(state, familyWeights(state.carsSold));
   const weights = Object.fromEntries(
     Object.entries(ECON.rarity).map(([k, v]) => [k, v.weight]),
   ) as Record<keyof typeof ECON.rarity, number>;
@@ -98,6 +102,8 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   state.tutorial.firstSale = true;
   events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
+  const fam = familyUnlockedAt(state.carsSold);
+  if (fam) events.push({ type: 'familyUnlocked', family: fam });
   ensureFocus(state);
 }
 

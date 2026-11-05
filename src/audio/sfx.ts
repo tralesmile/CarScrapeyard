@@ -1,6 +1,9 @@
 // Sound effects synthesised with Web Audio: no audio files to download.
 // Browsers block audio until the first user gesture, so `unlock()` is
 // called on the first pointer press.
+// Each effect also plays a matching haptic (haptics have their own on/off setting).
+
+import { haptics } from '../platform/haptics';
 
 type Wave = OscillatorType;
 
@@ -70,6 +73,7 @@ class Sfx {
   }
 
   tap() {
+    haptics.play('tap');
     this.tone(520, 0.06, 'square', 0.08);
   }
   wash() {
@@ -79,26 +83,32 @@ class Sfx {
     this.noise(0.12, 2400 + Math.random() * 800, 0.12);
   }
   washed() {
+    haptics.play('success');
     this.tone(880, 0.12, 'sine', 0.2);
     this.tone(1320, 0.18, 'sine', 0.18, undefined, 0.08);
   }
   wrench() {
+    haptics.play('tick');
     this.noise(0.05, 4000, 0.2);
     this.tone(180 + Math.random() * 60, 0.07, 'square', 0.1);
   }
   repaired() {
+    haptics.play('success');
     this.tone(392, 0.12, 'triangle', 0.25);
     this.tone(523, 0.12, 'triangle', 0.25, undefined, 0.1);
     this.tone(784, 0.25, 'triangle', 0.25, undefined, 0.2);
   }
   coin() {
+    haptics.play('tick');
     this.tone(988, 0.08, 'square', 0.12);
     this.tone(1319, 0.2, 'square', 0.12, undefined, 0.07);
   }
   buy() {
+    haptics.play('tap');
     this.tone(660, 0.08, 'triangle', 0.2, 990);
   }
   denied() {
+    haptics.play('error');
     this.tone(220, 0.15, 'sawtooth', 0.08, 160);
   }
   engine() {
@@ -106,15 +116,18 @@ class Sfx {
   }
   /** Hydraulic press: hiss, then a heavy metal crunch. */
   crushStart() {
+    haptics.play('tap');
     this.noise(0.25, 900, 0.12);
     this.tone(110, 0.25, 'sawtooth', 0.08, 70);
   }
   crush() {
+    haptics.play('heavy');
     this.noise(0.45, 300, 0.45);
     this.noise(0.25, 1800, 0.2);
     this.tone(55, 0.5, 'square', 0.22, 35);
   }
   parts() {
+    haptics.play('tick');
     this.tone(1200, 0.05, 'square', 0.08);
     this.tone(1600, 0.08, 'square', 0.08, undefined, 0.05);
   }
@@ -125,10 +138,12 @@ class Sfx {
   }
   /** Barn find reveal: a rising shimmer, then a big chord. */
   reveal() {
+    haptics.play('celebrate');
     [392, 494, 587, 698, 784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.18, 'sine', 0.12, undefined, i * 0.07));
     [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.1, 'triangle', 0.16, undefined, 0.6));
   }
   fanfare() {
+    haptics.play('celebrate');
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, undefined, i * 0.12));
   }
 }

@@ -1,6 +1,7 @@
 // DOM UI: top bar, hints, sell button, upgrade panel, modals.
 // DOM instead of canvas for UI: crisp text, accessibility, easy translation.
 
+import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
 import { bulkCost, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
@@ -757,10 +758,26 @@ export class Ui {
 
   // ---- banners, toasts and modals -----------------------------------------
 
+  private bannerQueue: [string, string][] = [];
+  private bannerBusy = false;
+
+  /** Big centre banner. Banners that arrive while one is showing wait their turn instead of replacing it. */
   showBanner(title: string, sub: string) {
+    if (this.bannerBusy) {
+      if (this.bannerQueue.length < 4) this.bannerQueue.push([title, sub]);
+      return;
+    }
+    this.bannerBusy = true;
     this.banner.innerHTML = `${title}<small>${sub}</small>`;
     this.banner.classList.add('show');
-    setTimeout(() => this.banner.classList.remove('show'), 2600);
+    setTimeout(() => {
+      this.banner.classList.remove('show');
+      setTimeout(() => {
+        this.bannerBusy = false;
+        const next = this.bannerQueue.shift();
+        if (next) this.showBanner(next[0], next[1]);
+      }, 300);
+    }, 2600);
   }
 
   toast(message: string, ms = 4000) {
@@ -866,6 +883,11 @@ export class Ui {
       }),
       toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
       toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+      toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {
+        s.settings.vibration = v;
+        haptics.enabled = v;
+        haptics.play('tap');
+      }),
     );
     // Number format: two-way switch.
     const fmtRow = el('div', 'set-row');

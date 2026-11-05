@@ -16,8 +16,15 @@ to automate it, open new car businesses, then sell your empire and start again i
   Buy x1, x10 or Max. Wash/Repair double at levels 10, 25, 50, 100, 200.
 - **Crew:** Mechanic (auto-repair), Washer (auto-wash), Salesperson (auto-sell). Each works one car at a time.
 - **Lot Space:** up to 4 cars in the yard at once; tap a car in the top row to work on it.
-- **Cars:** 4 body families (sedan, hatchback, pickup, muscle), 10 paints, 4 rarities
-  (Common, Rare, Epic, Legendary at 0.5% — the "barn find"). Rare+ cars get trim stripes.
+- **Cars:** 8 body families, 10 paints, 4 rarities (Common, Rare, Epic, Legendary at 0.5%). Sedan, hatchback,
+  pickup and muscle from the start; vans (15 sales), SUVs (40), sports cars (100) and hypercars (200) roll in later
+  with a "NEW CARS!" banner, each worth more and the last two rarer. Rare+ cars get trim stripes, Legendary gold rims.
+- **Car art:** painted with the Canvas 2D API (antialiased, rounded corners, body gradient, gloss, wheel arches,
+  door seams, roof rack on SUVs, intakes and wings on sports/hyper). Review sheet: `?debug=1&gallery=1`.
+- **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
+  the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
+- **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of
+  replacing each other.
 - **Offline earnings:** with the full crew hired, the yard earns while you're away
   (50% rate, up to 2 hours). Shown in a "Welcome back" popup; kept in the save until collected.
 - **Car crusher** (unlocks after 25 sales, about minute 3): a Crush button beside the bay squashes the
@@ -60,7 +67,8 @@ to automate it, open new car businesses, then sell your empire and start again i
   while the player sleeps. Revisit when push notifications exist.
 - Haggle and buyer bonuses stack (price = value x buyer match x haggle), matching the plan's price formula.
 - Buyer bonuses apply to crew sales too (the buyer is in the yard either way); offline income ignores them (conservative).
-- Pickups have no buyer yet; vans and SUVs (P0.14) will go to Family, sports cars to Speed Freak; Influencer comes later.
+- Pickups have no buyer yet (a Tradie buyer comes with P0.14d); vans and SUVs go to Family, sports cars and hypercars
+  to Speed Freak; Influencer comes later.
 - Parts are spent automatically (no extra button) so the crew and offline play use them too.
 
 - First 5 cars are always Common so the tutorial pacing is predictable.

@@ -63,3 +63,20 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   `resetting` flag in `saveNow()` prevents it, and the e2e reset test proves it.
 - **Chained shell commands hide skipped steps.** A `grep && python3 ...` doc update silently did nothing because the
   grep found no match. Run doc edits as their own command and check `git status` afterwards.
+
+## 2026-11-05 (run 5)
+
+- **Prove a new e2e check can fail.** The "reward texts don't overlap" check passed with stacking switched off, but only
+  because `npm run build >/dev/null` had failed (unreachable code) and e2e ran the old `dist/`. Mutation-test a new
+  check by breaking the feature in a way that still compiles, and never hide build output with `>/dev/null`; grep it
+  for errors instead (`npm run build 2>&1 | grep -i error`).
+- **Phaser copies `navigator.vibrate` onto `navigator` itself** at boot, so stubbing `Navigator.prototype.vibrate` in a
+  browser test does nothing. Stub the own property (`navigator.vibrate = ...`) and re-stub after every reload.
+- **WebGL Graphics polygons are not antialiased** (the screenshots showed stair-stepped car outlines even with
+  `antialias: true`). Paint detailed art with Canvas 2D into `textures.createCanvas()`; it is antialiased everywhere,
+  supports gradients and clipping, and keeps the geometry testable without Phaser.
+- **New content shifts derived prices.** Pricier families raised the expected car value, which pushed the barn's share
+  of earnings from 18% to 23% (limit 25%). Expected value must use only unlocked families, and re-check every share
+  metric in the sim, not just the unlock times.
+- **`tsc` covers tests too** (tsconfig includes `tests/`): run it after writing tests, it caught a wrong `tick()` call
+  and a misused return value before vitest did.

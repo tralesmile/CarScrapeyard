@@ -77,7 +77,7 @@ function isValidCar(c: unknown): boolean {
   if (!isPlainObject(c)) return false;
   const nums = ['id', 'paint', 'value', 'dirt', 'damage', 'sellProgress'];
   if (!nums.every((k) => typeof c[k] === 'number' && Number.isFinite(c[k] as number))) return false;
-  return typeof c.family === 'string' && typeof c.rarity === 'string' && typeof c.model === 'string';
+  return typeof c.family === 'string' && c.family in ECON.families && typeof c.rarity === 'string' && c.rarity in ECON.rarity && typeof c.model === 'string';
 }
 
 function isValidContract(c: unknown): boolean {

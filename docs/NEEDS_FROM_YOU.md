@@ -14,6 +14,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 4: the barn find (red barn at the back of the yard after ~60 sales; four timed restoration
       stages and a big reveal) and the settings menu (☰ top right). Is the reveal exciting enough? Would you rather
       keep restored classics for a collection than sell them?
+      New since run 5: new car art, four new car types (Vans after 15 sales, SUVs after 40, Sports Cars after 100,
+      Hypercars after 200) and vibration on Android phones (Settings → Vibration). Do the new cars feel worth waiting
+      for? Is the vibration too strong, too weak, or annoying on rapid taps?
 - [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
       Claude works on `dev` and never pushes to `main`.
 

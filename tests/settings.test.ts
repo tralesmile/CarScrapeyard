@@ -27,7 +27,7 @@ describe('number format setting', () => {
 describe('settings in the save', () => {
   it('new games start with sound and music on, motion and short numbers', () => {
     const s = newGame(T0, 1);
-    expect(s.settings).toEqual({ sound: true, music: true, reduceMotion: false, numberFormat: 'short' });
+    expect(s.settings).toEqual({ sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true });
   });
 
   it('old saves without the new settings get defaults; bad values are fixed', () => {
@@ -36,7 +36,7 @@ describe('settings in the save', () => {
     const raw = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
     raw.settings = { sound: false };
     const loaded = deserialize(serialize(raw as unknown as GameState, T0), T0)!.state;
-    expect(loaded.settings).toEqual({ sound: false, music: true, reduceMotion: false, numberFormat: 'short' });
+    expect(loaded.settings).toEqual({ sound: false, music: true, reduceMotion: false, numberFormat: 'short', vibration: true });
     const bad = JSON.parse(JSON.stringify(s)) as GameState;
     (bad.settings as { numberFormat: string }).numberFormat = 'roman';
     expect(deserialize(serialize(bad, T0), T0)!.state.settings.numberFormat).toBe('short');
@@ -44,7 +44,7 @@ describe('settings in the save', () => {
 
   it('settings survive a round trip', () => {
     const s = newGame(T0, 1);
-    s.settings = { sound: false, music: false, reduceMotion: true, numberFormat: 'scientific' };
+    s.settings = { sound: false, music: false, reduceMotion: true, numberFormat: 'scientific', vibration: false };
     expect(deserialize(serialize(s, T0), T0)!.state.settings).toEqual(s.settings);
   });
 });
