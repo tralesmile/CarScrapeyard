@@ -1,4 +1,4 @@
-import type { CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BuyerKind, CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 
 export const SAVE_VERSION = 1;
@@ -36,6 +36,12 @@ export interface Contract {
   rewardParts: number;
 }
 
+export interface Buyer {
+  kind: BuyerKind;
+  /** Seconds before this buyer gives up and leaves. */
+  timeLeft: number;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -54,6 +60,10 @@ export interface GameState {
   contracts: Contract[];
   nextContractId: number;
   cars: Car[];
+  /** The customer waiting in the yard (null between buyers or before unlock). */
+  buyer: Buyer | null;
+  /** Seconds until the next buyer arrives when there is none. */
+  buyerTimer: number;
   focusedId: number | null;
   /** Offline earnings waiting to be collected (kept in the save so a crash never loses them). */
   pendingOffline: number;
@@ -75,6 +85,9 @@ export interface GameState {
     playSeconds: number;
     carsCrushed: number;
     contractsDone: number;
+    haggles: number;
+    perfectHaggles: number;
+    buyersServed: number;
   };
 }
 
@@ -94,6 +107,8 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     contracts: [],
     nextContractId: 1,
     cars: [],
+    buyer: null,
+    buyerTimer: 0,
     focusedId: null,
     pendingOffline: 0,
     // First car appears almost immediately.
@@ -102,6 +117,6 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false },
     settings: { sound: true },
-    stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0 },
+    stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }

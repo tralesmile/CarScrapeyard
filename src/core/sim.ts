@@ -18,16 +18,30 @@ import {
 import { nextRandom, pick, weighted } from './rng';
 import { claimContract as claimContractRule, onCarCrushed, onCarSold, tickContracts, type ContractEvent } from './contracts';
 import type { Car, GameState } from './state';
+import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
+import { clampHaggle, haggleGrade } from './haggle';
+import type { BuyerKind } from './config';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
   | { type: 'washed'; carId: number }
   | { type: 'repaired'; carId: number }
-  | { type: 'sold'; carId: number; amount: number; auto: boolean }
+  | {
+      type: 'sold';
+      carId: number;
+      amount: number;
+      auto: boolean;
+      /** Haggle multiplier (1 when there was no haggle). */
+      haggle: number;
+      /** Buyer who paid a bonus for this car, if any. */
+      buyer: BuyerKind | null;
+      buyerMult: number;
+    }
   | { type: 'legendary'; car: Car }
   | { type: 'crushed'; car: Car; parts: number; cash: number }
   | { type: 'partsUsed'; carId: number; parts: number }
-  | ContractEvent;
+  | ContractEvent
+  | BuyerEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -71,13 +85,16 @@ function ensureFocus(state: GameState): void {
   state.focusedId = state.cars[0]?.id ?? null;
 }
 
-function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[]): void {
-  state.cash += car.value;
-  state.lifetimeEarnings += car.value;
+function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[], haggle = 1): void {
+  const buyer = state.buyer?.kind ?? null;
+  const buyerMult = serveBuyer(state, car);
+  const amount = Math.round(car.value * buyerMult * haggle);
+  state.cash += amount;
+  state.lifetimeEarnings += amount;
   state.carsSold += 1;
   state.cars = state.cars.filter((c) => c.id !== car.id);
   state.tutorial.firstSale = true;
-  events.push({ type: 'sold', carId: car.id, amount: car.value, auto });
+  events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
   ensureFocus(state);
 }
@@ -108,6 +125,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
   tickContracts(state, dt, events);
+  tickBuyers(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -192,12 +210,24 @@ export function repairTap(state: GameState, id: number): GameEvent[] {
   return car.damage === 0 ? [{ type: 'repaired', carId: car.id }] : [];
 }
 
-export function sellCar(state: GameState, id: number): GameEvent[] {
+/** Manual sale. `haggle` is the haggle result (clamped to the legal range); 1 when there was no haggle. */
+export function sellCar(state: GameState, id: number, haggle = 1): GameEvent[] {
   const car = findCar(state, id);
   if (!car || carStage(car) !== 'ready') return [];
+  const mult = clampHaggle(haggle);
+  if (mult !== 1) {
+    state.stats.haggles += 1;
+    if (haggleGrade(mult) === 'perfect') state.stats.perfectHaggles += 1;
+  }
   const events: GameEvent[] = [];
-  sellInternal(state, car, false, events);
+  sellInternal(state, car, false, events, mult);
   return events;
+}
+
+/** A haggle is starting on this car: the salesperson waits so the sale isn't taken away mid-haggle. */
+export function holdForHaggle(state: GameState, id: number): void {
+  const car = findCar(state, id);
+  if (car) car.sellProgress = Math.min(car.sellProgress, -ECON.haggle.timeout);
 }
 
 /** Crush an unfinished wreck: Parts plus a little scrap cash. */

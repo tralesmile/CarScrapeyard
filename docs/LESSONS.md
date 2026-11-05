@@ -32,3 +32,16 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   not `SubEvent[]`, so the sim's wider `GameEvent[]` can be passed straight in.
 - **Writing docs with one big Python heredoc full of triple-quoted strings failed on a syntax error
   and changed nothing.** Use the Edit tool or one small script per file.
+
+## 2026-11-05 (run 3)
+
+- **New income sources shift every unlock that is priced in cash.** Haggle + buyer bonuses only added ~12% to
+  earnings, but full automation came 2 minutes earlier (10m38s → 6m32s) because earlier hires compound.
+  Re-price the next big purchases (here Washer/Salesperson) instead of nerfing the fun new feature, and sweep a
+  few prices in one shell loop (`for c in ...; do sed ...; npm run sim; done`) to find the value quickly.
+- **Tests that hard-code tuned numbers break on the next tweak.** A buyer test expected `1000 * 1.5 * 1.2` and
+  failed after the Collector bonus moved to 40%. Read balance numbers from `ECON` in tests.
+- **Put new HUD elements inside the scene's insets.** The buyer strip is counted in `ui.insets().top`, so the
+  car queue and big car move down instead of being covered. Check the 4-slot case: thumbnails span the full width.
+- **Mini-games and automation can race.** The Salesperson could sell a car mid-haggle; `holdForHaggle()` pauses
+  the seller for that car. Any future UI flow that spans time over a car needs the same kind of core-level hold.

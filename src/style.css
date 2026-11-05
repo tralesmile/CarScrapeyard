@@ -530,3 +530,142 @@ body {
     animation: none;
   }
 }
+
+/* ---- Buyer strip (customer personalities) ---- */
+.buyer {
+  position: absolute;
+  top: calc(68px + var(--safe-top));
+  left: 16px;
+  right: 16px;
+  padding: 4px 12px 5px;
+  background: rgba(30, 36, 48, 0.82);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font: 800 13px 'Nunito', sans-serif;
+  pointer-events: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.buyer.hidden {
+  display: none;
+}
+
+.buyer-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.buyer-bar {
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.buyer-bar i {
+  display: block;
+  height: 100%;
+  background: var(--teal);
+  transition: width 0.1s linear;
+}
+
+.buyer.match {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(245, 183, 0, 0.45);
+}
+
+.sell.match {
+  background: linear-gradient(#ffd24a, #f5a700);
+  box-shadow: 0 5px 0 #b37600, 0 8px 18px rgba(0, 0, 0, 0.35);
+  color: #3a2600;
+}
+
+/* ---- Haggle slider ---- */
+.haggle {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--panel-h) + 14px + var(--safe-bottom));
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 32px));
+  padding: 8px 14px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(30, 36, 48, 0.94);
+  box-shadow: 0 0 0 3px var(--rust), 0 8px 18px rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.haggle.hidden {
+  display: none;
+}
+
+.haggle-label {
+  font-size: 19px;
+  margin-bottom: 8px;
+}
+
+.haggle-track {
+  position: relative;
+  height: 26px;
+  border-radius: 13px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--gold) 30%, var(--cash) 44%, var(--cash) 56%, var(--gold) 70%, var(--red) 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.haggle-track .zone-perfect {
+  position: absolute;
+  left: 44%;
+  width: 12%;
+  top: -3px;
+  bottom: -3px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+}
+
+.haggle-needle {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 6px;
+  margin-left: -3px;
+  left: 0;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 0 0 2px #1e2430;
+}
+
+.haggle.stopped.perfect {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(245, 183, 0, 0.8);
+  animation: pop 0.3s ease-out;
+}
+
+.haggle.stopped.great .haggle-label,
+.haggle.stopped.perfect .haggle-label {
+  color: var(--gold);
+}
+
+.haggle.stopped.poor .haggle-label {
+  color: #ff9a9d;
+}
+
+@keyframes pop {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .haggle.stopped.perfect {
+    animation: none;
+  }
+}

@@ -4,7 +4,8 @@
 // - A checksum detects corrupted or hand-edited saves; we fall back to the other slot.
 // - Missing fields are filled from a fresh game, so adding fields never breaks old saves.
 
-import { newGame, SAVE_VERSION, type GameState } from './state';
+import { ECON } from './config';
+import { newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
   get(key: string): string | null;
@@ -86,6 +87,13 @@ function isValidContract(c: unknown): boolean {
   return ['active', 'done', 'empty'].includes(c.status as string) && typeof c.kind === 'string';
 }
 
+function validBuyer(b: unknown): Buyer | null {
+  if (!isPlainObject(b)) return null;
+  if (typeof b.kind !== 'string' || !(b.kind in ECON.buyers.kinds)) return null;
+  if (typeof b.timeLeft !== 'number' || !Number.isFinite(b.timeLeft)) return null;
+  return { kind: b.kind as Buyer['kind'], timeLeft: b.timeLeft };
+}
+
 /** Reject values no honest game can reach. */
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
@@ -113,6 +121,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     const state = withDefaults(migrated, newGame(now));
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract);
+    state.buyer = validBuyer(state.buyer);
     if (!sane(state)) return null;
     return { state, savedAt: env.savedAt };
   } catch {

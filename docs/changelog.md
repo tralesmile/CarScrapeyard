@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 - 2026-11-05 (run 3)
+
+- **Haggle:** timing slider on big manual sales (lesson on the 2nd sale, Rare+ cars, buyer matches),
+  0.9x-1.3x with a PERFECT zone; the Salesperson waits while you haggle.
+- **Customer personalities:** Bargain Hunter, Collector, Speed Freak and Family wait in the yard one at a time
+  and pay a bonus for the car they want; gold Sell button and buyer strip when the car matches; doorbell sound.
+- Balance: Washer $25K -> $30K, Salesperson $75K -> $90K to keep full automation near the old pacing.
+- Balance bots haggle on big sales; the sim checks haggle+buyer bonus stays under 15% of earnings.
+- 19 new unit tests (62 total); e2e covers the lesson haggle, the buyer strip and a buyer-match sale.
+
 ## 0.2.0 - 2026-11-05 (run 2)
 
 - **Car crusher:** crush unfinished wrecks under a hydraulic press for Parts and scrap cash;

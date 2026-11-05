@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 2; next run is run 3)
+Last updated: 2026-11-05 (run 3; next run is run 4)
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -18,13 +18,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.7 CI: GitHub Actions runs typecheck + tests + build on every push (first run green). PR #1 dev → main is open.
 - [x] P0.8 Car crusher: crush a wreck for Parts (new currency) with heavy animation; parts reduce repair time
 - [x] P0.9 Contracts board: 3 timed orders ("sell 3 pickups in 10 min") with cash/parts rewards
-- [ ] P0.10 Haggle mini-game on manual sales (timing slider, 0.9x–1.3x)
-- [ ] P0.11 Customer personalities (Bargain Hunter, Collector, Speed Freak, Family): buyer-match bonus
+- [x] P0.10 Haggle mini-game on big manual sales (timing slider, 0.9x–1.3x, lesson on the 2nd sale)
+- [x] P0.11 Customer personalities (Bargain Hunter, Collector, Speed Freak, Family): buyer-match bonus
 - [ ] P0.12 Barn find + restoration project: covered car at the back of the yard, multi-stage restore, reveal
 - [ ] P0.13 Settings sheet: sound, music, reduce motion, number format, reset progress (with confirm), credits
 - [ ] P0.14 Juice pass: haptics (navigator.vibrate), better car art (rounded bodies, antialiasing), more car families (SUV, van, sports, hyper)
 - [ ] P0.14b Crusher upgrades: faster press / more parts per crush; a "Scrapper" crew member who auto-crushes when the lot is full (found in run 2)
 - [ ] P0.14c Contracts polish: one free reroll per order; let timers run offline once push notifications exist (found in run 2)
+- [ ] P0.14d Buyers polish: draw the buyer as a little character walking in; Influencer buyer; give pickups a buyer once vans/SUVs exist; a "skip haggle" setting (found in run 3)
+- [ ] P0.14e Floating texts overlap when several rewards land at once (crush shows "+6 Parts" on top of "+$110"): stack them (found in run 3)
 - [ ] P0.15 Playtest gate: owner plays 15+ minutes; collect feedback in NEEDS_FROM_YOU
 
 ## Phase 1 — Web MVP

@@ -29,12 +29,23 @@ to automate it, open new car businesses, then sell your empire and start again i
   sell N cars, sell N of a body type, sell Rare+ cars, crush N wrecks — each with a 10-minute timer and a
   cash reward (crush orders also pay parts). Finished orders wait to be claimed; a new order arrives
   45 s after one is claimed or expires. The same order never sits on the board twice.
+- **Haggle** (from the 2nd sale): a timing slider on big manual sales. A needle sweeps a red-gold-green bar;
+  tapping stops it and the price is multiplied by 0.9 (edge) to 1.3 (PERFECT, centre zone). Only big sales
+  haggle — the lesson on the 2nd sale ever (slow needle, always at least x1.2), Rare+ cars, and cars the waiting
+  buyer wants — so the plain loop stays quick. Untouched, it closes at x1 after 4 s; the Salesperson waits meanwhile.
+- **Customer personalities** (after 10 sales): one buyer at a time waits in the yard (strip under the top bar,
+  patience bar 75 s). Bargain Hunter wants a Hatchback (+15%), Collector a Rare+ car (+40%), Speed Freak a
+  Muscle car (+25%), Family a Sedan (+20%). Selling a matching car pays the bonus (also for crew sales) and the
+  next buyer arrives 8 s later; the Sell button turns gold and names the buyer when the car matches.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
 
 - Contract timers run in game time (paused while the game is closed), so orders never expire
   while the player sleeps. Revisit when push notifications exist.
+- Haggle and buyer bonuses stack (price = value x buyer match x haggle), matching the plan's price formula.
+- Buyer bonuses apply to crew sales too (the buyer is in the yard either way); offline income ignores them (conservative).
+- Pickups have no buyer yet; vans and SUVs (P0.14) will go to Family, sports cars to Speed Freak; Influencer comes later.
 - Parts are spent automatically (no extra button) so the crew and offline play use them too.
 
 - First 5 cars are always Common so the tutorial pacing is predictable.

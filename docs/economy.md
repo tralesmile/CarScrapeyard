@@ -17,7 +17,7 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Wash Bay | base $150, growth 1.14 |
 | Repair Bench | base $200, growth 1.14 |
 | Junk Supplier | base $900, growth 1.22, value x1.08 per level |
-| Mechanic / Washer / Salesperson | $9,000 / $25,000 / $75,000 |
+| Mechanic / Washer / Salesperson | $9,000 / $30,000 / $90,000 |
 | Lot slots 2 / 3 / 4 | $20,000 / $150,000 / $900,000 |
 | Manual wash | 1/2000 dirt per design pixel swiped (about 2–4 s of swiping) |
 | Manual repair | 0.2 damage per tap (about 3–5 taps) |
@@ -42,18 +42,39 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Timer | 10 min (game time); new order 45 s after claim or expiry |
 | Reward | expected car value x target x (sell any 0.4, body type 0.9, Rare+ 2.5, crush 0.7) |
 | Sizes | sell any 6-10, body type 2-4, Rare+ 1-2, crush 2-4 (+4 parts per crushed car) |
-| Share of income | must stay under 30% of first-15-minute earnings (sim: 17% active, 26% relaxed) |
+| Share of income | must stay under 30% of first-15-minute earnings (sim: 17% active, 19% relaxed) |
+
+## Haggle
+
+| Item | Value |
+| --- | --- |
+| Range | x0.9 (bar edge) to x1.3 (centre); PERFECT zone = middle 12% of the bar |
+| When | manual sales only: the 2nd sale ever (lesson: slow needle, at least x1.2), Rare+ cars, buyer matches |
+| Needle | 0.9 sweeps/s (lesson 0.45); closes at x1 after 4 s untouched |
+
+## Customer personalities
+
+| Buyer | Wants | Bonus |
+| --- | --- | --- |
+| Bargain Hunter | Hatchback | +15% |
+| Collector | Rare, Epic or Legendary | +40% |
+| Speed Freak | Muscle | +25% |
+| Family | Sedan | +20% |
+
+Unlock after 10 sales. One buyer at a time, waits 75 s, next buyer 8 s after one leaves or is served.
+Bonuses apply to crew sales too and stack with haggle. Sim limit: manual haggle + buyer bonus < 15% of
+first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 haggles, the relaxed bot x1.05.
 
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
 | --- | --- | --- | --- |
 | First sale | < 45 s | 3 s | 6 s |
-| Mechanic hired | 2-3 min (bot is faster than a human) | 1m 15s | 1m 58s |
+| Mechanic hired | 2-3 min (bot is faster than a human) | 1m 6s | 1m 44s |
 | Crusher unlocks | about 3 min | 2m 13s | 3m 21s |
-| Contracts unlock | about 5 min | 3m 58s | 5m 57s |
-| Washer hired | - | 4m 20s | 6m 26s |
-| Salesperson hired (full automation) | < 15 min for active players | 10m 38s | 14m 1s |
+| Contracts unlock | about 5 min | 3m 54s | 5m 56s |
+| Washer hired | - | 3m 12s | 6m 23s |
+| Salesperson hired (full automation) | < 15 min for active players | 8m 28s | 14m 41s |
 
 The bots claim every finished contract and crush a fresh wreck when a crush order is open.
 Bot tapping is deterministic (no `Math.random`), so the same code always prints the same timeline.

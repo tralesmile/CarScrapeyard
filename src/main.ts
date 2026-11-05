@@ -53,7 +53,8 @@ function onEvents(events: GameEvent[]) {
       ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
       sfx.repaired();
     }
-    if (e.type === 'sold' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract')) dirty = true;
+    if (e.type === 'buyerArrived') sfx.bell();
+    if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract')) dirty = true;
   }
   ui.render();
 }

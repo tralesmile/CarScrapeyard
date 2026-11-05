@@ -103,6 +103,60 @@ async function waitForServer(url, ms = 15000) {
     const cashText = await page.textContent('.hud .cash');
     assert(cashText.startsWith('$'), `cash counter shows ${cashText}`);
 
+    console.log('haggle');
+    // Second sale ever is the haggle lesson: slow needle, always pays at least x1.2.
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    await page.waitForTimeout(700);
+    const lessonCar = await page.evaluate(() => {
+      const c = window.__jye.state.cars[0];
+      c.dirt = 0;
+      c.damage = 0;
+      c.rarity = 'common';
+      return { value: c.value, cash: window.__jye.state.cash };
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    await page.waitForSelector('.haggle:not(.hidden)');
+    assert(await page.isHidden('.sell') || (await page.$eval('.sell', (e) => e.classList.contains('hidden'))), 'sell button hides while haggling');
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-08-haggle.png') });
+    await page.click('.haggle');
+    await page.waitForTimeout(150);
+    const haggleText = await page.textContent('.haggle-label');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-09-haggle-result.png') });
+    await page.waitForFunction(() => window.__jye.state.carsSold === 2, null, { timeout: 3000 });
+    const lessonPaid = await page.evaluate(() => window.__jye.state.cash);
+    assert(lessonPaid - lessonCar.cash >= Math.round(lessonCar.value * 1.2), `lesson haggle pays at least x1.2 (${haggleText.trim()})`);
+    assert(await page.$eval('.haggle', (e) => e.classList.contains('hidden')), 'haggle bar closes after the deal');
+
+    console.log('customer personalities');
+    assert(await page.$eval('.buyer', (e) => e.classList.contains('hidden')), 'no buyer strip before buyers unlock');
+    await page.evaluate(() => (window.__jye.state.carsSold = 10));
+    await page.waitForSelector('.buyer:not(.hidden)');
+    await page.waitForFunction(() => window.__jye.state.buyer !== null, null, { timeout: 3000 });
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    await page.waitForTimeout(700);
+    const matchCar = await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.buyer = { kind: 'speed', timeLeft: 60 };
+      const c = s.cars[0];
+      c.family = 'muscle';
+      c.rarity = 'common';
+      c.dirt = 0;
+      c.damage = 0;
+      return { value: c.value, cash: s.cash };
+    });
+    await page.waitForSelector('.sell.match:not(.hidden)');
+    assert((await page.textContent('.buyer')).includes('Speed Freak'), 'buyer strip names the customer');
+    assert(await page.$eval('.buyer', (e) => e.classList.contains('match')), 'buyer strip lights up for a matching car');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-10-buyer.png') });
+    await page.click('.sell');
+    // A buyer match is a big sale: haggle opens. Let it time out (sells at asking price).
+    await page.waitForSelector('.haggle:not(.hidden)');
+    await page.waitForFunction(() => window.__jye.state.stats.buyersServed === 1, null, { timeout: 7000 });
+    const buyerPaid = await page.evaluate(() => window.__jye.state.cash);
+    assert(buyerPaid - matchCar.cash === Math.round(matchCar.value * 1.25), `Speed Freak pays the bonus (${buyerPaid - matchCar.cash})`);
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');

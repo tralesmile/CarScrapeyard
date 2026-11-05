@@ -9,6 +9,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
       New since run 2: the car crusher (after ~25 sales) and the Jobs board (after ~45 sales) —
       do they feel rewarding, and is the Crush button easy to find?
+      New since run 3: haggling (the slider on your 2nd sale and on rare cars) and the customer strip under
+      the top bar (after ~10 sales). Is the haggle needle too fast or too slow? Do you want haggling on every sale?
 - [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
       Claude works on `dev` and never pushes to `main`.
 

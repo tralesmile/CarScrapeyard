@@ -527,6 +527,10 @@ export class YardScene extends Phaser.Scene {
           break;
         case 'sold':
           this.onSold(e.carId, e.amount);
+          if (e.buyer && e.carId === this.bigCarId) {
+            const b = ECON.buyers.kinds[e.buyer];
+            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.55, `${b.icon} ${b.name} +${Math.round(b.bonus * 100)}%`, '#f5b700', 22);
+          }
           break;
         case 'legendary':
           sfx.fanfare();

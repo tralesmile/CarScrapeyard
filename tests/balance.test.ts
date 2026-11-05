@@ -21,6 +21,8 @@ import {
   washCar,
 } from '../src/core/sim';
 import { contractsUnlocked } from '../src/core/contracts';
+import { wantsHaggle } from '../src/core/haggle';
+import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
 
 interface BotProfile {
@@ -31,10 +33,12 @@ interface BotProfile {
   tapsPerSec: number;
   /** Seconds the bot takes to react between actions (selling, buying). */
   reaction: number;
+  /** Haggle multiplier the bot lands on big sales. */
+  haggle: number;
 }
 
-const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5 };
-const RELAXED: BotProfile = { name: 'relaxed', swipePerSec: 450, tapsPerSec: 2, reaction: 2 };
+const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5, haggle: 1.2 };
+const RELAXED: BotProfile = { name: 'relaxed', swipePerSec: 450, tapsPerSec: 2, reaction: 2, haggle: 1.05 };
 
 const MANAGER_ORDER: ManagerKind[] = ['mechanic', 'washer', 'seller'];
 
@@ -72,6 +76,7 @@ function run(profile: BotProfile, seconds: number) {
   let contractCash = 0;
   let tapBudget = 0;
   let contractsClaimed = 0;
+  let extraCash = 0;
   for (let t = 0; t < seconds; t += dt) {
     tick(s, dt);
     const car = s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0];
@@ -92,8 +97,12 @@ function run(profile: BotProfile, seconds: number) {
         }
       }
       else if (stage === 'ready' && cooldown <= 0) {
-        sellCar(s, car.id);
-        cooldown = profile.reaction;
+        const haggle = wantsHaggle(s, car) ? profile.haggle : 1;
+        const bm = buyerMultiplier(s, car);
+        const before = s.cash;
+        sellCar(s, car.id, haggle);
+        extraCash += (s.cash - before) * (1 - 1 / (bm * haggle));
+        cooldown = profile.reaction + (haggle !== 1 ? 1 : 0);
       }
     }
     cooldown -= dt;
@@ -111,18 +120,19 @@ function run(profile: BotProfile, seconds: number) {
     if (crusherUnlocked(s) && marks.crusher === undefined) marks.crusher = t;
     if (contractsUnlocked(s) && marks.contracts === undefined) marks.contracts = t;
   }
-  return { s, marks, contractCash, contractsClaimed };
+  return { s, marks, contractCash, contractsClaimed, extraCash };
 }
 
 describe('opening pacing', () => {
   for (const profile of [ACTIVE, RELAXED]) {
     it(`${profile.name} player hits the first-session targets`, () => {
-      const { s, marks, contractCash, contractsClaimed } = run(profile, 15 * 60);
+      const { s, marks, contractCash, contractsClaimed, extraCash } = run(profile, 15 * 60);
       const line = (k: string) => `${k.padEnd(10)} ${marks[k] === undefined ? 'never' : formatDuration(marks[k]!)}`;
       console.log(
         [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'washer', 'seller', 'slot2'].map(line),
           `cash ${formatCash(s.cash)}, sold ${s.carsSold}, levels ${JSON.stringify(s.levels)}, slots ${s.slots}`,
-          `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`].join('\n'),
+          `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`,
+          `haggles ${s.stats.haggles}, buyers served ${s.stats.buyersServed}, manual haggle+buyer bonus ${formatCash(extraCash)} (${((extraCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings)`].join('\n'),
       );
       // Plan target: first sale within ~30 s, first manager within 2-3 minutes.
       expect(marks.firstSale).toBeLessThan(45);
@@ -134,6 +144,9 @@ describe('opening pacing', () => {
       expect(marks.contracts).toBeLessThan(480);
       // Contracts are a bonus, not the main income.
       expect(contractCash / s.lifetimeEarnings).toBeLessThan(0.3);
+      // Haggle and buyer bonuses reward attention but must not carry the economy.
+      expect(extraCash / s.lifetimeEarnings).toBeLessThan(0.15);
+      expect(s.stats.buyersServed).toBeGreaterThan(0);
       // Full automation inside the first session for an active player.
       if (profile === ACTIVE) expect(marks.seller).toBeLessThan(15 * 60);
     });

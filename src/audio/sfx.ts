@@ -118,6 +118,11 @@ class Sfx {
     this.tone(1200, 0.05, 'square', 0.08);
     this.tone(1600, 0.08, 'square', 0.08, undefined, 0.05);
   }
+  /** Shop doorbell: a customer walks into the yard. */
+  bell() {
+    this.tone(1568, 0.25, 'sine', 0.12);
+    this.tone(1175, 0.35, 'sine', 0.12, undefined, 0.12);
+  }
   fanfare() {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, undefined, i * 0.12));
   }

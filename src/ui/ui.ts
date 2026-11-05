@@ -15,10 +15,13 @@ import {
   crusherUnlocked,
   findCar,
   hireManager,
+  holdForHaggle,
   sellCar,
   type GameEvent,
 } from '../core/sim';
-import type { GameState } from '../core/state';
+import type { Car, GameState } from '../core/state';
+import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
+import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs';
 type BuyMode = 1 | 10 | 'max';
@@ -69,6 +72,14 @@ export class Ui {
   private mode: BuyMode = 1;
   private lastCash = -1;
   private modalOpen = false;
+  private buyerEl!: HTMLElement;
+  private buyerText!: HTMLElement;
+  private buyerBar!: HTMLElement;
+  private haggleEl!: HTMLElement;
+  private haggleNeedle!: HTMLElement;
+  private haggleLabel!: HTMLElement;
+  /** Car id being haggled over, or null. */
+  private haggling: number | null = null;
 
   constructor(
     mount: HTMLElement,
@@ -81,7 +92,8 @@ export class Ui {
   // ---- layout info for the scene -------------------------------------------
 
   insets() {
-    const hudBottom = this.cash.parentElement!.getBoundingClientRect().bottom - this.root.getBoundingClientRect().top;
+    const topEl = this.buyerEl.classList.contains('hidden') ? this.cash.parentElement! : this.buyerEl;
+    const hudBottom = topEl.getBoundingClientRect().bottom - this.root.getBoundingClientRect().top;
     const panelTop = this.panel.getBoundingClientRect().top - this.root.getBoundingClientRect().top;
     const h = this.root.getBoundingClientRect().height;
     // Leave room for the sell button above the panel.
@@ -123,6 +135,24 @@ export class Ui {
 
     this.banner = el('div', 'banner display');
 
+    // Customer waiting in the yard.
+    this.buyerEl = el('div', 'buyer hidden');
+    this.buyerText = el('div', 'buyer-text');
+    const bw = el('div', 'buyer-bar');
+    this.buyerBar = el('i');
+    bw.append(this.buyerBar);
+    this.buyerEl.append(this.buyerText, bw);
+
+    // Haggle slider (replaces the sell button while open).
+    this.haggleEl = el('button', 'haggle hidden') as HTMLButtonElement;
+    this.haggleEl.setAttribute('aria-label', 'Tap to stop the needle and close the deal');
+    this.haggleLabel = el('div', 'haggle-label display', 'Tap to close the deal!');
+    const track = el('div', 'haggle-track');
+    track.append(el('span', 'zone-perfect'));
+    this.haggleNeedle = el('i', 'haggle-needle');
+    track.append(this.haggleNeedle);
+    this.haggleEl.append(this.haggleLabel, track);
+
     this.panel = el('div', 'panel');
     const head = el('div', 'panel-head');
     const tabs = el('div', 'tabs');
@@ -157,7 +187,7 @@ export class Ui {
     this.cardsBox = el('div', 'cards');
     this.panel.append(head, this.cardsBox);
 
-    this.root.append(hud, this.hint, this.sell, this.crush, this.banner, this.panel);
+    this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.banner, this.panel);
     this.buildCards();
   }
 
@@ -374,13 +404,71 @@ export class Ui {
   private onSell() {
     const s = this.deps.state();
     const car = findCar(s, s.focusedId);
-    if (!car) return;
-    const events = sellCar(s, car.id);
+    if (!car || this.haggling !== null) return;
+    if (wantsHaggle(s, car)) {
+      this.startHaggle(s, car);
+      return;
+    }
+    this.finishSale(car.id, 1);
+  }
+
+  private finishSale(carId: number, haggle: number) {
+    const events = sellCar(this.deps.state(), carId, haggle);
     if (events.length) {
       this.deps.onEvents(events);
       this.deps.onChange();
-      this.render();
     }
+    this.render();
+  }
+
+  /** Timing slider: a needle sweeps the bar; tapping stops it. The centre pays most. */
+  private startHaggle(s: GameState, car: Car) {
+    const lesson = isHaggleLesson(s);
+    const speed = lesson ? ECON.haggle.lessonSweepsPerSec : ECON.haggle.sweepsPerSec;
+    holdForHaggle(s, car.id);
+    this.haggling = car.id;
+    sfx.tap();
+    const hg = this.haggleEl;
+    hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
+    hg.classList.toggle('lesson', lesson);
+    setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
+    const start = performance.now();
+    let done = false;
+    let raf = 0;
+    const frame = () => {
+      if (done) return;
+      const pos = hagglePosition((performance.now() - start) / 1000, speed);
+      this.haggleNeedle.style.left = `${pos * 100}%`;
+      if (performance.now() - start > ECON.haggle.timeout * 1000) finish(null);
+      else raf = requestAnimationFrame(frame);
+    };
+    const finish = (pos: number | null) => {
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(raf);
+      hg.onpointerdown = null;
+      const mult = pos === null ? 1 : haggleMultiplier(pos, lesson);
+      const grade = haggleGrade(mult);
+      hg.classList.add('stopped', grade);
+      const words = { perfect: 'PERFECT!', great: 'Great deal!', good: 'Deal!', poor: 'Ouch…' } as const;
+      setText(this.haggleLabel, pos === null ? 'Sold at asking price' : `${words[grade]} x${mult.toFixed(2)}`);
+      if (grade === 'perfect') sfx.fanfare();
+      else if (grade === 'poor') sfx.denied();
+      else sfx.buy();
+      setTimeout(() => {
+        hg.classList.add('hidden');
+        this.haggling = null;
+        this.finishSale(car.id, mult);
+      }, 650);
+    };
+    hg.onpointerdown = (ev) => {
+      ev.preventDefault();
+      sfx.unlock();
+      const pos = hagglePosition((performance.now() - start) / 1000, speed);
+      this.haggleNeedle.style.left = `${pos * 100}%`;
+      finish(pos);
+    };
+    raf = requestAnimationFrame(frame);
   }
 
   private onCrush() {
@@ -428,8 +516,16 @@ export class Ui {
 
     const car = findCar(s, s.focusedId);
     const ready = car && carStage(car) === 'ready';
-    this.sell.classList.toggle('hidden', !ready);
-    if (ready && car) this.sell.innerHTML = `Sell ${formatCash(car.value)}<small>${car.model}</small>`;
+    this.sell.classList.toggle('hidden', !ready || this.haggling !== null);
+    if (ready && car) {
+      const bm = buyerMultiplier(s, car);
+      const who = bm > 1 && s.buyer ? ECON.buyers.kinds[s.buyer.kind] : null;
+      const sub = who ? `${who.icon} ${who.name} pays +${Math.round(who.bonus * 100)}%` : car.model;
+      const html = `Sell ${formatCash(Math.round(car.value * bm))}<small>${sub}</small>`;
+      if (this.sell.innerHTML !== html) this.sell.innerHTML = html;
+      this.sell.classList.toggle('match', !!who);
+    }
+    this.renderBuyer(s, car);
 
     const crusherOn = crusherUnlocked(s);
     this.partsEl.classList.toggle('hidden', !crusherOn);
@@ -468,6 +564,23 @@ export class Ui {
     for (const [m, b] of this.modeButtons) b.classList.toggle('active', String(this.mode) === m);
   }
 
+  private renderBuyer(s: GameState, car: Car | undefined) {
+    const on = buyersUnlocked(s);
+    this.buyerEl.classList.toggle('hidden', !on);
+    if (!on) return;
+    const b = s.buyer;
+    if (!b) {
+      setText(this.buyerText, 'Next customer is on the way…');
+      this.buyerBar.style.width = '0%';
+      this.buyerEl.classList.remove('match');
+      return;
+    }
+    const info = ECON.buyers.kinds[b.kind];
+    setText(this.buyerText, `${info.icon} ${info.name} wants ${info.wants} · pays +${Math.round(info.bonus * 100)}%`);
+    this.buyerBar.style.width = `${Math.max(0, b.timeLeft / ECON.buyers.patience) * 100}%`;
+    this.buyerEl.classList.toggle('match', !!car && buyerMatches(b.kind, car));
+  }
+
   private tabHasAction(s: GameState, t: Tab): boolean {
     if (t === 'crew') return (Object.keys(ECON.managers) as ManagerKind[]).some((k) => !s.managers[k] && s.cash >= ECON.managers[k].cost);
     if (t === 'yard') {
@@ -482,7 +595,7 @@ export class Ui {
     let text = '';
     const car = findCar(s, s.focusedId);
     const learning = s.carsSold < 3;
-    if (this.modalOpen) text = '';
+    if (this.modalOpen || this.haggling !== null) text = '';
     else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
     else if (car && learning) {
       const stage = carStage(car);

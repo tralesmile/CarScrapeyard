@@ -5,6 +5,7 @@ export type UpgradeKind = 'wash' | 'repair' | 'quality';
 export type ManagerKind = 'mechanic' | 'washer' | 'seller';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle';
+export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family';
 
 export const ECON = {
   /** Seconds between new wrecks arriving while a lot slot is free. */
@@ -42,8 +43,8 @@ export const ECON = {
 
   managers: {
     mechanic: { name: 'Mechanic', cost: 9_000, ratePerSec: 0.12 },
-    washer: { name: 'Washer', cost: 25_000, ratePerSec: 0.15 },
-    seller: { name: 'Salesperson', cost: 75_000, ratePerSec: 0 },
+    washer: { name: 'Washer', cost: 30_000, ratePerSec: 0.15 },
+    seller: { name: 'Salesperson', cost: 90_000, ratePerSec: 0 },
   } satisfies Record<ManagerKind, { name: string; cost: number; ratePerSec: number }>,
 
   /** Seconds a salesperson needs to close a sale once a car is ready. */
@@ -107,6 +108,39 @@ export const ECON = {
     targets: { sellAny: [6, 10], sellFamily: [2, 4], sellRare: [1, 2], crush: [2, 4] },
     /** Extra parts on crush orders, per car. */
     crushPartsPerTarget: 4,
+  },
+
+  /** Haggle: timing slider on big manual sales. A needle sweeps the bar; the centre pays most. */
+  haggle: {
+    min: 0.9,
+    max: 1.3,
+    /** Half-width of the PERFECT zone around the centre, as a fraction of half the bar. */
+    perfectZone: 0.12,
+    /** Full left-right-left sweeps per second. */
+    sweepsPerSec: 0.9,
+    /** The lesson haggle (second sale ever) is slower and pays at least this. */
+    lessonSweepsPerSec: 0.45,
+    lessonMin: 1.2,
+    /** Seconds before an untouched haggle closes at x1. The salesperson waits this long. */
+    timeout: 4,
+  },
+
+  /** Customer personalities: one buyer waits in the yard and pays a bonus for the car they want. */
+  buyers: {
+    unlockCarsSold: 10,
+    /** Seconds a buyer waits before leaving. */
+    patience: 75,
+    /** Seconds until the next buyer after one leaves or is served. */
+    gap: 8,
+    kinds: {
+      bargain: { name: 'Bargain Hunter', icon: '🤑', wants: 'a Hatchback', families: ['hatch'], minRarity: null, bonus: 0.15 },
+      collector: { name: 'Collector', icon: '🧐', wants: 'a Rare+ car', families: null, minRarity: 'rare', bonus: 0.4 },
+      speed: { name: 'Speed Freak', icon: '😎', wants: 'a Muscle car', families: ['muscle'], minRarity: null, bonus: 0.25 },
+      family: { name: 'Family', icon: '👪', wants: 'a Sedan', families: ['sedan'], minRarity: null, bonus: 0.2 },
+    } satisfies Record<
+      BuyerKind,
+      { name: string; icon: string; wants: string; families: readonly CarFamily[] | null; minRarity: Rarity | null; bonus: number }
+    >,
   },
 } as const;
 
