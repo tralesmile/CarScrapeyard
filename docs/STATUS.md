@@ -29,16 +29,17 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.14e Floating texts overlap when several rewards land at once: they stack now; banners queue (run 5)
 - [ ] P0.14f Barn polish: the restored car drives out of the barn into the bay before the reveal; stage art inside the barn (engine hoist, paint booth); keep classics for the Collection book (P1.4) instead of only selling (found in run 4)
 - [ ] P0.14g Yard tab now has 4 cards and the barn card sits below the fold on phones: compact cards or a dot on the barn itself (found in run 4)
-- [ ] P0.14h Art polish (found in run 5): the big car in the bay still shows slight stair-steps when the 720 px texture
+- [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
       is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
       size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills and barn on Canvas 2D too
 - [ ] P0.14i Collection hook for new families (found in run 5): show "first Van!" style toasts and count each family
       for the Collection book (P1.4)
-- [ ] P0.15 Playtest gate: owner plays 15+ minutes; collect feedback in NEEDS_FROM_YOU
+- [x] P0.15 Playtest gate: owner played ~10 minutes (2026-11-05): "works well, held my attention for 10 minutes";
+      asks for better graphics (P0.14h) and a city map like other tycoons (P1.1). Owner chose to keep the current task order.
 
 ## Phase 1 — Web MVP
 
-- [ ] P1.1 Business framework: multiple businesses per city with a switcher/map; Business 2 Repair Garage
+- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery

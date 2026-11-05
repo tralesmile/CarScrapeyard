@@ -17,8 +17,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 5: new car art, four new car types (Vans after 15 sales, SUVs after 40, Sports Cars after 100,
       Hypercars after 200) and vibration on Android phones (Settings → Vibration). Do the new cars feel worth waiting
       for? Is the vibration too strong, too weak, or annoying on rapid taps?
-- [ ] **Review and merge pull request #1 (`dev` → `main`)** when you're happy with a milestone.
-      Claude works on `dev` and never pushes to `main`.
+- [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
+      open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 
 ## Soon (Phase 1, web MVP)
 
@@ -39,3 +39,6 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 ## Answered decisions
 
 - 2026-11-05: Team = owner + Claude as the whole studio (no freelancers).
+- 2026-11-05 (after run 5): Playtest done, about 10 minutes: the game works well and held the owner's attention.
+  Wants better graphics and a city map. Decision: keep the current task order (finish Phase 0 polish incl. art
+  P0.14h, then the map in P1.1). PR #1 merged.
