@@ -48,5 +48,6 @@ export function isHaggleLesson(state: GameState): boolean {
 export function wantsHaggle(state: GameState, car: Car): boolean {
   if (state.carsSold < 1) return false;
   if (isHaggleLesson(state)) return true;
+  if (state.settings.skipHaggle) return false;
   return car.rarity !== 'common' || (!!state.buyer && buyerMatches(state.buyer.kind, car));
 }

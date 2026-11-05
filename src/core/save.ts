@@ -122,7 +122,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     const migrated = migrate(raw, env.v);
     const state = withDefaults(migrated, newGame(now));
     state.cars = state.cars.filter(isValidCar);
-    state.contracts = state.contracts.filter(isValidContract);
+    state.contracts = state.contracts.filter(isValidContract).map((c) => ({ ...c, rerolled: c.rerolled === true }));
     state.buyer = validBuyer(state.buyer);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;

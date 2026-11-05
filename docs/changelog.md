@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.8.0 - 2026-11-05 (run 8)
+
+- **Scrapper while you're away:** with the full crew and the Scrapper hired, the parts bin is topped up to the
+  Scrapper's target while you're away (plus a little scrap cash); the welcome-back popup says "+N ⚙".
+- **The Scrapper on screen:** a worker in an orange hard hat stands beside a small hydraulic press next to the barn and
+  pulls the lever on every auto-crush; crushing a lot thumbnail now shows a mini press slamming the car flat.
+- **Barn restorations you can watch:** the barn is repainted in smooth Canvas 2D art, and the doorway shows each stage:
+  a tow chain on the tarp-covered wreck, an engine hoist with the tarp folded back, a welder's glow on the rusty body,
+  plastic paint-booth sheets around the primer-grey car, a clean tarp when it's done and the shiny classic after the
+  reveal. A work lamp lights the barn while a stage runs, with sparks or dust at the door.
+- **Drive-out reveal:** tapping Reveal rolls the covered classic out of the barn door and up to the front before the
+  tarp comes off (skipped with reduce motion). The new tarp is antialiased and covers every body shape; banners such as
+  "RESTORED!" no longer cover the reveal.
+- **Barn card up front:** once the barn opens, its card leads the Yard tab (it used to sit below the fold on phones);
+  tapping the barn scrolls to the card and flashes it, and a red dot on the barn sign shows when there is something to
+  do (an affordable stage, a reveal or a sale).
+- Fix: empty lot slots were drawn behind the backdrop (invisible); they show as faint outlines now.
+- 8 new unit tests (118 total); e2e checks the Scrapper station and its press, the offline parts line, the barn art for
+  every stage, the drive-out, the barn card position and dot, and that the reveal tarp covers vans, SUVs and pickups.
+- Fix (test): the e2e "hour away" check never really simulated an hour (the page saved over the edited save on reload);
+  it now blocks saves before the reload and asserts the popup says 1h.
+
+## 0.7.0 - 2026-11-05 (run 7)
+
+- **Customers you can see:** every buyer is a little character drawn in code who walks into the yard, waits beside
+  the bay and walks off when served or tired of waiting (no walking with reduce motion).
+- **Two new buyers:** the Tradie (after 20 sales) pays +20% for a Pickup, so every car type now has a buyer; the
+  Influencer (after 100 sales) pays +50% for a Sports Car or Hypercar.
+- **Skip haggling** setting: sell at the asking price without the slider.
+- Balance: the barn sale goes x55 -> x50 of the expected car value, and a new 12-seed balance check replaces luck of a
+  single seed (Salesperson avg 9m52s, barn share avg 18%, max 24%).
+- 4 new unit tests (110 total); e2e checks the customer standing in the yard, the skip-haggling sale and all six
+  customers in the art gallery.
+
+## 0.6.0 - 2026-11-05 (run 6)
+
+- **Hydraulic Press upgrade** (Upgrades tab once the crusher unlocks): each level makes the press faster (down to
+  1.2 s) and adds 10% more parts per crush. The Crush button and the Epic/Legendary prompt show the upgraded parts.
+- **Scrapper** crew member ($40K, Crew tab once the crusher unlocks): while the parts bin is low (under 10, or
+  under what the next barn stage needs) it crushes a fresh Common wreck, then rests 8 s. Never Rare+ cars, never
+  a car anyone has started on.
+- The Crew tab's "something to buy" dot ignores the Scrapper while it is locked.
+- Balance bots buy press levels and hire the Scrapper; a new 30-minute sim checks the Scrapper only tops up the
+  bin (under 25% of sales; it crushes about 3%).
+- **Free order swap** on the Jobs board: each active order can be swapped once for a different one with a fresh
+  timer ("🔄 Swap order (free)"); the swapped-in order can't be swapped again.
+- 12 new unit tests (106 total); e2e buys a press level, hires the Scrapper, waits for an auto-crush and swaps an order.
+
 ## 0.5.0 - 2026-11-05 (run 5)
 
 - **Four new car families:** Vans (after 15 sales), SUVs (40), Sports Cars (100, rarer) and Hypercars (200, rarest),

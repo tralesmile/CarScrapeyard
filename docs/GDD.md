@@ -30,25 +30,39 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Car crusher** (unlocks after 25 sales, about minute 3): a Crush button beside the bay squashes the
   current unfinished wreck under a hydraulic press (shake, sparks, dust) for Parts (6/10/16/30 by rarity)
   plus 15% of its value as scrap cash. 3-second cooldown. Epic and Legendary cars ask first.
+  **Hydraulic Press** (Upgrades tab, after the crusher unlocks): faster press and more parts per crush.
+  **Scrapper** (Crew tab, after the crusher unlocks, $40K): keeps the parts bin topped up by crushing a fresh
+  Common wreck every 8 s or so while parts are low (more if the barn's next stage needs them). It never touches
+  Rare+ cars or a car anyone has started washing; a "♻ Scrapper" text shows each auto-crush. Once hired, the Scrapper
+  stands beside a little press next to the barn and pulls the lever on each auto-crush; lot thumbnails get a mini press too.
+  While you're away it keeps working: the welcome-back popup says how many parts it added (it only fills the bin to its target).
   Finished cars can't be crushed (sell them). **Parts** show in the top bar: when a car finishes washing
   and you have 2+ parts, 2 are spent automatically to halve its damage ("Spare parts!").
 - **Contracts board** (Jobs tab, unlocks after 45 sales, about minute 5): three orders at a time —
   sell N cars, sell N of a body type, sell Rare+ cars, crush N wrecks — each with a 10-minute timer and a
   cash reward (crush orders also pay parts). Finished orders wait to be claimed; a new order arrives
-  45 s after one is claimed or expires. The same order never sits on the board twice.
+  45 s after one is claimed or expires. The same order never sits on the board twice. Each order can be swapped
+  once for free ("🔄 Swap order"): a different order with a fresh timer. The swapped-in order can't be swapped again.
 - **Haggle** (from the 2nd sale): a timing slider on big manual sales. A needle sweeps a red-gold-green bar;
   tapping stops it and the price is multiplied by 0.9 (edge) to 1.3 (PERFECT, centre zone). Only big sales
   haggle — the lesson on the 2nd sale ever (slow needle, always at least x1.2), Rare+ cars, and cars the waiting
   buyer wants — so the plain loop stays quick. Untouched, it closes at x1 after 4 s; the Salesperson waits meanwhile.
 - **Customer personalities** (after 10 sales): one buyer at a time waits in the yard (strip under the top bar,
   patience bar 75 s). Bargain Hunter wants a Hatchback (+15%), Collector a Rare+ car (+40%), Speed Freak a
-  Muscle car (+25%), Family a Sedan (+20%). Selling a matching car pays the bonus (also for crew sales) and the
-  next buyer arrives 8 s later; the Sell button turns gold and names the buyer when the car matches.
+  fast car (muscle/sports/hyper, +25%), Family a family car (sedan/van/SUV, +20%); the Tradie (after 20 sales)
+  wants a Pickup (+20%) and the Influencer (after 100 sales) a Sports Car or Hypercar (+50%). Selling a matching car
+  pays the bonus (also for crew sales) and the next buyer arrives 8 s later; the Sell button turns gold and names the
+  buyer when the car matches. Each customer is drawn as a little character (cap and coupon, top hat and monocle,
+  sunglasses, parent with a kid, hard hat, selfie phone) who walks into the yard, idles, and walks off.
+  **Skip haggling** in Settings sells at the asking price without the slider.
 - **Barn find** (after 60 sales, about minute 5–8): a little red barn appears at the back of the yard with a
-  car under a tarp. Tapping it opens its card in the Yard tab. Four stages — Tow it out, Rebuild the engine,
+  car under a tarp. Tapping it opens its card, which leads the Yard tab; a red dot on the barn sign means there is
+  something to do. Four stages — Tow it out, Rebuild the engine,
   Fix the body, Fresh paint — each cost cash (and parts for the engine and body) and take 20 s to 90 s; the
   timer keeps going while the game is closed (one stage at most). While the next stage needs parts, spare parts
-  are not spent on repairs. When done, "Reveal!" dims the yard, wiggles and whips off the tarp, light rays spin
+  are not spent on repairs. The barn doorway shows the work in progress (tow chain, engine hoist, welder, paint-booth
+  sheets; the car goes from rusty to primer grey to painted). When done, "Reveal!" rolls the covered car out of the
+  barn to the front, dims the yard, wiggles and whips off the tarp, light rays spin
   and the car pops out ("LEGENDARY CLASSIC!"); a collector buys it for about 3x what the stages cost.
   Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
   (e.g. Stallion Wildfire '67).

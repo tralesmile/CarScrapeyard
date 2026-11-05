@@ -7,7 +7,7 @@ const T0 = 1_800_000_000_000;
 
 function played() {
   const s = newGame(T0, 9);
-  s.managers = { mechanic: true, washer: true, seller: true };
+  s.managers = { mechanic: true, washer: true, seller: true, scrapper: false };
   tick(s, 300);
   return s;
 }

@@ -80,3 +80,52 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   metric in the sim, not just the unlock times.
 - **`tsc` covers tests too** (tsconfig includes `tests/`): run it after writing tests, it caught a wrong `tick()` call
   and a misused return value before vitest did.
+
+## 2026-11-05 (run 6)
+
+- **A rule that reads well on paper can never fire in play.** The Scrapper was specced to crush "when the lot is
+  full"; the 30-minute sim showed 0 crushes because a fast crew empties the lot faster than cars arrive (2.5 s), while
+  the bin sat at 1 part. Add a longer sim scenario whenever a feature is meant for later in the game, and assert it
+  actually triggers (`> 0`) as well as its upper limit. Rule now: crush while parts are low, then rest 8 s.
+- **Bots that "save up" for a new purchase can freeze everything else.** Putting the Scrapper in the bot's must-buy
+  list stopped it buying upgrades and the barn (no barn sold in 15 min). Optional purchases go into the bot's
+  "cheapest option" list instead.
+- **`console.log` in vitest only prints with `--reporter=verbose`** (that is why `npm run sim` uses it); use it for
+  throwaway debug tests, then delete the file.
+- **Class toggles set in one branch of an `update()` leak into the others.** The "swap" style was only toggled in
+  the active-order branch, so a finished order kept the grey swap look on its Claim button; only the screenshot showed
+  it. Set every state class at the top of `update()` from the current state, then fill in text per branch. The e2e
+  now asserts the Claim button has no swap style.
+
+## 2026-11-05 (run 7)
+
+- **Single-seed balance tests fail by luck.** Adding two buyer kinds changed the RNG stream; seed 12345 then read a
+  25.2% barn share (limit 25%) and a minute slower Salesperson, but over 12 seeds the change cost only +23 s and the
+  barn share averaged 18%. Before tuning numbers after a failing sim, sweep seeds (the `many seeds` test does it) to
+  tell a real shift from noise, then tune for the average with margin.
+- **Stashing one file to compare "before" broke the build** (the old config no longer matched the new types), so
+  the comparison printed nothing. Compare by switching the new feature off inside the current code (e.g. set its
+  unlock to 99999) instead of stashing.
+- **Phaser depth is not enough to put a new sprite behind an older one** at the same depth; created-later draws on
+  top. Use `children.moveBelow(sprite, bigCar)` for a figure that must stand behind the bay car.
+- **`npm run check | grep ... && git commit` pushed a failing run.** grep matched the "Tests" line even though e2e
+  printed FAILED, so the `&&` chain went on to commit and push (fixed straight after). Gate commits on the exit code:
+  `npm run check > /tmp/check.log 2>&1 && git commit ...`, then grep the log. The flaky step was a cash assertion that
+  the Scrapper's scrap cash could disturb; switch off every other income source while measuring one sale.
+
+## 2026-11-05 (run 8)
+
+- **A passing e2e check can test nothing.** The "welcome back after an hour" check passed for runs because it only
+  looked at the popup title and "cash went up": the page's own `pagehide` save overwrote the edited save on reload, so the
+  popup really showed 0 s and a few dollars. Only adding a new assertion on the popup's content exposed it. When an e2e
+  step fakes time or storage, assert the faked value itself shows up (here "for 1h"), and block the page from saving
+  over test data (`Storage.prototype.setItem = () => {}` just before the reload).
+- **Phaser sorts by depth before display order.** The empty lot slots had `setDepth(-0.5)` and `sendToBack(bg)`, so the
+  backdrop (depth 0) always covered them and nobody noticed for six runs. Keep backdrop layers at the same depth and order
+  them with `sendToBack`/`moveBelow`, and look for missing pieces in screenshots, not only for overlaps.
+- **Pixel checks catch art bugs that eyes miss at thumbnail size.** The first reveal tarp let a van's roof poke out; a
+  gallery check that counts car-paint pixels above the tarp's hem (48 → 0) found and proved the fix. For art that must
+  cover or avoid something, paint it on a known colour in the debug gallery and count pixels.
+- **Mutation-test UI-order checks by flipping the feature off** (`barnFirst = false && ...`) and confirming the e2e fails,
+  then restore it and grep the line. A "card is on screen" check first passed even with the card third in the list,
+  because it only tested the card's top edge; it now checks the whole button fits on the phone screen.

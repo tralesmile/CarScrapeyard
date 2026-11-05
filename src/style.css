@@ -331,6 +331,17 @@ body {
   min-width: 0;
 }
 
+.card.flash {
+  animation: card-flash 0.9s ease-out;
+}
+@keyframes card-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 183, 0, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(245, 183, 0, 0);
+  }
+}
 .card.ready {
   border-color: rgba(59, 196, 90, 0.6);
 }
@@ -400,6 +411,14 @@ body {
   box-shadow: 0 3px 0 #157570;
 }
 
+/* Free contract reroll: a quieter button than a purchase. */
+.buy.swap {
+  background: #3a4356;
+  box-shadow: 0 3px 0 #2b3241;
+  color: #e6ebf2;
+  font-size: 15px;
+}
+
 /* ---- Banner (barn find, etc.) ---- */
 .banner {
   position: absolute;
@@ -419,6 +438,9 @@ body {
   white-space: nowrap;
 }
 
+.banner.muted {
+  visibility: hidden;
+}
 .banner small {
   display: block;
   font: 800 14px 'Nunito', sans-serif;
@@ -774,6 +796,9 @@ body {
 .reduce-motion .modal,
 .reduce-motion .modal-back,
 .reduce-motion .haggle.stopped.perfect,
+.reduce-motion .card.flash {
+  animation: none;
+}
 .reduce-motion .banner {
   animation: none;
   transition: none;

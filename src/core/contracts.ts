@@ -35,8 +35,9 @@ export function contractFamilies(state: GameState): CarFamily[] {
 
 /** Fill `slot` with a fresh order. Avoids repeating an order already on the board.
  * (With 4 starting families there are 7 distinct orders for 3 slots, so a free one always exists.) */
-export function generateContract(state: GameState, slot: Contract): void {
-  const others = state.contracts.filter((c) => c !== slot && c.status !== 'empty');
+export function generateContract(state: GameState, slot: Contract, avoid?: Pick<Contract, 'kind' | 'family'>): void {
+  const others: Pick<Contract, 'kind' | 'family'>[] = state.contracts.filter((c) => c !== slot && c.status !== 'empty');
+  if (avoid) others.push(avoid);
   let kind: ContractKind;
   let family: CarFamily | null;
   const taken = (k: ContractKind, f: CarFamily | null) => others.some((o) => o.kind === k && o.family === f);
@@ -62,6 +63,21 @@ export function generateContract(state: GameState, slot: Contract): void {
   slot.timeLeft = ECON.contracts.duration;
   slot.rewardCash = roundNice(cash);
   slot.rewardParts = kind === 'crush' ? ECON.contracts.crushPartsPerTarget * target : 0;
+  slot.rerolled = false;
+}
+
+export function canRerollContract(c: Contract | undefined): boolean {
+  return !!c && c.status === 'active' && !c.rerolled;
+}
+
+/** Free reroll: swap an active order for a different one (fresh timer). Once per order. */
+export function rerollContract(state: GameState, id: number, events: EventSink): boolean {
+  const c = state.contracts.find((x) => x.id === id);
+  if (!c || !canRerollContract(c)) return false;
+  generateContract(state, c, { kind: c.kind, family: c.family });
+  c.rerolled = true;
+  events.push({ type: 'contractNew', contract: { ...c } });
+  return true;
 }
 
 function emptySlot(): Contract {
@@ -75,6 +91,7 @@ function emptySlot(): Contract {
     timeLeft: 0,
     rewardCash: 0,
     rewardParts: 0,
+    rerolled: false,
   };
 }
 

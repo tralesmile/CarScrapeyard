@@ -35,6 +35,8 @@ export interface Contract {
   timeLeft: number;
   rewardCash: number;
   rewardParts: number;
+  /** True once this slot's order was swapped with the free reroll (one per order). */
+  rerolled: boolean;
 }
 
 export interface Buyer {
@@ -73,6 +75,8 @@ export interface GameState {
   levels: Record<UpgradeKind, number>;
   slots: number;
   managers: Record<ManagerKind, boolean>;
+  /** Seconds until the Scrapper may crush again. */
+  scrapperRest: number;
   /** Parts from the crusher; spent automatically to speed up repairs. */
   parts: number;
   /** Seconds until the crusher can be used again. */
@@ -108,6 +112,8 @@ export interface GameState {
     numberFormat: NumberFormat;
     /** Vibrate on taps, sales and crushes (phones that support it). */
     vibration: boolean;
+    /** Sell at the asking price without the haggle slider. */
+    skipHaggle: boolean;
   };
   stats: {
     legendaryFound: number;
@@ -128,9 +134,10 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     cash: 0,
     lifetimeEarnings: 0,
     carsSold: 0,
-    levels: { wash: 1, repair: 1, quality: 1 },
+    levels: { wash: 1, repair: 1, quality: 1, press: 1 },
     slots: ECON.slots.start,
-    managers: { mechanic: false, washer: false, seller: false },
+    managers: { mechanic: false, washer: false, seller: false, scrapper: false },
+    scrapperRest: 0,
     parts: 0,
     crusherCooldown: 0,
     contracts: [],
@@ -146,7 +153,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     rng: seed >>> 0 || 1,
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }

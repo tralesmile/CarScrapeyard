@@ -4,16 +4,17 @@
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
-import { bulkCost, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
+import { bulkCost, crusherCooldown, crushParts, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
 import { formatCash, formatDuration, setNumberFormat, type NumberFormat } from '../core/format';
 import { version } from '../../package.json';
-import { claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
+import { canRerollContract, claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
 import {
   buySlot,
   buyUpgrade,
   canCrush,
   carStage,
   crushCar,
+  rerollContract,
   crusherUnlocked,
   findCar,
   hireManager,
@@ -23,7 +24,7 @@ import {
 } from '../core/sim';
 import type { Car, GameState } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
-import { barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
+import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs';
@@ -226,13 +227,17 @@ export class Ui {
       const level = s.levels[kind];
       setText(lvl, `Lv ${level}`);
       const ms = nextMilestone(level);
+      // Crusher-only cards stay hidden until the crusher unlocks.
+      root.style.display = kind === 'press' && !crusherUnlocked(s) ? 'none' : '';
       if (kind === 'quality') {
         setText(desc, `Better wrecks: cars worth x${qualityMultiplier(level).toFixed(2)}`);
+      } else if (kind === 'press') {
+        setText(desc, `Crush every ${crusherCooldown(level).toFixed(1)}s · +${crushParts('common', level)} ⚙ per wreck`);
       } else {
         const what = kind === 'wash' ? 'Wash power' : 'Repair power';
         setText(desc, `${what} x${stationPower(level).toFixed(2)}${ms ? ` · x2 at Lv ${ms}` : ''}`);
       }
-      if (kind !== 'quality' && ms) {
+      if (kind !== 'quality' && kind !== 'press' && ms) {
         const prev = [...ECON.milestones].reverse().find((m) => m <= level) ?? 1;
         bar.style.width = `${((level - prev) / (ms - prev)) * 100}%`;
         barWrap.style.visibility = 'visible';
@@ -254,6 +259,7 @@ export class Ui {
       mechanic: 'Repairs washed cars for you',
       washer: 'Pressure-washes new wrecks',
       seller: 'Sells finished cars, even offline',
+      scrapper: `Crushes a fresh Common wreck now and then to keep ${ECON.crusher.scrapperKeepParts}+ ⚙ in the bin (more if the barn needs it)`,
     };
     const root = el('div', 'card');
     const title = el('div', 'title display');
@@ -271,6 +277,7 @@ export class Ui {
       } else sfx.denied();
     };
     const update = (s: GameState) => {
+      root.style.display = kind === 'scrapper' && !crusherUnlocked(s) ? 'none' : '';
       const hired = s.managers[kind];
       setText(lvl, hired ? 'Hired' : '');
       btn.classList.toggle('done', hired);
@@ -282,7 +289,7 @@ export class Ui {
   }
 
   private slotCard(): CardView {
-    const root = el('div', 'card');
+    const root = el('div', 'card slot');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
     title.append(document.createTextNode('Lot Space'), lvl);
@@ -309,7 +316,7 @@ export class Ui {
   }
 
   private crusherCard(): CardView {
-    const root = el('div', 'card');
+    const root = el('div', 'card crusher');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
     title.append(document.createTextNode('Car Crusher'), lvl);
@@ -331,7 +338,7 @@ export class Ui {
       setText(desc, `Crush wrecks for Parts. ${ECON.crusher.partsPerFix} parts halve a washed car's damage.`);
       const car = findCar(s, s.focusedId);
       const ok = canCrush(s, car);
-      setText(btn, ok && car ? `Crush +${ECON.crusher.parts[car.rarity]} ⚙` : s.crusherCooldown > 0 ? 'Cooling…' : 'No wreck');
+      setText(btn, ok && car ? `Crush +${crushParts(car.rarity, s.levels.press)} ⚙` : s.crusherCooldown > 0 ? 'Cooling…' : 'No wreck');
       btn.disabled = !ok;
     };
     return { root, lvl, desc, btn, update };
@@ -353,6 +360,16 @@ export class Ui {
       const s = this.deps.state();
       const c = s.contracts[index];
       if (!c) return;
+      if (canRerollContract(c)) {
+        const events = rerollContract(s, c.id);
+        if (events.length) {
+          sfx.buy();
+          this.deps.onEvents(events);
+          this.deps.onChange();
+          this.render();
+        }
+        return;
+      }
       const reward = claimContract(s, c.id);
       if (reward.cash > 0 || reward.parts > 0) {
         sfx.fanfare();
@@ -364,6 +381,7 @@ export class Ui {
     const update = (s: GameState) => {
       const c = s.contracts[index];
       root.classList.toggle('ready', c?.status === 'done');
+      btn.classList.toggle('swap', canRerollContract(c));
       if (!c || c.status === 'empty') {
         setText(name, 'New order');
         setText(lvl, '');
@@ -383,8 +401,9 @@ export class Ui {
         btn.disabled = false;
       } else {
         setText(desc, `Reward ${reward} · ${formatDuration(Math.ceil(c.timeLeft))} left`);
-        setText(btn, 'In progress');
-        btn.disabled = true;
+        const swap = canRerollContract(c);
+        setText(btn, swap ? '🔄 Swap order (free)' : 'In progress');
+        btn.disabled = !swap;
       }
     };
     return { root, lvl, desc, bar, btn, update };
@@ -463,9 +482,15 @@ export class Ui {
 
   private buildCards() {
     this.cardsBox.innerHTML = '';
-    if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
-    else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller'] as ManagerKind[]).map((k) => this.managerCard(k));
-    else if (this.tab === 'yard') this.cards = [this.slotCard(), this.crusherCard(), this.barnCard(), this.teaserCard()];
+    if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality', 'press'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
+    else if (this.tab === 'crew') this.cards = (['mechanic', 'washer', 'seller', 'scrapper'] as ManagerKind[]).map((k) => this.managerCard(k));
+    else if (this.tab === 'yard') {
+      // Once the barn is open it leads the tab, so it is never below the fold on a phone.
+      const barnFirst = barnUnlocked(this.deps.state());
+      const barn = this.barnCard();
+      const rest = [this.slotCard(), this.crusherCard()];
+      this.cards = barnFirst ? [barn, ...rest, this.teaserCard()] : [...rest, barn, this.teaserCard()];
+    }
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -545,12 +570,19 @@ export class Ui {
 
   /** Open the Yard tab (the scene calls this when the barn is tapped). */
   showYard() {
-    if (this.tab !== 'yard') {
+    if (this.tab !== 'yard' || !this.cardsBox.firstElementChild?.classList.contains('barn')) {
       this.tab = 'yard';
       this.buildCards();
     }
     sfx.tap();
     this.render();
+    const card = this.cardsBox.querySelector<HTMLElement>('.card.barn');
+    if (card) {
+      card.scrollIntoView({ block: 'nearest', behavior: this.deps.state().settings.reduceMotion ? 'auto' : 'smooth' });
+      card.classList.remove('flash');
+      void card.offsetWidth; // restart the animation
+      card.classList.add('flash');
+    }
   }
 
   private onBarn() {
@@ -576,7 +608,9 @@ export class Ui {
     const s = this.deps.state();
     this.modalOpen = true;
     sfx.reveal();
-    const close = this.deps.barnReveal(() => {
+    // Banners (e.g. "RESTORED!") stay out of the way of the reveal.
+    this.banner.classList.add('muted');
+    const reveal = this.deps.barnReveal(() => {
       this.modal({
         title: 'Legendary classic!',
         body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>`,
@@ -596,6 +630,10 @@ export class Ui {
         onSecondary: () => close(),
       });
     });
+    const close = () => {
+      this.banner.classList.remove('muted');
+      reveal();
+    };
   }
 
   private onCrush() {
@@ -619,7 +657,7 @@ export class Ui {
         title: 'Crush this beauty?',
         body: `<p>This ${ECON.rarity[car.rarity].label} ${car.model} sells for ${formatCash(car.value)} once fixed.</p>`,
         button: 'Keep it',
-        secondary: `Crush for ${ECON.crusher.parts[car.rarity]} parts`,
+        secondary: `Crush for ${crushParts(car.rarity, s.levels.press)} parts`,
         onSecondary: doCrush,
       });
       return;
@@ -663,7 +701,7 @@ export class Ui {
     if (showCrush && car) {
       const cd = s.crusherCooldown;
       this.crush.disabled = cd > 0;
-      const html = cd > 0 ? `Crush<small>${cd.toFixed(1)}s</small>` : `Crush<small>+${ECON.crusher.parts[car.rarity]} ⚙</small>`;
+      const html = cd > 0 ? `Crush<small>${cd.toFixed(1)}s</small>` : `Crush<small>+${crushParts(car.rarity, s.levels.press)} ⚙</small>`;
       if (this.crush.innerHTML !== html) this.crush.innerHTML = html;
     }
 
@@ -716,7 +754,10 @@ export class Ui {
   }
 
   private tabHasAction(s: GameState, t: Tab): boolean {
-    if (t === 'crew') return (Object.keys(ECON.managers) as ManagerKind[]).some((k) => !s.managers[k] && s.cash >= ECON.managers[k].cost);
+    if (t === 'crew')
+      return (Object.keys(ECON.managers) as ManagerKind[]).some(
+        (k) => !s.managers[k] && s.cash >= ECON.managers[k].cost && (k !== 'scrapper' || crusherUnlocked(s)),
+      );
     if (t === 'yard') {
       const c = slotCost(s.slots);
       return (c !== null && s.cash >= c) || this.barnHasAction(s);
@@ -726,11 +767,7 @@ export class Ui {
   }
 
   private barnHasAction(s: GameState): boolean {
-    const b = s.barn;
-    if (b.status === 'finished' || b.status === 'revealed') return true;
-    if (b.status !== 'covered') return false;
-    const cost = barnStageCost(s);
-    return s.cash >= cost.cash && s.parts >= cost.parts;
+    return barnHasAction(s);
   }
 
   private renderHint(s: GameState) {
@@ -883,6 +920,7 @@ export class Ui {
       }),
       toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
       toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+      toggle('Skip haggling', 'Sell at the asking price, no slider', () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
       toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {
         s.settings.vibration = v;
         haptics.enabled = v;
@@ -945,10 +983,11 @@ export class Ui {
     done.focus();
   }
 
-  offlineModal(seconds: number, earned: number, onCollect: () => void) {
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void) {
+    const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     this.modal({
       title: 'Welcome back!',
-      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>`,
+      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,

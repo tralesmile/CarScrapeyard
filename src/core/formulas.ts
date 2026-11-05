@@ -63,6 +63,17 @@ export function managerRate(state: GameState, kind: ManagerKind): number {
   return 0;
 }
 
+/** Seconds the crusher needs between crushes at this Hydraulic Press level. */
+export function crusherCooldown(pressLevel: number): number {
+  const c = ECON.crusher;
+  return Math.max(c.minCooldown, c.cooldown / (1 + c.pressSpeedPerLevel * (pressLevel - 1)));
+}
+
+/** Parts from crushing a car of this rarity at this Hydraulic Press level. */
+export function crushParts(rarity: Rarity, pressLevel: number): number {
+  return Math.round(ECON.crusher.parts[rarity] * (1 + ECON.crusher.pressPartsPerLevel * (pressLevel - 1)));
+}
+
 export function slotCost(currentSlots: number): number | null {
   const idx = currentSlots - ECON.slots.start;
   return ECON.slots.costs[idx] ?? null;
@@ -123,6 +134,14 @@ export function idleIncomePerSecond(state: GameState): number {
 export function offlineEarnings(state: GameState, seconds: number): number {
   const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
   return Math.floor(idleIncomePerSecond(state) * capped * ECON.offline.efficiency);
+}
+
+/** Expected value of the next Common car (what the Scrapper crushes). */
+export function expectedCommonValue(qualityLevel: number, carsSold: number): number {
+  const fams = unlockedFamilies(carsSold).map((f) => ECON.families[f]);
+  const famW = fams.reduce((s, f) => s + f.weight, 0);
+  const famAvg = fams.reduce((s, f) => s + f.weight * f.baseValue, 0) / famW;
+  return famAvg * ECON.rarity.common.valueMult * qualityMultiplier(qualityLevel);
 }
 
 /** Round a price or reward to two significant digits ($1,234 -> $1,200), at least $10. */

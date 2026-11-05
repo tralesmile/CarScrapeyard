@@ -9,6 +9,9 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 - Car value: `familyBase × rarityMult × 1.08^(junkSupplierLevel − 1) × (0.9 … 1.1)`
 - Idle income: pipeline throughput (slowest stage, limited by slots / full cycle) × expected car value
 - Offline: `idle income × min(seconds away, 2 h) × 50%`
+- Offline Scrapper (full crew + Scrapper): tops parts up to its target, at most `floor(counted seconds / (8 s rest + 2.5 s arrival))`
+  crushes, where counted seconds = `min(away, 2 h) × 50%`; each pays Common parts and 15% of an expected Common car as scrap
+  cash (added to the offline cash). Crushed cars are not subtracted from offline sales (at most a handful out of thousands).
 
 ## Current numbers
 
@@ -33,6 +36,12 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Scrap cash | 15% of the car's value |
 | Cooldown | 3 s |
 | Spare parts | 2 parts on wash completion halve the remaining damage |
+| Hydraulic Press (upgrade) | base $1,500, growth 1.35; cooldown `3 s / (1 + 0.15 × (level − 1))`, floor 1.2 s (the press animation); parts +10% of base per level |
+| Scrapper (crew) | $40,000; while parts < max(10, next barn stage's parts) it crushes the newest untouched Common wreck, then rests 8 s |
+
+Run 6 sim: the active bot buys 9 press levels in 15 min (16 in 30) and hires the Scrapper at 22m18s; over 30 minutes
+the Scrapper crushes 15 wrecks out of ~560 cars (3%), keeping parts stocked for two barn restorations. First-15-minute
+pacing is unchanged (Salesperson 9m01s, barn sold 13m24s, barn share 20%).
 
 ## Contracts
 
@@ -42,6 +51,7 @@ Source of truth: `src/core/config.ts` (`ECON`). This page explains the numbers; 
 | Timer | 10 min (game time); new order 45 s after claim or expiry |
 | Reward | expected car value x target x (sell any 0.4, body type 0.9, Rare+ 2.5, crush 0.7) |
 | Sizes | sell any 6-10, body type 2-4, Rare+ 1-2, crush 2-4 (+4 parts per crushed car) |
+| Swap | one free swap per order: a different order with a fresh 10-min timer (progress resets); the new order can't be swapped |
 | Share of income | must stay under 30% of first-15-minute earnings (sim: 18% active, 25% relaxed) |
 
 ## Haggle
@@ -75,6 +85,12 @@ families with weight 1 (no orders for 3 Hypercars). Run 5 sim: active Salesperso
 | Collector | Rare, Epic or Legendary | +40% |
 | Speed Freak | Muscle, Sports Car, Hypercar | +25% |
 | Family | Sedan, Van, SUV | +20% |
+| Tradie (after 20 sales) | Pickup | +20% |
+| Influencer (after 100 sales) | Sports Car, Hypercar | +50% |
+
+Skip haggling (setting) sells at the asking price without the slider (the one-time lesson still plays).
+Run 7: a 12-seed sim (`many seeds`) is the real pacing check: active Salesperson avg 9m52s (worst 10m57s), barn share
+avg 18% (max 24%) after the barn sale went x55 -> x50; seed 12345 alone read 25.2%.
 
 Unlock after 10 sales. One buyer at a time, waits 75 s, next buyer 8 s after one leaves or is served.
 Bonuses apply to crew sales too and stack with haggle. Sim limit: manual haggle + buyer bonus < 15% of
@@ -86,7 +102,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | --- | --- |
 | Unlock | 60 cars sold |
 | Stages (cash = expected car value x) | Tow 2x / 20 s · Engine 4x + 6 parts / 45 s · Body 6x + 12 parts / 60 s · Paint 8x / 90 s |
-| Sale | expected car value x 55 at the reveal (2.75x the cash cost; was x60 until run 5) |
+| Sale | expected car value x 50 at the reveal (2.5x the cash cost; x60 until run 5, x55 in run 6) |
 | Growth | +15% cost and value per restoration sold |
 | Next find | 5 min after a sale (runs offline) |
 | Share of income | sim limit < 25% of first-15-minute earnings (active 21%; relaxed bot reaches stage 3) |

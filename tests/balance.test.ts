@@ -60,9 +60,12 @@ function spendSmart(s: GameState): void {
     else reserve = c.cash;
   }
   // ...then the cheapest of slot / upgrades.
-  const options: { cost: number; buy: () => boolean }[] = (['wash', 'repair', 'quality'] as UpgradeKind[]).map(
+  const kinds: UpgradeKind[] = crusherUnlocked(s) ? ['wash', 'repair', 'quality', 'press'] : ['wash', 'repair', 'quality'];
+  const options: { cost: number; buy: () => boolean }[] = kinds.map(
     (k) => ({ cost: upgradeCost(k, s.levels[k]), buy: () => buyUpgrade(s, k) }),
   );
+  // The Scrapper competes with upgrades once the barn is open (it keeps the parts bin stocked).
+  if (barnUnlocked(s) && !s.managers.scrapper) options.push({ cost: ECON.managers.scrapper.cost, buy: () => hireManager(s, 'scrapper') });
   const sc = slotCost(s.slots);
   if (sc !== null) options.push({ cost: sc, buy: () => buySlot(s) });
   options.sort((a, b) => a.cost - b.cost);
@@ -77,8 +80,8 @@ function earlyUpgrades(s: GameState): void {
   }
 }
 
-function run(profile: BotProfile, seconds: number) {
-  const s = newGame(0, 12345);
+function run(profile: BotProfile, seconds: number, seed = 12345) {
+  const s = newGame(0, seed);
   const marks: Record<string, number> = {};
   const dt = 0.1;
   let cooldown = 0;
@@ -87,8 +90,9 @@ function run(profile: BotProfile, seconds: number) {
   let contractsClaimed = 0;
   let extraCash = 0;
   let barnCash = 0;
+  let scrapperCrushes = 0;
   for (let t = 0; t < seconds; t += dt) {
-    tick(s, dt);
+    for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
     const car = s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0];
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
     const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
@@ -126,7 +130,7 @@ function run(profile: BotProfile, seconds: number) {
       earlyUpgrades(s);
       spendSmart(s);
     }
-    for (const m of MANAGER_ORDER) if (s.managers[m] && marks[m] === undefined) marks[m] = t;
+    for (const m of [...MANAGER_ORDER, 'scrapper' as const]) if (s.managers[m] && marks[m] === undefined) marks[m] = t;
     if (s.carsSold >= 1 && marks.firstSale === undefined) marks.firstSale = t;
     if (s.slots >= 2 && marks.slot2 === undefined) marks.slot2 = t;
     if (crusherUnlocked(s) && marks.crusher === undefined) marks.crusher = t;
@@ -134,16 +138,17 @@ function run(profile: BotProfile, seconds: number) {
     if (barnUnlocked(s) && marks.barn === undefined) marks.barn = t;
     if (s.barn.restored > 0 && marks.barnSold === undefined) marks.barnSold = t;
   }
-  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash };
+  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes };
 }
 
 describe('opening pacing', () => {
   for (const profile of [ACTIVE, RELAXED]) {
     it(`${profile.name} player hits the first-session targets`, () => {
-      const { s, marks, contractCash, contractsClaimed, extraCash, barnCash } = run(profile, 15 * 60);
+      const { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes } = run(profile, 15 * 60);
       const line = (k: string) => `${k.padEnd(10)} ${marks[k] === undefined ? 'never' : formatDuration(marks[k]!)}`;
       console.log(
-        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'barnSold', 'slot2'].map(line),
+        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'scrapper', 'barnSold', 'slot2'].map(line),
+          `crushed by the Scrapper ${scrapperCrushes}`,
           `cash ${formatCash(s.cash)}, sold ${s.carsSold}, levels ${JSON.stringify(s.levels)}, slots ${s.slots}`,
           `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`,
           `haggles ${s.stats.haggles}, buyers served ${s.stats.buyersServed}, manual haggle+buyer bonus ${formatCash(extraCash)} (${((extraCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings)`,
@@ -171,4 +176,43 @@ describe('opening pacing', () => {
       if (profile === ACTIVE) expect(marks.seller).toBeLessThan(15 * 60);
     });
   }
+});
+
+describe('second quarter hour', () => {
+  it('the Scrapper and the Hydraulic Press join in, and the Scrapper keeps parts stocked without eating the yard', () => {
+    const { s, marks, scrapperCrushes } = run(ACTIVE, 30 * 60);
+    console.log(
+      `--- active bot, 30 minutes ---\nscrapper hired ${marks.scrapper === undefined ? 'never' : formatDuration(marks.scrapper)}, ` +
+        `press Lv ${s.levels.press}, Scrapper crushed ${scrapperCrushes}, sold ${s.carsSold}, barns ${s.barn.restored}, parts ${s.parts}`,
+    );
+    expect(marks.scrapper).toBeGreaterThan(15 * 60);
+    expect(marks.scrapper).toBeLessThan(30 * 60);
+    expect(s.levels.press).toBeGreaterThan(5);
+    // Whether it has to crush at all depends on how many parts the player made (seed luck); that it does crush
+    // when the bin runs low is covered over many seeds in press-scrapper.test.ts.
+    // The Scrapper only tops up the bin: far fewer crushes than sales.
+    expect(scrapperCrushes).toBeLessThan(s.carsSold * 0.25);
+  });
+});
+
+describe('many seeds', () => {
+  // One fixed seed can pass or fail by luck (run 7: the barn share read 25.2% on seed 12345 but averaged 18%).
+  // Averages over seeds are what the pacing targets mean; single-seed tests above stay as the readable timeline.
+  it('active player: full crew and barn share hold on average over 12 seeds', () => {
+    const sellers: number[] = [];
+    const shares: number[] = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const r = run(ACTIVE, 15 * 60, seed);
+      sellers.push(r.marks.seller ?? 15 * 60);
+      shares.push(r.barnCash / r.s.lifetimeEarnings);
+    }
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    console.log(
+      `--- active bot, 12 seeds ---\nSalesperson avg ${formatDuration(avg(sellers))} (worst ${formatDuration(Math.max(...sellers))}), ` +
+        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%)`,
+    );
+    expect(avg(sellers)).toBeLessThan(12 * 60);
+    expect(avg(shares)).toBeLessThan(0.22);
+    expect(Math.max(...shares)).toBeLessThan(0.3);
+  });
 });

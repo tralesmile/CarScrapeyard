@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 5; next run is run 6)
+Last updated: 2026-11-05 (run 8; next run is run 9). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -23,25 +23,32 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P0.12 Barn find + restoration project: covered car at the back of the yard, multi-stage restore, reveal
 - [x] P0.13 Settings sheet: sound, music, reduce motion, number format, reset progress (with confirm), credits
 - [x] P0.14 Juice pass: haptics (navigator.vibrate + setting), Canvas 2D car art (rounded, antialiased), 4 new families (van, SUV, sports, hyper) unlocking by sales
-- [ ] P0.14b Crusher upgrades: faster press / more parts per crush; a "Scrapper" crew member who auto-crushes when the lot is full (found in run 2)
-- [ ] P0.14c Contracts polish: one free reroll per order; let timers run offline once push notifications exist (found in run 2)
-- [ ] P0.14d Buyers polish: draw the buyer as a little character walking in; Influencer buyer; give pickups a buyer once vans/SUVs exist; a "skip haggle" setting (found in run 3)
+- [x] P0.14b Crusher upgrades: Hydraulic Press (faster press, more parts) and the Scrapper crew member who tops up the parts bin (run 6)
+- [x] P0.14j Scrapper polish: tops up parts while away (shown in the welcome-back popup), mini press on lot thumbnails,
+      Scrapper character and press beside the barn (run 8)
+- [x] P0.14c Contracts polish: one free swap per order (run 6). Offline contract timers moved to P2.5 (they need push notifications)
+- [x] P0.14d Buyers polish: customers drawn as characters that walk in and out; Tradie (pickups) and Influencer (sports/hyper) buyers; "Skip haggling" setting (run 7)
 - [x] P0.14e Floating texts overlap when several rewards land at once: they stack now; banners queue (run 5)
-- [ ] P0.14f Barn polish: the restored car drives out of the barn into the bay before the reveal; stage art inside the barn (engine hoist, paint booth); keep classics for the Collection book (P1.4) instead of only selling (found in run 4)
-- [ ] P0.14g Yard tab now has 4 cards and the barn card sits below the fold on phones: compact cards or a dot on the barn itself (found in run 4)
-- [ ] P0.14h Art polish (found in run 5): the big car in the bay still shows slight stair-steps when the 720 px texture
+- [x] P0.14f Barn polish: the covered classic drives out of the barn before the reveal; stage art inside the barn (tow chain,
+      engine hoist, welder, paint booth, clean tarp) with work sparks/dust; banners hide during the reveal (run 8).
+      "Keep classics for the Collection book" moved to P1.4.
+- [x] P0.14g Barn card below the fold: the barn card now leads the Yard tab once the barn opens, tapping the barn scrolls to
+      and flashes it, and a red dot on the barn sign shows when a stage is affordable or the classic is ready (run 8)
+- [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
       is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
-      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills and barn on Canvas 2D too
+      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills on Canvas 2D too (the barn, tarp, Scrapper
+      and press are Canvas 2D since run 8)
 - [ ] P0.14i Collection hook for new families (found in run 5): show "first Van!" style toasts and count each family
       for the Collection book (P1.4)
-- [ ] P0.15 Playtest gate: owner plays 15+ minutes; collect feedback in NEEDS_FROM_YOU
+- [x] P0.15 Playtest gate: owner played ~10 minutes (2026-11-05): "works well, held my attention for 10 minutes";
+      asks for better graphics (P0.14h) and a city map like other tycoons (P1.1). Owner chose to keep the current task order.
 
 ## Phase 1 — Web MVP
 
-- [ ] P1.1 Business framework: multiple businesses per city with a switcher/map; Business 2 Repair Garage
+- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
-- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery
+- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub
@@ -59,7 +66,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [ ] P2.2 AdMob rewarded ads adapter (double offline, 2x boost)
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation
-- [ ] P2.5 Push notifications (garage full, offline cap reached)
+- [ ] P2.5 Push notifications (garage full, offline cap reached); then let contract timers run offline (from P0.14c)
 - [ ] P2.6 Store assets: icon, screenshots, preview video script, store text
 - [ ] P2.7 Privacy policy, terms, data safety and age-rating answers
 

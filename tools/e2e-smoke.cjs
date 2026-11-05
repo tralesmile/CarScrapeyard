@@ -149,6 +149,13 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.sell.match:not(.hidden)');
     assert((await page.textContent('.buyer')).includes('Speed Freak'), 'buyer strip names the customer');
     assert(await page.$eval('.buyer', (e) => e.classList.contains('match')), 'buyer strip lights up for a matching car');
+    await page.waitForTimeout(1300); // walk-in
+    const figure = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('yard');
+      const b = sc.buyerSprite;
+      return b ? { kind: b.getData('kind'), x: b.x, w: sc.scale.width, visible: b.visible } : null;
+    });
+    assert(figure && figure.kind === 'speed' && figure.visible && figure.x > figure.w * 0.5 && figure.x < figure.w, 'the customer stands in the yard');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-10-buyer.png') });
     await page.click('.sell');
     // A buyer match is a big sale: haggle opens. Let it time out (sells at asking price).
@@ -255,6 +262,15 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => document.querySelectorAll('.cards .contract').length === 3);
     const labels = await page.$$eval('.cards .contract .title', (els) => els.map((e) => e.textContent));
     assert(labels.every((l) => l && l.length > 4), `three orders on the board (${labels.join(' | ')})`);
+    // Free reroll: the second order swaps once, then the button goes back to "In progress".
+    const before2 = await page.evaluate(() => ({ id: window.__jye.state.contracts[1].id, label: document.querySelectorAll('.cards .contract .title')[1].textContent }));
+    assert((await page.textContent('.cards .contract:nth-child(2) .buy')).includes('Swap'), 'active orders offer a free swap');
+    await page.click('.cards .contract:nth-child(2) .buy');
+    const after2 = await page.evaluate(() => ({ id: window.__jye.state.contracts[1].id, rerolled: window.__jye.state.contracts[1].rerolled }));
+    await page.waitForTimeout(150);
+    const btn2 = await page.$eval('.cards .contract:nth-child(2) .buy', (b) => ({ text: b.textContent, disabled: b.disabled }));
+    const label2 = await page.$$eval('.cards .contract .title', (els) => els[1].textContent);
+    assert(after2.id !== before2.id && after2.rerolled && btn2.disabled && btn2.text.includes('In progress'), `swap gives a new order once (${before2.label} -> ${label2})`);
     await page.evaluate(() => {
       const c = window.__jye.state.contracts[0];
       c.progress = c.target;
@@ -263,6 +279,7 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.cards .contract.ready .buy:not(:disabled)');
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-07-contracts.png') });
+    assert(!(await page.$eval('.cards .contract.ready .buy', (b) => b.classList.contains('swap'))), 'a finished order shows a normal Claim button (no swap style)');
     const claim = await page.evaluate(() => ({ cash: window.__jye.state.cash, reward: window.__jye.state.contracts[0].rewardCash }));
     await page.click('.cards .contract.ready .buy');
     const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));
@@ -288,23 +305,53 @@ async function waitForServer(url, ms = 15000) {
     await page.mouse.click(barnPt.x, barnPt.y);
     await page.waitForSelector('.cards .barn');
     assert(true, 'tapping the barn opens the Yard tab');
+    assert(await page.isVisible('.cards .card:nth-child(1).barn'), 'the barn card leads the Yard tab once the barn is open');
+    const inView = await page.$eval('.cards .card.barn', (c) => {
+      // The whole card, including its button, fits on the phone screen.
+      const r = c.querySelector('.buy').getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight;
+    });
+    assert(inView, 'the barn card is on screen after tapping the barn');
     await page.evaluate(() => {
       const s = window.__jye.state;
       s.cash += 1e7;
       s.lifetimeEarnings += 1e7;
       s.parts += 100;
     });
+    await page.waitForTimeout(150);
+    assert(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnDot.visible), 'a red dot on the barn sign shows a stage is affordable');
     for (let i = 0; i < 4; i++) {
       await page.waitForSelector('.cards .barn .buy:not(:disabled)');
       await page.click('.cards .barn .buy');
       const st = await page.evaluate(() => window.__jye.state.barn.status);
       if (i === 0) assert(st === 'working', 'starting a stage pays and runs the timer');
+      await page.waitForTimeout(150);
+      const barnTex = await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnImg.texture.key);
+      assert(barnTex.startsWith(`barn-working-${i}-`), `barn art shows stage ${i + 1} work inside (${barnTex.split('-').slice(0, 3).join('-')})`);
+      if (i === 1 || i === 3) {
+        const r = await page.evaluate(() => {
+          const g = window.__jye.game;
+          const b = g.scene.getScene('yard').barnRect;
+          const z = g.scale.zoom;
+          const c = document.querySelector('#game canvas').getBoundingClientRect();
+          return { x: c.x + b.x * z, y: c.y + b.y * z, width: b.width * z, height: b.height * z };
+        });
+        await page.screenshot({ path: path.join(SHOTS, `e2e-11${i === 1 ? 'b' : 'c'}-barn-stage${i + 1}.png`), clip: r });
+      }
       await page.evaluate(() => (window.__jye.state.barn.timeLeft = 0.05));
       await page.waitForFunction((n) => window.__jye.state.barn.stage === n, i + 1);
     }
     await page.waitForFunction(() => window.__jye.state.barn.status === 'finished');
     assert((await page.textContent('.cards .barn .buy')).includes('Reveal'), 'finished restoration offers a reveal');
     await page.click('.cards .barn .buy');
+    await page.waitForTimeout(450);
+    const out = await page.evaluate(() => {
+      const y = window.__jye.game.scene.getScene('yard');
+      return { out: y.barnCarOut, tex: y.barnImg.texture.key };
+    });
+    assert(out.out && out.tex.endsWith('-1'), 'the covered classic drives out of the barn (barn is empty behind it)');
+    assert(!(await page.isVisible('.banner.show:not(.muted)')), 'no banner covers the reveal');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12a-barn-drive-out.png') });
     await page.waitForSelector('.modal-back.reveal .modal .buy', { timeout: 5000 });
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-12-barn-reveal.png') });
@@ -314,6 +361,7 @@ async function waitForServer(url, ms = 15000) {
     const sold = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.barn.status, n: window.__jye.state.barn.restored }));
     assert(sold.cash >= sale.cash + sale.value && sold.status === 'away' && sold.n === 1, 'selling the classic pays and the barn waits for the next find');
     await page.waitForTimeout(500);
+    assert(!(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnCarOut)), 'the reveal closes cleanly');
 
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
@@ -329,12 +377,19 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.cards .card:nth-child(2) .buy');
     lv = await page.evaluate(() => window.__jye.state.levels.repair);
     assert(lv > 10, `Max buys many Repair Bench levels (${lv})`);
+    await page.click('.mode:has-text("x1")');
+    assert(await page.isVisible('.cards .card:nth-child(4)'), 'Hydraulic Press card shows once the crusher is unlocked');
+    const pressDesc0 = await page.textContent('.cards .card:nth-child(4) .desc');
+    await page.click('.cards .card:nth-child(4) .buy');
+    const pressDesc1 = await page.textContent('.cards .card:nth-child(4) .desc');
+    assert((await page.evaluate(() => window.__jye.state.levels.press)) === 2 && pressDesc0 !== pressDesc1, `Hydraulic Press upgrade (${pressDesc1.trim()})`);
     await page.click('.tab:nth-child(2)');
-    for (const n of [1, 2, 3]) await page.click(`.cards .card:nth-child(${n}) .buy`);
+    for (const n of [1, 2, 3, 4]) await page.click(`.cards .card:nth-child(${n}) .buy`);
     const m = await page.evaluate(() => window.__jye.state.managers);
     assert(m.mechanic && m.washer && m.seller, 'all three crew members hired');
+    assert(m.scrapper, 'Scrapper hired');
     await page.click('.tab:nth-child(3)');
-    await page.click('.cards .card:nth-child(1) .buy');
+    await page.click('.cards .card.slot .buy');
     const slots = await page.evaluate(() => window.__jye.state.slots);
     assert(slots === 2, 'lot space bought');
 
@@ -343,6 +398,29 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction((n) => window.__jye.state.carsSold > n, soldBefore, { timeout: 30000 });
     assert(true, 'crew sold a car without input');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-03-automated.png') });
+
+    console.log('scrapper');
+    const crushedBefore = await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.parts = 0;
+      s.scrapperRest = 0;
+      return s.stats.carsCrushed;
+    });
+    const station = await page.evaluate(() => {
+      const st = window.__jye.game.scene.getScene('yard').station;
+      return st ? { press: st.press.visible, worker: st.scrapper.visible, y: st.press.y } : null;
+    });
+    assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
+    await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
+    const plateMoved = await page.evaluate(() => {
+      const st = window.__jye.game.scene.getScene('yard').station;
+      return st.plate.scene.tweens.isTweening(st.plate);
+    });
+    assert(plateMoved, 'the press slams when the Scrapper crushes a wreck');
+    const afterScrap = await page.evaluate(() => ({ parts: window.__jye.state.parts, rest: window.__jye.state.scrapperRest }));
+    assert(afterScrap.parts > 0 && afterScrap.rest > 0, `Scrapper crushes a wreck when parts run low (+${afterScrap.parts} parts)`);
 
     console.log('save and reload');
     const before = await page.evaluate(() => {
@@ -364,6 +442,7 @@ async function waitForServer(url, ms = 15000) {
     await page.evaluate(() => {
       const s = window.__jye.state;
       s.lastSeen = Date.now() - 3600 * 1000;
+      s.parts = 0; // the Scrapper refills the bin while away
     });
     await page.evaluate(() => {
       // Write the save directly without touching lastSeen.
@@ -374,11 +453,17 @@ async function waitForServer(url, ms = 15000) {
       const env = JSON.stringify({ v: state.version, savedAt: Date.now() + 10, sum: (h >>> 0).toString(16).padStart(8, '0'), data });
       localStorage.setItem('jye_save_a', env);
       localStorage.setItem('jye_save_b', env);
+      // Stop this page from saving over it (the 5 s save loop and pagehide would reset lastSeen).
+      Storage.prototype.setItem = function () {};
     });
     await page.reload();
     await page.waitForSelector('.modal .buy', { timeout: 5000 });
     const title = await page.textContent('.modal h2');
-    assert(title.includes('Welcome back'), 'welcome-back popup appears after an hour away');
+    const awayText = await page.textContent('.modal');
+    assert(title.includes('Welcome back') && /for (59m|1h)/.test(awayText), `welcome-back popup appears after an hour away (${awayText.match(/for [^.]+/)?.[0]})`);
+    const scrapLine = (await page.textContent('.modal .offline-parts').catch(() => '')) || '';
+    const partsBack = await page.evaluate(() => window.__jye.state.parts);
+    assert(/\+\d+ ⚙/.test(scrapLine) && partsBack > 0, `the Scrapper topped up parts while away (${scrapLine.trim()})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');
@@ -410,8 +495,37 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate((n) => window.__vib.length === n, vibCount), 'no haptics while vibration is off');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate((n) => window.__jye.state.settings.vibration && window.__vib.length > n, vibCount), 'vibration switches back on with a test buzz');
+    await page.click('.toggle[aria-label="Skip haggling"]');
     await page.click('.modal.settings .buy');
     assert(!(await page.$('.modal.settings')), 'Done closes the settings');
+    // Skip haggling: a Rare car sells straight away at the asking price.
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.managers.seller = false;
+      s.managers.scrapper = false; // its scrap cash would muddle the sale amount
+      s.buyer = null;
+      s.buyerTimer = 999;
+    });
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    const rareSale = await page.evaluate(() => {
+      const s = window.__jye.state;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.rarity = 'rare';
+      c.dirt = 0;
+      c.damage = 0;
+      return { sold: s.carsSold, cash: s.cash, value: c.value };
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    await page.waitForTimeout(200);
+    const afterRare = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash }));
+    const haggleHidden = await page.$eval('.haggle', (e) => e.classList.contains('hidden'));
+    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, 'skip haggling sells a Rare car at the asking price, no slider');
+    await page.evaluate(() => {
+      window.__jye.state.managers.seller = true;
+      window.__jye.state.managers.scrapper = true;
+    });
     await page.evaluate(() => window.__jye.saveNow());
     await page.reload();
     await page.waitForFunction(() => window.__jye && window.__jye.state);
@@ -440,7 +554,7 @@ async function waitForServer(url, ms = 15000) {
     await gal.waitForSelector('.car-gallery canvas');
     await gal.waitForTimeout(300);
     const art = await gal.evaluate(() =>
-      [...document.querySelectorAll('.car-gallery canvas')].map((c) => {
+      [...document.querySelectorAll('.car-gallery canvas[data-family]')].map((c) => {
         const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
         let solid = 0;
         let soft = 0;
@@ -453,6 +567,21 @@ async function waitForServer(url, ms = 15000) {
     );
     const fams = [...new Set(art.map((a) => a.family))];
     assert(fams.length === 8, `gallery draws all 8 families (${fams.join(', ')})`);
+    const buyerArt = await gal.$$eval('.car-gallery canvas[data-buyer]', (cs) => cs.map((c) => c.dataset.buyer));
+    assert(buyerArt.length === 6, `gallery draws all 6 customers (${buyerArt.join(', ')})`);
+    const extra = await gal.evaluate(() => ({
+      crew: document.querySelectorAll('.car-gallery canvas[data-crew]').length,
+      barn: document.querySelectorAll('.car-gallery canvas[data-barn]').length,
+      // Reveal tarp: no car paint (the red PAINTS[0]) may show above the tarp's hem.
+      tarpLeaks: [...document.querySelectorAll('.car-gallery canvas[data-tarp]')].map((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, Math.floor(c.height * 0.7)).data;
+        let red = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] < 100 && d[i + 2] < 100) red++;
+        return red;
+      }),
+    }));
+    assert(extra.crew === 2 && extra.barn === 5, 'gallery draws the Scrapper, the press and 5 barn stages');
+    assert(extra.tarpLeaks.every((n) => n < 30), `the reveal tarp covers vans, SUVs and pickups (${extra.tarpLeaks.join(', ')} red px)`);
     assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
     assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
     await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });
