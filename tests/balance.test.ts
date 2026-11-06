@@ -27,6 +27,17 @@ import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
 import { canOpenBusiness, openBusiness, switchBusiness } from '../src/core/businesses';
+import {
+  buyCarLotUpgrade,
+  buyLot,
+  buySpot,
+  carlotUpgradeCost,
+  hireLotCrew,
+  lotProfit,
+  refurbTap,
+  sellLotCar,
+  spotCost,
+} from '../src/core/carlot';
 import { buyGarageBay, buyGarageUpgrade, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
 
 interface BotProfile {
@@ -72,6 +83,23 @@ function spendSmart(s: GameState): void {
     if (s.cash >= ECON.garage.foreman.cost) hireForeman(s);
     reserve = ECON.garage.foreman.cost;
   }
+  // The Used Car Lot is the next big goal: save for it, open it, then its crew (Detailer, then Auction Agent).
+  const lot = ECON.businesses.list.carlot;
+  if (s.garage.foreman && !s.businesses.opened.carlot && lot.ready && s.lifetimeEarnings >= lot.unlockLifetime && !barnMidway) {
+    if (canOpenBusiness(s, 'carlot')) {
+      openBusiness(s, 'carlot');
+      switchBusiness(s, 'carlot');
+    } else return;
+  }
+  if (s.businesses.opened.carlot) {
+    for (const k of ['detailer', 'agent'] as const) {
+      if (!s.carlot.crew[k]) {
+        if (s.cash >= ECON.carlot.crew[k].cost) hireLotCrew(s, k);
+        reserve = Math.max(reserve, ECON.carlot.crew[k].cost);
+        break;
+      }
+    }
+  }
   if (nextBarnStage(s)) {
     const c = barnStageCost(s);
     if (s.cash - reserve >= c.cash && s.parts >= c.parts) startBarnStage(s);
@@ -90,6 +118,11 @@ function spendSmart(s: GameState): void {
     for (const k of ['tools', 'rep'] as const) options.push({ cost: garageUpgradeCost(k, s.garage.levels[k]), buy: () => buyGarageUpgrade(s, k) });
     const bc = garageBayCost(s.garage.bays);
     if (bc !== null) options.push({ cost: bc, buy: () => buyGarageBay(s) });
+  }
+  if (s.businesses.opened.carlot) {
+    for (const k of ['valet', 'showroom'] as const) options.push({ cost: carlotUpgradeCost(k, s.carlot.levels[k]), buy: () => buyCarLotUpgrade(s, k) });
+    const sp = spotCost(s.carlot.spots);
+    if (sp !== null) options.push({ cost: sp, buy: () => buySpot(s) });
   }
   options.sort((a, b) => a.cost - b.cost);
   const best = options[0];
@@ -118,6 +151,12 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
     // In the garage (once the yard runs on its own) the bot taps customer cars instead of working the yard.
     const inGarage = s.businesses.active === 'garage' && s.managers.seller;
+    if (s.lifetimeEarnings >= ECON.businesses.list.carlot.unlockLifetime && marks.lotGoal === undefined) marks.lotGoal = t;
+    if (s.businesses.opened.carlot && marks.lotOpen === undefined) marks.lotOpen = t;
+    if (s.carlot.crew.detailer && marks.detailer === undefined) marks.detailer = t;
+    if (s.carlot.crew.agent && marks.agent === undefined) marks.agent = t;
+    if (s.carlot.spots >= 3 && marks.spot3 === undefined) marks.spot3 = t;
+    if (s.lifetimeEarnings >= ECON.businesses.list.paint.unlockLifetime && marks.paintGoal === undefined) marks.paintGoal = t;
     if (inGarage) {
       const job = s.garage.jobs[0];
       if (job) {
@@ -128,7 +167,34 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
         }
       }
     }
-    const car = inGarage ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
+    // On the Used Car Lot the bot bids on the best lot it can afford, refurbishes by tapping and haggles each sale.
+    const inLot = s.businesses.active === 'carlot' && s.managers.seller;
+    if (inLot) {
+      const l = s.carlot;
+      const todo = l.cars.find((c) => c.work > 0);
+      if (todo) {
+        tapBudget += profile.tapsPerSec * dt;
+        if (tapBudget >= 1) {
+          tapBudget -= 1;
+          refurbTap(s, todo.id);
+        }
+      }
+      if (cooldown <= 0) {
+        const ready = l.cars.find((c) => c.work === 0);
+        if (ready) {
+          sellLotCar(s, ready.id, profile.haggle);
+          cooldown = profile.reaction + 1;
+        } else if (l.cars.length < l.spots) {
+          const lots = l.board.filter((b): b is NonNullable<typeof b> => !!b && b.price <= s.cash);
+          lots.sort((a, b) => lotProfit(s, b) / (ECON.carlot.conditions[b.condition].work + 4) - lotProfit(s, a) / (ECON.carlot.conditions[a.condition].work + 4));
+          if (lots[0]) {
+            buyLot(s, lots[0].id);
+            cooldown = profile.reaction;
+          }
+        }
+      }
+    }
+    const car = inGarage || inLot ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
     const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
     const wantsCrush = barnNeedsParts || s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
@@ -317,5 +383,43 @@ describe('Repair Garage (P1.1c)', () => {
     const avg = opens.reduce((a, b) => a + b, 0) / opens.length;
     console.log(`--- garage opened, 12 seeds --- avg ${formatDuration(avg)}, worst ${formatDuration(Math.max(...opens))}`);
     expect(Math.max(...opens)).toBeLessThan(17 * 60);
+  });
+});
+
+describe('Used Car Lot (P1.2a)', () => {
+  function withReadyLot<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.carlot!.ready;
+    list.carlot!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.carlot!.ready = was;
+    }
+  }
+
+  it('opens within the first hour and a half and becomes a third income', () => {
+    const rows: string[] = [];
+    const res: Record<string, { open: number; share: number; garageShare: number }> = {};
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyLot(() => run(profile, 120 * 60));
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      const share = s.carlot.profit / s.lifetimeEarnings;
+      const garageShare = s.garage.earned / s.lifetimeEarnings;
+      rows.push(
+        `${profile.name}: goal ${fmt('lotGoal')}, opened ${fmt('lotOpen')}, Detailer ${fmt('detailer')}, Agent ${fmt('agent')}, ` +
+          `spot 3 ${fmt('spot3')}, Paint & Tuning goal ${fmt('paintGoal')}, sold ${s.carlot.sold}, lot profit ${formatCash(s.carlot.profit)} (${(share * 100).toFixed(0)}% of all), ` +
+          `garage ${(garageShare * 100).toFixed(0)}%, lifetime ${formatCash(s.lifetimeEarnings)}, levels ${JSON.stringify(s.carlot.levels)}`,
+      );
+      res[profile.name] = { open: marks.lotOpen ?? Infinity, share, garageShare };
+    }
+    console.log(['--- Used Car Lot, 120 minutes ---', ...rows].join('\n'));
+    const a = res.active!;
+    expect(a.open).toBeGreaterThan(30 * 60);
+    expect(a.open).toBeLessThan(75 * 60);
+    expect(a.share).toBeGreaterThan(0.15);
+    expect(a.share).toBeLessThan(0.65);
+    // The garage still matters after the lot opens.
+    expect(a.garageShare).toBeGreaterThan(0.05);
   });
 });

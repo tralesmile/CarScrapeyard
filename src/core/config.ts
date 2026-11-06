@@ -9,6 +9,10 @@ export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' 
 export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
 export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
 export type GarageUpgradeKind = 'tools' | 'rep';
+export type CarLotUpgradeKind = 'valet' | 'showroom';
+export type CarLotCrewKind = 'detailer' | 'agent';
+/** Auction condition grade of a used car, 1 (rough) to 5 (nearly mint). */
+export type Condition = 1 | 2 | 3 | 4 | 5;
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
 
 export const ECON = {
@@ -198,14 +202,14 @@ export const ECON = {
     list: {
       scrapyard: { name: 'Scrapyard', icon: '🚗', unlockLifetime: 0, openCost: 0, ready: true },
       garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 100_000, ready: true },
-      carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: false },
+      carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: true },
       paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
     } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
     /**
      * Map tiers (P1.1d): each open business grows on the map in three tiers. The number is the size needed for tier 2
      * and tier 3: lot slots for the scrapyard, repair bays for the garage. Businesses without an entry stay tier 1.
      */
-    tiers: { scrapyard: [3, 4], garage: [2, 3] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
+    tiers: { scrapyard: [3, 4], garage: [2, 3], carlot: [3, 4] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
   },
 
   /**
@@ -245,6 +249,56 @@ export const ECON = {
     repFeeGrowth: 1.12,
     /** The Foreman fixes cars on its own (work units per second at Tool Wall level 1), also offline. */
     foreman: { name: 'Foreman', cost: 200_000, workPerSec: 0.8 },
+  },
+
+  /**
+   * Used Car Lot (business 3, P1.2a): buy used cars at the auction board (condition shown before you bid, so it is
+   * never a blind box), refurbish them on the forecourt (tap, or the Detailer), then sell to the buyers who walk up
+   * (or sell now with the haggle slider). The Auction Agent buys on its own. Rough cars are cheap but take more work.
+   */
+  carlot: {
+    /** Auction lots on the board at once. */
+    auctionLots: 3,
+    /** Seconds a lot stays on the board before someone else wins it (a new one replaces it). */
+    lotSeconds: 45,
+    /** Seconds before an empty board slot gets a new lot (after you bought one). */
+    refillSeconds: 4,
+    spots: {
+      start: 2,
+      /** Cost of forecourt spot 3 and 4. */
+      costs: [2_500_000, 20_000_000] as const,
+    },
+    /** Retail value = retailBase x (family base value / feeFamilyRef) x Showroom multiplier. */
+    retailBase: 35_000,
+    feeFamilyRef: 600,
+    /** Per condition grade: auction price as a fraction of retail, refurbish work units, weight on the board. */
+    conditions: {
+      1: { name: 'Rough', priceFrac: 0.3, work: 36, weight: 2 },
+      2: { name: 'Tired', priceFrac: 0.42, work: 26, weight: 3 },
+      3: { name: 'Fair', priceFrac: 0.54, work: 18, weight: 3 },
+      4: { name: 'Good', priceFrac: 0.66, work: 11, weight: 2 },
+      5: { name: 'Mint', priceFrac: 0.78, work: 5, weight: 1 },
+    } satisfies Record<Condition, { name: string; priceFrac: number; work: number; weight: number }>,
+    /** Work removed per tap at Valet Bay level 1. */
+    workPerTap: 1,
+    /** Seconds until a buyer walks up while a refurbished car waits (they pay the full price). */
+    buyerInterval: 6,
+    upgrades: {
+      /** Faster refurbishing (taps and the Detailer), doubled at the station milestones. */
+      valet: { name: 'Valet Bay', baseCost: 250_000, growth: 1.17 },
+      /** Higher sale prices. */
+      showroom: { name: 'Showroom', baseCost: 1_200_000, growth: 1.35 },
+    } satisfies Record<CarLotUpgradeKind, { name: string; baseCost: number; growth: number }>,
+    /** Each Showroom level multiplies sale prices by this. */
+    showroomGrowth: 1.08,
+    crew: {
+      /** Refurbishes the oldest car on its own (work units per second at Valet Bay level 1), also offline. */
+      detailer: { name: 'Detailer', cost: 3_000_000, workPerSec: 1.5 },
+      /** Buys the best-value lot when a spot is free and the cash is there (keeps `agentReserve` x price). */
+      agent: { name: 'Auction Agent', cost: 6_000_000, workPerSec: 0 },
+    } satisfies Record<CarLotCrewKind, { name: string; cost: number; workPerSec: number }>,
+    /** The agent only bids when cash covers this many times the lot price, so it never empties your wallet. */
+    agentReserve: 2,
   },
 
   barn: {

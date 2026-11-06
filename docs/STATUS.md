@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 13; next run is run 14). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 14; next run is run 15). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -75,6 +75,19 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P1.1y SUV redrawn (run 12): high ground clearance, raked D-pillar, tailgate spare wheel; van/SUV 0.81 -> 0.74,
       every family pair under 0.75 (asserted in families-art.test.ts).
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
+  - [x] P1.2a Used Car Lot core (run 14): `src/core/carlot.ts` (auction board of 3 lots with condition shown up front,
+        45 s per lot, refurbish by tap or Detailer, walk-up buyers at list price, haggled manual sales with a hold,
+        Valet Bay / Showroom / spots 2-4, Auction Agent with a 2x cash reserve, idle and offline income, save repair),
+        profit-only lifetime earnings. Tuned with a 120-minute bot run (retailBase $35K; lot 55% of earnings at 2 h).
+  - [x] P1.2b Used Car Lot scene and UI (run 14): `CarLotScene` + `carlotArt.ts` (forecourt backdrop, showroom sign,
+        bunting, platform, condition rust, FOR SALE tag, spot thumbnails, Detailer, buyer drives the car away),
+        Auction / Lot / Crew tabs, Sell with haggle, hints, map tiers and back button, welcome-back line. `ready: true`.
+  - [ ] P1.2c Used Car Lot polish: auction feel (a bid countdown/gavel, "SOLD!" stamp when a lot goes to someone else),
+        the walk-up buyer looks over the car before buying, lot-specific buyer types (e.g. the Collector pays more for
+        mint cars), sounds for the auction.
+  - [ ] P1.2d Paint & Tuning core (business 4, $50M goal): paint jobs, wraps, rims, engine tunes for customer cars;
+        design note: use the lot's cars as one source (tune before selling for a higher list price).
+  - [ ] P1.2e Paint & Tuning scene and UI.
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements

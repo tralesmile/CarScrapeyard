@@ -224,3 +224,23 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Never find a short animation with a fixed wait.** Adding the 0.46 s road wipe in front of the garage shifted the
   timeline, and the e2e's "wait 1300 ms, then look for the speech bubble" missed the 1.8 s window on a slower run.
   The predicate that finds the state now also holds it (`speechUntil = clock + 99`, polling every frame).
+
+## 2026-11-06 (run 14)
+
+- **Tune a new business with a long bot run before building its scene.** The first Used Car Lot numbers looked sane
+  per car but gave the lot 81% of all earnings by 2 hours ($434M vs $5M before it opened): a manual haggled sale is
+  instant, so an active player flips a car every ~2 s. Writing the core plus a 120-minute bot run first found it in
+  one minute; a sweep of one knob (retailBase 45K/35K/28K) picked the value. Do the sweep in one shell loop.
+- **Decide what counts as "earnings" when a business spends cash to earn it.** The lot buys cars, so counting the full
+  sale price as lifetime earnings would have inflated every unlock goal; only the profit counts now (and the save's
+  `cash <= lifetime` sanity check still holds).
+- **A debug edit to test data must keep its invariants.** The e2e turned an auction lot into a Rough car without
+  changing its price, so the "profit" was negative and the haggled-sale check failed. Recompute derived fields
+  (price from condition) whenever a test mutates the inputs.
+- **A new business changes old screens.** The map row check "text not squeezed by the Go button" failed because the
+  lot now shows a wider "Open $2.50M" button. Layout assertions should name the state they check (rows with Go vs rows
+  for sale) instead of taking the minimum over everything.
+- **Never rebuild `dist` while an e2e run is using it.** Kill the running e2e (and `vite preview`) first, rebuild,
+  then start one clean run.
+- **Paint decorations before the sign they could cover.** The bunting hung over the "USED CAR LOT" lettering in the
+  first screenshot; drawing the flags first and stringing them above the band keeps the sign readable on any height.

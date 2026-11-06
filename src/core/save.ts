@@ -7,6 +7,7 @@
 import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
+import { sanitizeCarLot } from './carlot';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
@@ -132,6 +133,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     }
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
+    sanitizeCarLot(state.carlot);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

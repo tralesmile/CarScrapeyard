@@ -15,6 +15,7 @@ import { newGame, type GameState } from './core/state';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
+import { CarLotScene } from './game/CarLotScene';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
@@ -57,6 +58,7 @@ function saveNow() {
 function onEvents(events: GameEvent[]) {
   for (const e of events) {
     if (e.type === 'sold' || e.type === 'garageFixed') sales.push({ t: performance.now(), amount: e.amount });
+    if (e.type === 'lotSold') sales.push({ t: performance.now(), amount: Math.max(0, e.profit) });
     if (e.type === 'familyUnlocked') {
       ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
       sfx.fanfare();
@@ -83,7 +85,7 @@ function onEvents(events: GameEvent[]) {
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
-    if (e.type.startsWith('garage')) dirty = true;
+    if (e.type.startsWith('garage') || e.type.startsWith('lot')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
   ui.render();
@@ -145,31 +147,41 @@ const game = new Phaser.Game({
 });
 game.scene.add('yard', YardScene, true, { bridge });
 game.scene.add('garage', GarageScene, false, { bridge });
+game.scene.add('carlot', CarLotScene, false, { bridge });
 
 function yardScene(): YardScene | undefined {
   return game.scene.getScene('yard') as YardScene | undefined;
 }
 
+/** Scene key per business (Paint & Tuning has no scene yet and never becomes active). */
+const SCENE_KEYS = { garage: 'garage', carlot: 'carlot' } as const;
+
+function activeSceneKey(): 'yard' | 'garage' | 'carlot' {
+  const a = state.businesses.active;
+  return a === 'garage' || a === 'carlot' ? SCENE_KEYS[a] : 'yard';
+}
+
 /** The scene on screen (it runs the simulation tick and gets the player's events). */
-function scene(): YardScene | GarageScene | undefined {
-  if (state.businesses.active === 'garage') return game.scene.getScene('garage') as GarageScene | undefined;
-  return yardScene();
+function scene(): YardScene | GarageScene | CarLotScene | undefined {
+  const key = activeSceneKey();
+  if (key === 'yard') return yardScene();
+  return game.scene.getScene(key) as GarageScene | CarLotScene | undefined;
 }
 
 /**
  * Put the active business's scene on screen (P1.1c). Only one scene runs at a time; the core tick inside it advances
- * every business, so the yard keeps earning while the garage is shown. The yard always boots first (shared textures).
+ * every business, so the yard keeps earning while the garage or the lot is shown. The yard always boots first
+ * (shared textures).
  */
 function showBusiness() {
   const m = game.scene;
-  if (state.businesses.active === 'garage') {
-    if (m.isActive('yard')) m.sleep('yard');
-    if (m.isSleeping('garage')) m.wake('garage');
-    else if (!m.isActive('garage')) m.run('garage', { bridge });
-  } else {
-    if (m.isActive('garage')) m.sleep('garage');
-    if (m.isSleeping('yard')) m.wake('yard');
+  const want = activeSceneKey();
+  for (const key of ['yard', 'garage', 'carlot'] as const) {
+    if (key === want || !m.isActive(key)) continue;
+    m.sleep(key);
   }
+  if (m.isSleeping(want)) m.wake(want);
+  else if (!m.isActive(want)) m.run(want, { bridge });
   dirty = true;
   ui.render();
 }
@@ -190,7 +202,7 @@ setInterval(() => {
 }, 5000);
 
 // ---- offline earnings -----------------------------------------------------
-function offerOffline(seconds: number, parts = 0, garage = 0) {
+function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0) {
   if (state.pendingOffline <= 0) return;
   ui.offlineModal(
     seconds,
@@ -201,6 +213,7 @@ function offerOffline(seconds: number, parts = 0, garage = 0) {
       saveNow();
     },
     garage,
+    carlot,
   );
 }
 
@@ -213,7 +226,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     sfx.resume();
     const r = queueOffline(state, platform.now());
-    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage);
+    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot);
   }
 });
 window.addEventListener('pagehide', () => saveNow());
@@ -221,7 +234,7 @@ window.addEventListener('pagehide', () => saveNow());
 // ---- first launch / returning player --------------------------------------
 if (loaded) {
   const r = queueOffline(state, platform.now());
-  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage);
+  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage, r.carlot);
 }
 if (!state.tutorial.introSeen) {
   ui.modal({

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.14.0 - 2026-11-06 (run 14)
+
+- **Used Car Lot (P1.2a/b), business 3:** earn $5M in total, open it on the map for $2.5M and tap "Go". Buy used cars
+  at the auction board (three lots, each showing its condition in stars, price, sale price and profit before you bid),
+  refurbish them on the display platform by tapping (the rust fades, a FOR SALE tag swings from the windscreen), then
+  sell with the haggle slider or let a walk-up buyer pay the list price. Rough cars are cheap and take work; mint ones
+  are quick flips. Lot tab: Valet Bay, Showroom, Forecourt Spots (up to 4 cars, thumbnails above the platform). Crew:
+  the Detailer refurbishes on his own and the Auction Agent bids for you; with both the lot earns while you're away
+  (shown in the welcome-back popup).
+- New forecourt scene drawn in code: sky and skyline, a glass showroom whose roof band is the "USED CAR LOT" sign,
+  pennant bunting, angled bay lines and a turntable platform; the Detailer (green polo, backwards cap, spray bottle).
+- The lot grows on the city map: one row of cars, a second row at 3 spots, a gold balloon and price tags at 4.
+- Balance: tuned with the 2-hour sim (the lot started at 81% of all earnings; now 55% for an active player, 34%
+  relaxed); Paint & Tuning's goal now arrives around 1h20m-1h45m.
+- Tests: 28 new unit tests (auction, refurbish, haggled and walk-up sales, upgrades, spots and tiers, Auction Agent,
+  Detailer, idle vs real income, offline, save round-trip and repair, haggle hold, backdrop layout on four screen
+  sizes, condition art, map tiers) and a 120-minute bot run. E2e: open the lot, its tabs, the auction board, buy a
+  rough car, refurbish it by tapping, the FOR SALE tag and Sell button, haggled sale, upgrades, crew working on their
+  own, reload into the lot, the map tier and back button, the lot's line in the welcome-back popup.
+
 ## 0.13.0 - 2026-11-06 (run 13)
 
 - **Garage feel (P1.1f):** customers now say what's wrong when they step out ("Ran over a nail!", "It won't start!",

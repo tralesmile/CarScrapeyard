@@ -113,7 +113,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | --- | --- | --- | --- |
 | Scrapyard | - | - | open from the start |
 | Repair Garage | $200K | $100K | open (P1.1c, run 11) |
-| Used Car Lot | $5M | $2.5M | later (P1.2) |
+| Used Car Lot | $5M | $2.5M | open (P1.2b, run 14) |
 | Paint & Tuning | $50M | $25M | later (P1.2) |
 
 The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
@@ -148,6 +148,32 @@ Run 11 sim (40 minutes): the active bot opens at 14m24s, hires the Foreman at 17
 earnings ($1.90M); the relaxed bot opens at 19m01s (33%). Asserted: open < 18 min, worst seed < 17 min, garage share
 between 15% and 60% for the active bot.
 
+## Used Car Lot (P1.2a, run 14)
+
+Buy at the auction board, refurbish, sell. Retail = $35,000 x (family base value / 600) x Showroom (1.08^(level-1)).
+
+| Condition | Auction price (x retail) | Refurbish work | Board weight |
+| --- | --- | --- | --- |
+| 1 Rough | 0.30 | 36 | 2 |
+| 2 Tired | 0.42 | 26 | 3 |
+| 3 Fair | 0.54 | 18 | 3 |
+| 4 Good | 0.66 | 11 | 2 |
+| 5 Mint | 0.78 | 5 | 1 |
+
+- 3 lots on the board, 45 s each, an empty slot refills in 4 s. Forecourt spots 2 -> 4 ($2.5M, $20M).
+- Work per tap = 1 x Valet Bay power (station curve). Walk-up buyer every 6 s while a car is ready (list price);
+  a manual sale always haggles (0.9x-1.3x).
+- Lifetime earnings count the profit only (sale minus auction price).
+- Valet Bay $250K x1.17^n, Showroom $1.2M x1.35^n. Detailer $3M (1.5 work/s x Valet power, offline), Auction Agent $6M
+  (bids on the best profit per work when cash >= 2x the price). Offline needs both: profit per car over
+  max(refurbish time, buyer interval), with the yard's 50% efficiency and 2 h cap.
+
+Run 14 sim (120 minutes, `Used Car Lot (P1.2a)`): retailBase $90K first gave the lot 81% of all earnings ($434M by 2 h),
+far too strong; $45K 61%, $35K 55% (chosen), $28K 48%. With $35K the active bot reaches the goal at 39m30s, opens at
+45m30s, hires the Detailer at 50m and the Agent at 58m, the lot makes 55% of earnings by 2 h and Paint & Tuning's $50M
+goal arrives at 1h22m (relaxed: opens 52m43s, 34%, goal 1h45m). The garage keeps 17% (relaxed 25%). Asserted: opens
+between 30 and 75 min, lot share 15-65%, garage share > 5%.
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -164,6 +190,9 @@ between 15% and 60% for the active bot.
 | Repair Garage goal ($200K earned) | < 15 min for active players | 12m 35s | next session |
 | Repair Garage opened ($100K) | < 17 min for active players (every seed) | 14m 24s | 19m 1s |
 | Garage share of earnings at 40 min | 15-60% | 35% | 33% |
+| Used Car Lot opened ($2.5M) | 30-75 min | 45m 30s | 52m 43s |
+| Lot share of earnings at 2 h | 15-65% | 55% | 34% |
+| Paint & Tuning goal ($50M) | - | 1h 22m | 1h 45m |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.

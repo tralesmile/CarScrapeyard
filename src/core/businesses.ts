@@ -76,6 +76,7 @@ export const MAX_TIER = 3;
 function tierSize(state: GameState, id: BusinessId): number {
   if (id === 'scrapyard') return state.slots;
   if (id === 'garage') return state.garage.bays;
+  if (id === 'carlot') return state.carlot.spots;
   return 0;
 }
 
@@ -94,5 +95,6 @@ export function nextTierGoal(state: GameState, id: BusinessId): string | null {
   const at = (ECON.businesses.tiers as Partial<Record<BusinessId, readonly [number, number]>>)[id];
   if (!at || tier < 1 || tier >= MAX_TIER) return null;
   const n = at[tier - 1]!;
-  return id === 'scrapyard' ? `${n} lot slots` : `${n} repair bays`;
+  if (id === 'scrapyard') return `${n} lot slots`;
+  return id === 'garage' ? `${n} repair bays` : `${n} forecourt spots`;
 }

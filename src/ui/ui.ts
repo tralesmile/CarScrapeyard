@@ -38,12 +38,37 @@ import {
   hireForeman,
   repMultiplier,
 } from '../core/garage';
-import type { GarageUpgradeKind } from '../core/config';
+import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind } from '../core/config';
+import {
+  buyCarLotUpgrade,
+  buyLot,
+  buySpot,
+  canBuyLot,
+  carlotUpgradeCost,
+  detailerRate,
+  findLotCar,
+  hasFreeSpot,
+  hireLotCrew,
+  holdLotCar,
+  listPrice,
+  lotCarReady,
+  lotProfit,
+  refurbPerTap,
+  sellLotCar,
+  showroomMultiplier,
+  spotCost,
+} from '../core/carlot';
+import { conditionStars } from '../game/carlotArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
-/** Yard tabs, then the Repair Garage's own tabs (shown while the garage is on screen). */
-type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew';
-const YARD_TABS: Tab[] = ['upgrades', 'crew', 'yard', 'jobs'];
+/** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
+type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew';
+const BUSINESS_TABS: Record<BusinessId, Tab[]> = {
+  scrapyard: ['upgrades', 'crew', 'yard', 'jobs'],
+  garage: ['gupgrades', 'gcrew'],
+  carlot: ['auction', 'lupgrades', 'lcrew'],
+  paint: [],
+};
 type BuyMode = 1 | 10 | 'max';
 
 export interface UiDeps {
@@ -201,6 +226,9 @@ export class Ui {
       ['jobs', 'Jobs'],
       ['gupgrades', 'Garage'],
       ['gcrew', 'Crew'],
+      ['auction', 'Auction'],
+      ['lupgrades', 'Lot'],
+      ['lcrew', 'Crew'],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -574,13 +602,119 @@ export class Ui {
     return { ...v, update };
   }
 
+  // ---- Used Car Lot cards --------------------------------------------------
+
+  /** One lot on the auction board: everything about the car is shown before you bid. */
+  private auctionCard(index: number): CardView {
+    const root = el('div', 'card auction-lot');
+    const title = el('div', 'title display');
+    const name = document.createTextNode('');
+    const lvl = el('span', 'lvl');
+    title.append(name, lvl);
+    const desc = el('div', 'desc');
+    const bar = el('div', 'bar');
+    const fill = el('i');
+    bar.append(fill);
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, desc, bar, btn);
+    btn.onclick = () => {
+      const s = this.deps.state();
+      const lot = s.carlot.board[index];
+      if (!lot) return;
+      const events = buyLot(s, lot.id);
+      if (events.length) {
+        sfx.buy();
+        this.deps.onEvents(events);
+        this.deps.onChange();
+      } else sfx.denied();
+      this.render();
+    };
+    const update = (s: GameState) => {
+      const lot = s.carlot.board[index];
+      root.classList.toggle('empty', !lot);
+      if (!lot) {
+        name.textContent = 'Next lot';
+        setText(lvl, '');
+        const left = Math.ceil(s.carlot.refill[index] ?? 0);
+        setText(desc, `A new car is rolling onto the auction${left > 0 ? ` in ${left}s` : '…'}`);
+        fill.style.width = '0%';
+        setText(btn, '—');
+        btn.disabled = true;
+        root.classList.remove('ready');
+        return;
+      }
+      name.textContent = lot.model;
+      setText(lvl, '');
+      const cond = ECON.carlot.conditions[lot.condition];
+      const stars = conditionStars(lot.condition);
+      const html =
+        `<span class="stars" aria-label="Condition ${lot.condition} of 5"><b>${stars.slice(0, lot.condition)}</b>${stars.slice(lot.condition)}</span> ` +
+        `${cond.name} ${ECON.families[lot.family].name} · sells for ${formatCash(listPrice(s, lot))} · profit ${formatCash(lotProfit(s, lot))}`;
+      if (desc.innerHTML !== html) desc.innerHTML = html;
+      fill.style.width = `${Math.max(0, Math.min(1, lot.timeLeft / ECON.carlot.lotSeconds)) * 100}%`;
+      const free = hasFreeSpot(s);
+      setText(btn, free ? `Buy ${formatCash(lot.price)}` : 'Lot full');
+      btn.disabled = !canBuyLot(s, lot.id);
+      root.classList.toggle('ready', canBuyLot(s, lot.id));
+    };
+    return { root, lvl, desc, btn, update };
+  }
+
+  private carlotUpgradeCard(kind: CarLotUpgradeKind): CardView {
+    const info = ECON.carlot.upgrades[kind];
+    const v = this.simpleCard(`carlot-${kind}`, info.name, '', (s) => buyCarLotUpgrade(s, kind), () => sfx.buy());
+    const update = (s: GameState) => {
+      const level = s.carlot.levels[kind];
+      setText(v.lvl, `Lv ${level}`);
+      if (kind === 'valet') {
+        const ms = nextMilestone(level);
+        setText(v.desc, `${refurbPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
+      } else setText(v.desc, `Sale prices x${showroomMultiplier(level).toFixed(2)}`);
+      const cost = carlotUpgradeCost(kind, level);
+      setText(v.btn, formatCash(cost));
+      v.btn.disabled = s.cash < cost;
+      v.root.classList.toggle('ready', s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private spotCard(): CardView {
+    const v = this.simpleCard('carlot-spot', 'Forecourt Spot', 'Room for one more car on the lot', (s) => buySpot(s), () => sfx.buy());
+    const update = (s: GameState) => {
+      const cost = spotCost(s.carlot.spots);
+      setText(v.lvl, `${s.carlot.spots} / ${ECON.carlot.spots.start + ECON.carlot.spots.costs.length}`);
+      v.btn.classList.toggle('done', cost === null);
+      setText(v.btn, cost === null ? 'Full' : formatCash(cost));
+      v.btn.disabled = cost === null || s.cash < cost;
+      v.root.classList.toggle('ready', cost !== null && s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private lotCrewCard(kind: CarLotCrewKind): CardView {
+    const info = ECON.carlot.crew[kind];
+    const blurb = kind === 'detailer' ? 'Refurbishes your cars, even offline' : 'Buys the best-value car at the auction for you';
+    const v = this.simpleCard(`carlot-${kind}`, info.name, blurb, (s) => hireLotCrew(s, kind), () => sfx.fanfare());
+    const update = (s: GameState) => {
+      const hired = s.carlot.crew[kind];
+      setText(v.lvl, hired ? 'Hired' : '');
+      if (kind === 'detailer') setText(v.desc, hired ? `Polishing ${detailerRate(s).toFixed(1)} work/s, even offline` : blurb);
+      else setText(v.desc, hired ? `Bids when you have ${ECON.carlot.agentReserve}x the price · with the Detailer the lot runs offline` : blurb);
+      v.btn.classList.toggle('done', hired);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(info.cost)}`);
+      v.btn.disabled = hired || s.cash < info.cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= info.cost);
+    };
+    return { ...v, update };
+  }
+
   /** Swap the panel's tab set when the business on screen changed. */
   private syncBusinessTabs(s: GameState) {
     if (s.businesses.active === this.shownBiz) return;
     this.shownBiz = s.businesses.active;
-    const inGarage = this.shownBiz === 'garage';
-    this.root.classList.toggle('in-garage', inGarage);
-    this.tab = inGarage ? 'gupgrades' : 'upgrades';
+    this.root.classList.toggle('in-garage', this.shownBiz === 'garage');
+    this.root.classList.toggle('in-carlot', this.shownBiz === 'carlot');
+    this.tab = BUSINESS_TABS[s.businesses.active][0] ?? 'upgrades';
     this.buildCards();
   }
 
@@ -597,6 +731,9 @@ export class Ui {
     }
     else if (this.tab === 'gupgrades') this.cards = [this.garageUpgradeCard('tools'), this.garageUpgradeCard('rep'), this.garageBayCard()];
     else if (this.tab === 'gcrew') this.cards = [this.foremanCard()];
+    else if (this.tab === 'auction') this.cards = Array.from({ length: ECON.carlot.auctionLots }, (_, i) => this.auctionCard(i));
+    else if (this.tab === 'lupgrades') this.cards = [this.carlotUpgradeCard('valet'), this.carlotUpgradeCard('showroom'), this.spotCard()];
+    else if (this.tab === 'lcrew') this.cards = [this.lotCrewCard('detailer'), this.lotCrewCard('agent')];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -606,6 +743,7 @@ export class Ui {
 
   private onSell() {
     const s = this.deps.state();
+    if (s.businesses.active === 'carlot') return this.onSellLotCar(s);
     const car = findCar(s, s.focusedId);
     if (!car || this.haggling !== null) return;
     if (wantsHaggle(s, car)) {
@@ -624,12 +762,36 @@ export class Ui {
     this.render();
   }
 
+  /** Used Car Lot: every manual sale is haggled (the walk-up buyers pay the list price). */
+  private onSellLotCar(s: GameState) {
+    const car = findLotCar(s, s.carlot.focusedId);
+    if (!car || !lotCarReady(car) || this.haggling !== null) return;
+    if (s.settings.skipHaggle) return this.finishLotSale(car.id, 1);
+    holdLotCar(s, car.id);
+    this.haggleSlider(car.id, false, (mult) => this.finishLotSale(car.id, mult));
+  }
+
+  private finishLotSale(carId: number, haggle: number) {
+    const s = this.deps.state();
+    const events = sellLotCar(s, carId, haggle);
+    holdLotCar(s, null);
+    if (events.length) {
+      this.deps.onEvents(events);
+      this.deps.onChange();
+    }
+    this.render();
+  }
+
   /** Timing slider: a needle sweeps the bar; tapping stops it. The centre pays most. */
   private startHaggle(s: GameState, car: Car) {
     const lesson = isHaggleLesson(s);
-    const speed = lesson ? ECON.haggle.lessonSweepsPerSec : ECON.haggle.sweepsPerSec;
     holdForHaggle(s, car.id);
-    this.haggling = car.id;
+    this.haggleSlider(car.id, lesson, (mult) => this.finishSale(car.id, mult));
+  }
+
+  private haggleSlider(carId: number, lesson: boolean, onDone: (mult: number) => void) {
+    const speed = lesson ? ECON.haggle.lessonSweepsPerSec : ECON.haggle.sweepsPerSec;
+    this.haggling = carId;
     sfx.tap();
     const hg = this.haggleEl;
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
@@ -661,7 +823,7 @@ export class Ui {
       setTimeout(() => {
         hg.classList.add('hidden');
         this.haggling = null;
-        this.finishSale(car.id, mult);
+        onDone(mult);
       }, 650);
     };
     hg.onpointerdown = (ev) => {
@@ -787,11 +949,18 @@ export class Ui {
     this.root.classList.toggle('reduce-motion', s.settings.reduceMotion);
 
     this.syncBusinessTabs(s);
-    const inGarage = s.businesses.active === 'garage';
-    // In the garage the yard's car controls stay hidden (the yard keeps running behind it).
+    const inGarage = s.businesses.active !== 'scrapyard';
+    // In another business the yard's car controls stay hidden (the yard keeps running behind it).
     const car = inGarage ? undefined : findCar(s, s.focusedId);
     const ready = car && carStage(car) === 'ready';
-    this.sell.classList.toggle('hidden', !ready || this.haggling !== null);
+    const lotCar = s.businesses.active === 'carlot' ? findLotCar(s, s.carlot.focusedId) : undefined;
+    const lotReady = !!lotCar && lotCarReady(lotCar);
+    this.sell.classList.toggle('hidden', !(ready || lotReady) || this.haggling !== null);
+    if (lotReady && lotCar) {
+      const html = `Sell ${formatCash(listPrice(s, lotCar))}<small>${s.settings.skipHaggle ? lotCar.model : 'Haggle for up to +30%'}</small>`;
+      if (this.sell.innerHTML !== html) this.sell.innerHTML = html;
+      this.sell.classList.remove('match');
+    }
     if (ready && car) {
       const bm = buyerMultiplier(s, car);
       const who = bm > 1 && s.buyer ? ECON.buyers.kinds[s.buyer.kind] : null;
@@ -823,10 +992,8 @@ export class Ui {
       this.deps.onChange();
     }
     const jobsOn = contractsUnlocked(s);
-    for (const [t, b] of this.tabButtons) {
-      const yardTab = YARD_TABS.includes(t);
-      b.style.display = (inGarage ? !yardTab : yardTab && (t !== 'jobs' || jobsOn)) ? '' : 'none';
-    }
+    const shownTabs = BUSINESS_TABS[s.businesses.active];
+    for (const [t, b] of this.tabButtons) b.style.display = shownTabs.includes(t) && (t !== 'jobs' || jobsOn) ? '' : 'none';
     if (jobsOn && !s.tutorial.contractsSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.contractsSeen = true;
       setTimeout(() => this.showBanner('CONTRACTS!', 'New orders on the Jobs board'), 2700);
@@ -972,7 +1139,8 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const done = el('button', 'buy', s.businesses.active === 'garage' ? 'Back to the garage' : 'Back to the yard') as HTMLButtonElement;
+    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back' };
+    const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
       close();
@@ -997,6 +1165,8 @@ export class Ui {
     }
     if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
     if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= ECON.garage.foreman.cost;
+    if (t === 'auction') return s.businesses.opened.carlot && s.carlot.cars.length === 0 && s.carlot.board.some((b) => !!b && canBuyLot(s, b.id));
+    if (t === 'lcrew') return s.businesses.opened.carlot && (['detailer', 'agent'] as const).some((k) => !s.carlot.crew[k] && s.cash >= ECON.carlot.crew[k].cost);
     return false;
   }
 
@@ -1010,7 +1180,14 @@ export class Ui {
     const learning = s.carsSold < 3;
     const job = findJob(s, s.garage.focusedId);
     if (this.modalOpen || this.haggling !== null) text = '';
-    else if (s.businesses.active === 'garage') {
+    else if (s.businesses.active === 'carlot') {
+      const l = s.carlot;
+      const lc = findLotCar(s, l.focusedId);
+      if (l.sold < 3) {
+        if (l.cars.length === 0) text = '👇 Buy a car at the auction';
+        else if (lc && !lotCarReady(lc)) text = '👆 Tap the car to refurbish it!';
+      }
+    } else if (s.businesses.active === 'garage') {
       if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
       else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
     } else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
@@ -1246,9 +1423,11 @@ export class Ui {
     done.focus();
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0) {
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
-    const shop = garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '';
+    const shop =
+      (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
+      (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '');
     this.modal({
       title: 'Welcome back!',
       body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}${shop}`,
