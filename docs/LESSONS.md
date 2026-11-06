@@ -259,4 +259,7 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   tests all read that one field; deriving "a buyer is looking" from `buyerTimer > 3.5` in four places would drift.
 - **Expose the UI object on the debug hook** (`__jye.ui`) so the e2e can hold a short-lived UI state (the 1.6 s
   stamp) for its screenshot, the same "find it and hold it" rule as for scene states.
+- **Check CI on `main` before blaming the code.** PR #6 went red, but the job ended in 2 s with `runner_id 0` and no
+  logs, and the main-branch run before this run's commit had failed the same way. A job that never gets a runner is
+  an account or billing problem: re-run once to confirm, then hand it to the owner instead of changing code.
 

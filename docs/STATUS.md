@@ -82,7 +82,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.2b Used Car Lot scene and UI (run 14): `CarLotScene` + `carlotArt.ts` (forecourt backdrop, showroom sign,
         bunting, platform, condition rust, FOR SALE tag, spot thumbnails, Detailer, buyer drives the car away),
         Auction / Lot / Crew tabs, Sell with haggle, hints, map tiers and back button, welcome-back line. `ready: true`.
-  - [x] P1.2c Used Car Lot polish (run 15): bid countdown with "Going…" and a red timer in the last 8 s, SOLD! / YOURS!
+  - [x] P1.2c Used Car Lot polish (run 15; CI on GitHub is blocked by an account issue, see NEEDS_FROM_YOU): bid countdown with "Going…" and a red timer in the last 8 s, SOLD! / YOURS!
         stamps, gavel and "missed it" sounds; five walk-up buyer types (Family, Collector for Good/Mint cars, Speed
         Freak, Tradie, Influencer) with bonuses; the buyer walks up, looks the car over with a speech bubble, then pays
         (`buyer` in the lot state, saved). Still open (owner question): a real bidding mini-game instead of fixed prices.

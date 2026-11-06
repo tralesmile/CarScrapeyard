@@ -5,6 +5,12 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 ## Now
 
+- [ ] **GitHub Actions stopped running (since 2026-11-06 16:34 UTC).** Every CI job since the PR #5 merge on `main`
+      ends in 2-3 seconds without a runner ever starting (no logs), including PR #6 and a re-run. The code is fine: the
+      same checks pass locally (typecheck, 218 unit tests, build, browser e2e). This usually means the account's free
+      Actions minutes for private repos are used up, a spending limit of $0 was reached, or there is a billing/payment
+      problem. Please check github.com → Settings → Billing and plans (and the repo's Actions settings), then re-run the
+      failed job on PR #6. Making the repo public also gives unlimited free minutes.
 - [ ] **Play the prototype and give feedback.** Run `npm install && npm run dev` (or open the PR's
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
       New since run 2: the car crusher (after ~25 sales) and the Jobs board (after ~45 sales) —
