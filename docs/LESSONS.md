@@ -276,3 +276,7 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   reason. A fast Painter (booth level 200) plus an assertion that it did beat the deadline makes the tip test catch it.
 - **Compute expected values exactly when the draw is small.** The idle formula enumerates every ordered draw of 1-3
   services by weight (a few dozen paths) instead of guessing an average; a test compares it with 4,000 generated orders.
+- **`git pull --rebase` flattens a merge of `origin/main` into `dev`.** Step 1 merged main into dev, but the rebase
+  before the push replayed only my commit and dropped the merge, so main was no longer an ancestor of dev. Check with
+  `git merge-base --is-ancestor origin/main origin/dev` after pushing; if it fails, merge main again and push without
+  rebasing (or use `git pull --rebase=merges`).
