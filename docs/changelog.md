@@ -7,6 +7,8 @@
   service), and finishing an order yourself quickly (3 s per service) earns a +25% tip. Upgrades: Spray Booth (speed),
   Hype (fees), up to 3 paint booths; the Painter works on his own and while you're away. The shop stays "coming soon"
   on the map until its scene arrives in the next update.
+- CI: GitHub Actions runs only on pull requests into `main` and on `main`, cancelling superseded runs (saves free
+  minutes; every change is still fully checked locally before each push).
 - Balance: fees tuned with a new 3-hour bot run (an active player opens the shop at about 1h35m; it makes 41% of all
   earnings by 3 h, the lot still 20%).
 - Tests: 18 new unit tests (orders, combo fee, step-by-step work, tips only for quick hand-finished orders, upgrades,

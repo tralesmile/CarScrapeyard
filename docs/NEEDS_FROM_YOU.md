@@ -11,6 +11,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       Actions minutes for private repos are used up, a spending limit of $0 was reached, or there is a billing/payment
       problem. Please check github.com → Settings → Billing and plans (and the repo's Actions settings), then re-run the
       failed job on PR #6. Making the repo public also gives unlimited free minutes.
+      Owner decision (2026-11-06): keep the repo private and wait for the monthly reset. CI now runs only on PRs into
+      `main` and on `main` (not on every push to `dev`), and a newer push cancels the older run, to save minutes.
 - [ ] **Play the prototype and give feedback.** Run `npm install && npm run dev` (or open the PR's
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
       New since run 2: the car crusher (after ~25 sales) and the Jobs board (after ~45 sales) —
