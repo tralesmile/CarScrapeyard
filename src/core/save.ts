@@ -124,6 +124,9 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract).map((c) => ({ ...c, rerolled: c.rerolled === true }));
     state.buyer = validBuyer(state.buyer);
+    for (const f of Object.keys(state.collection.sold) as (keyof typeof state.collection.sold)[]) {
+      state.collection.sold[f] = Math.max(0, Math.floor(state.collection.sold[f]));
+    }
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

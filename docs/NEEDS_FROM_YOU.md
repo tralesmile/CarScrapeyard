@@ -22,6 +22,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 8: the barn shows each restoration stage inside (hoist, welder, paint booth) and the classic drives
       out before the reveal; the Scrapper stands by a little press next to the barn and fills the parts bin while you're
       away; the barn card is now first in the Yard tab. Does the barn read clearly at phone size?
+      New since run 9 (your graphics feedback): car outlines are smooth now (the stair-steps came from an engine setting,
+      fixed), the hypercar has its own shape (fin, big wing, bubble canopy), and the yard backdrop is repainted
+      (clouds, layered hills, junk piles). Does it look good enough now, or what still looks cheap? The first sale of each
+      car type now shows a Collection toast.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

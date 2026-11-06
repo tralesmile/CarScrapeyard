@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0 - 2026-11-06 (run 9)
+
+- **Sharper cars everywhere:** the stair-steps on car outlines are gone. Root cause: Phaser switches on pixel-art mode
+  (nearest-neighbour filtering) by itself whenever the game is zoomed, and we zoom by 1/devicePixelRatio. Smooth
+  filtering is now forced on, car textures are powers of two sized to the bay (1024x512, or 512x256 on 1x screens)
+  and WebGL builds trilinear mipmaps, so lot thumbnails scale down cleanly too.
+- **New hypercar look:** very low, with a cab-forward bubble canopy, a shark fin along the engine deck, a taller wing,
+  a front splitter and rear diffuser and slim LED headlights. It no longer looks like the sports car at thumbnail size.
+- **Painted yard:** the backdrop is now one smooth Canvas 2D painting: sky gradient, glowing sun, clouds, two hill
+  layers, rounded junk piles with tyres and scrap panels, shaded fence posts, a dirt ground with an oil stain and a
+  concrete work bay with a soft shadow. The pile behind the customer moved aside so customers read clearly.
+- **Collection counts:** every sale counts its car type for the upcoming Collection book; the first sale of a type
+  shows a toast ("📒 First Van sold! Collection: 4/8 car types"). The starter types count quietly in the first 10 sales.
+- 14 new unit tests (132 total): hypercar silhouette overlap with every other family, power-of-two texture sizes,
+  backdrop layout, collection counts and their save handling. E2e checks smooth filtering, mipmapped car textures,
+  the backdrop texture, the per-family counts and the first-Van toast.
+- Fix (test): the "press slams" e2e check ran after a 3x screenshot that could outlast the 620 ms slam; it checks first now.
+
 ## 0.8.0 - 2026-11-05 (run 8)
 
 - **Scrapper while you're away:** with the full crew and the Scrapper hired, the parts bin is topped up to the

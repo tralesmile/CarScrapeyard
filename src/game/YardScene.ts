@@ -6,16 +6,14 @@ import { barnHasAction } from '../core/barn';
 import { carStage, crusherUnlocked, findCar, focusCar, repairTap, tick, washCar, type GameEvent } from '../core/sim';
 import type { Car } from '../core/state';
 import type { Bridge } from './bridge';
-import { mudSpots, paintCar, paintRust } from './carArt';
+import { carTextureSize, mudSpots, paintCar, paintRust } from './carArt';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import { BARN_BODY_W, BARN_BOX_H, BARN_BOX_W, BARN_GROUND, paintBarn, paintTarp, type BarnLook } from './barnArt';
 import type { BuyerKind } from '../core/config';
+import { paintBackdrop } from './backdropArt';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 import { PLATE_H, PLATE_W, PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintPlate, paintPress, paintScrapper } from './crewArt';
 
-/** Car textures are drawn at this size and scaled for display. */
-const TEX_W = 720;
-const TEX_H = 360;
 /** Design width of the layout, in CSS pixels. Swipe distances are measured in this unit. */
 const DESIGN_W = 390;
 
@@ -33,8 +31,8 @@ interface SlotView {
 
 export class YardScene extends Phaser.Scene {
   private bridge!: Bridge;
-  private bg!: Phaser.GameObjects.Graphics;
-  private bay!: Phaser.GameObjects.Graphics;
+  /** Backdrop image (Canvas 2D texture 'backdrop'). */
+  private bg!: Phaser.GameObjects.Image;
 
   private bigCar!: Phaser.GameObjects.Image;
   private bigRust!: Phaser.GameObjects.Image;
@@ -42,6 +40,11 @@ export class YardScene extends Phaser.Scene {
   private shine!: Phaser.GameObjects.Rectangle;
   private bigCarId: number | null = null;
   private bigScale = 1;
+  /** Car texture size: a power of two near the bay's size in device pixels, so WebGL can mipmap it (P0.14h). */
+  private texW = 1024;
+  private texH = 512;
+  /** Texture size / the 720 px design size the brush and mud blobs were drawn for. */
+  private texK = 1;
   private carLeaving = false;
 
   private slots: SlotView[] = [];
@@ -122,9 +125,12 @@ export class YardScene extends Phaser.Scene {
   // ---- lifecycle -----------------------------------------------------------
 
   create() {
+    const size = carTextureSize(this.px(this.focusArea().carW));
+    this.texW = size.w;
+    this.texH = size.h;
+    this.texK = size.w / 720;
     this.makeTextures();
-    this.bg = this.add.graphics();
-    this.bay = this.add.graphics();
+    this.bg = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.barnImg = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.barnG = this.add.graphics();
     this.barnLabel = this.add
@@ -142,7 +148,9 @@ export class YardScene extends Phaser.Scene {
 
     this.bigCar = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.bigRust = this.add.image(0, 0, '__WHITE').setVisible(false);
-    this.bigDirt = this.add.renderTexture(0, 0, TEX_W, TEX_H).setVisible(false);
+    // One texel taller than the car texture: a power-of-two render texture would get mipmaps that go stale as mud is
+    // washed off.
+    this.bigDirt = this.add.renderTexture(0, 0, this.texW, this.texH + 1).setVisible(false);
     this.shine = this.add.rectangle(0, 0, 40, 10, 0xffffff, 0.55).setVisible(false).setBlendMode(Phaser.BlendModes.ADD);
 
     this.drops = this.add.particles(0, 0, 'drop', {
@@ -238,15 +246,16 @@ export class YardScene extends Phaser.Scene {
     circle('drop', 6, 0x9fd8ff);
     circle('spark', 5, 0xffd34d);
     circle('puff', 18, 0x9aa4b2, 0.8);
-    circle('mud', 16, MUD);
+    circle('mud', Math.round(16 * this.texK), MUD);
 
     // Soft brush for the pressure washer.
     g.clear();
+    const br = Math.round(40 * this.texK);
     for (let i = 10; i > 0; i--) {
       g.fillStyle(0xffffff, 0.12);
-      g.fillCircle(40, 40, i * 4);
+      g.fillCircle(br, br, (i * br) / 10);
     }
-    g.generateTexture('brush', 80, 80);
+    g.generateTexture('brush', br * 2, br * 2);
 
     // Coin.
     g.clear();
@@ -276,14 +285,14 @@ export class YardScene extends Phaser.Scene {
   private ensureCarTextures(car: Car) {
     const key = `car-${car.id}`;
     if (this.textures.exists(key)) return key;
-    this.canvasTexture(key, (ctx) => paintCar(ctx, car, TEX_W, TEX_H));
-    this.canvasTexture(`rust-${car.id}`, (ctx) => paintRust(ctx, car.family, TEX_W, TEX_H, car.id));
+    this.canvasTexture(key, (ctx) => paintCar(ctx, car, this.texW, this.texH));
+    this.canvasTexture(`rust-${car.id}`, (ctx) => paintRust(ctx, car.family, this.texW, this.texH, car.id));
     return key;
   }
 
   /** Paint a texture with the Canvas 2D API (antialiased on every renderer). */
   private canvasTexture(key: string, paint: (ctx: CanvasRenderingContext2D) => void) {
-    const tex = this.textures.createCanvas(key, TEX_W, TEX_H);
+    const tex = this.textures.createCanvas(key, this.texW, this.texH);
     if (!tex) return;
     paint(tex.getContext());
     tex.refresh();
@@ -295,69 +304,19 @@ export class YardScene extends Phaser.Scene {
 
   // ---- background ----------------------------------------------------------
 
+  /** Paint the backdrop (sky, hills, junk, fence, ground, bay) into one Canvas 2D texture sized to the game. */
   private drawBackground() {
-    const W = this.scale.width;
-    const H = this.scale.height;
-    const g = this.bg;
+    const W = Math.round(this.scale.width);
+    const H = Math.round(this.scale.height);
     const a = this.focusArea();
     const horizon = this.px(a.top + (a.cy - a.top) * 0.55);
-    g.clear();
-
-    // Sky.
-    g.fillGradientStyle(0x7ec8e3, 0x7ec8e3, 0xf6d8a8, 0xf6d8a8, 1);
-    g.fillRect(0, 0, W, horizon);
-    g.fillStyle(0xffe7a3, 0.9);
-    g.fillCircle(W * 0.8, horizon * 0.45, this.px(26));
-
-    // Hills.
-    g.fillStyle(0xc9a27a, 1);
-    g.fillEllipse(W * 0.2, horizon, W * 0.8, this.px(90));
-    g.fillStyle(0xb88e66, 1);
-    g.fillEllipse(W * 0.85, horizon, W * 0.7, this.px(70));
-
-    // Junk piles behind the fence.
-    const pile = (x: number, w: number, h: number, c: number) => {
-      g.fillStyle(c, 1);
-      g.fillTriangle(x - w / 2, horizon, x, horizon - h, x + w / 2, horizon);
-    };
-    pile(W * 0.12, this.px(150), this.px(55), 0x7d6a5a);
-    pile(W * 0.3, this.px(110), this.px(38), 0x8e7967);
-    pile(W * 0.88, this.px(160), this.px(60), 0x7a6656);
-    // Tyres on the piles.
-    g.fillStyle(0x2b2f36, 1);
-    for (const [x, y] of [[0.1, 22], [0.15, 34], [0.86, 30], [0.9, 18]] as const) {
-      g.fillCircle(W * x, horizon - this.px(y), this.px(7));
-    }
-
-    // Ground.
-    g.fillStyle(0xa4835f, 1);
-    g.fillRect(0, horizon, W, H - horizon);
-    g.fillStyle(0x94744f, 1);
-    for (let i = 0; i < 18; i++) {
-      const x = ((i * 97) % 100) / 100;
-      const y = ((i * 61) % 100) / 100;
-      g.fillEllipse(W * x, horizon + (H - horizon) * y, this.px(30), this.px(6));
-    }
-
-    // Fence.
-    g.lineStyle(this.px(2), 0x5b4636, 1);
-    g.lineBetween(0, horizon - this.px(18), W, horizon - this.px(18));
-    g.lineBetween(0, horizon - this.px(6), W, horizon - this.px(6));
-    for (let x = this.px(10); x < W; x += this.px(28)) {
-      g.fillStyle(0x6e5442, 1);
-      g.fillRect(x, horizon - this.px(28), this.px(5), this.px(28));
-    }
-
-    // Work bay under the car.
-    const bay = this.bay;
-    bay.clear();
-    const bw = this.px(a.carW * 1.08);
-    const bh = this.px(a.carW * 0.2);
-    const by = this.px(a.cy + a.carW * 0.2);
-    bay.fillStyle(0xc4c9d1, 1);
-    bay.fillRoundedRect(W / 2 - bw / 2, by - bh / 2, bw, bh, this.px(14));
-    bay.lineStyle(this.px(3), 0xf5b700, 1);
-    bay.strokeRoundedRect(W / 2 - bw / 2 + this.px(6), by - bh / 2 + this.px(6), bw - this.px(12), bh - this.px(12), this.px(10));
+    const bay = { cx: W / 2, cy: this.px(a.cy + a.carW * 0.2), w: this.px(a.carW * 1.08), h: this.px(a.carW * 0.2), r: this.px(14) };
+    if (this.textures.exists('backdrop')) this.textures.remove('backdrop');
+    const tex = this.textures.createCanvas('backdrop', W, H);
+    if (!tex) return;
+    paintBackdrop(tex.getContext(), { w: W, h: H, horizon, s: this.dpr, bay });
+    tex.refresh();
+    this.bg.setTexture('backdrop').setOrigin(0, 0).setPosition(0, 0).setVisible(true);
   }
 
   // ---- barn find (covered classic at the back of the yard) ------------------
@@ -625,11 +584,11 @@ export class YardScene extends Phaser.Scene {
     const b = this.bridge.state.barn;
     const key = `barncar-${b.family}-${b.paint}`;
     if (!this.textures.exists(key)) {
-      this.canvasTexture(key, (ctx) => paintCar(ctx, { family: b.family, paint: b.paint, rarity: 'legendary' }, TEX_W, TEX_H));
+      this.canvasTexture(key, (ctx) => paintCar(ctx, { family: b.family, paint: b.paint, rarity: 'legendary' }, this.texW, this.texH));
     }
     const cx = W / 2;
     const cy = H * 0.3;
-    const carScale = this.px(Math.min(this.cssW * 0.8, 400)) / TEX_W;
+    const carScale = this.px(Math.min(this.cssW * 0.8, 400)) / this.texW;
     const dim = this.add.rectangle(cx, H / 2, W, H, 0x0b0f17, 1).setDepth(20).setAlpha(0);
     const rays = this.add.graphics().setDepth(21).setPosition(cx, cy).setBlendMode(Phaser.BlendModes.ADD);
     const R = Math.max(W, H);
@@ -641,11 +600,11 @@ export class YardScene extends Phaser.Scene {
     rays.setScale(0.01);
     const car = this.add.image(cx, cy, key).setScale(carScale * 0.85).setDepth(22).setAlpha(0);
     if (!this.textures.exists('reveal-tarp')) {
-      this.canvasTexture('reveal-tarp', (ctx) => paintTarp(ctx, TEX_W * 0.02, TEX_W * 0.98, TEX_H * 0.93, TEX_H, true));
+      this.canvasTexture('reveal-tarp', (ctx) => paintTarp(ctx, this.texW * 0.02, this.texW * 0.98, this.texH * 0.93, this.texH, true));
     }
     const tarp = this.add.image(cx, cy, 'reveal-tarp').setDepth(23).setScale(carScale * 0.85).setAlpha(0);
-    const tw = TEX_W * carScale;
-    const th = TEX_H * carScale;
+    const tw = this.texW * carScale;
+    const th = this.texH * carScale;
     const sparkle = this.add
       .particles(0, 0, 'star', {
         speed: { min: 80, max: 420 },
@@ -711,7 +670,7 @@ export class YardScene extends Phaser.Scene {
 
   private placeBigCar() {
     const a = this.focusArea();
-    this.bigScale = this.px(a.carW) / TEX_W;
+    this.bigScale = this.px(a.carW) / this.texW;
     for (const o of [this.bigCar, this.bigRust, this.bigDirt]) {
       o.setScale(this.bigScale);
       if (!this.carLeaving) o.setPosition(this.px(a.cx), this.px(a.cy));
@@ -722,8 +681,9 @@ export class YardScene extends Phaser.Scene {
     const rt = this.bigDirt;
     rt.clear();
     rt.draw(`car-${car.id}`, 0, 0, 1, MUD);
-    for (const s of mudSpots(car.family, TEX_W, TEX_H, car.id)) {
-      rt.draw('mud', s.x - 16, s.y - 16, 0.9, 0x4a3220);
+    for (const s of mudSpots(car.family, this.texW, this.texH, car.id)) {
+      const r = Math.round(16 * this.texK);
+      rt.draw('mud', s.x - r, s.y - r, 0.9, 0x4a3220);
     }
   }
 
@@ -813,8 +773,9 @@ export class YardScene extends Phaser.Scene {
 
   private washAt(car: Car, x: number, y: number, designPx: number) {
     const local = this.bigDirt.getLocalPoint(x, y);
-    this.bigDirt.erase('brush', local.x - 40, local.y - 40);
-    this.bigDirt.erase('brush', local.x - 30, local.y - 50);
+    const k = this.texK;
+    this.bigDirt.erase('brush', local.x - 40 * k, local.y - 40 * k);
+    this.bigDirt.erase('brush', local.x - 30 * k, local.y - 50 * k);
     this.drops.explode(3, x, y);
     sfx.wash();
     if (designPx > 0) {
@@ -900,7 +861,7 @@ export class YardScene extends Phaser.Scene {
     const geo = this.slotGeometry(index, count);
     const key = this.ensureCarTextures(car);
     const frame = this.add.graphics();
-    const imgScale = (geo.w * 0.86) / TEX_W;
+    const imgScale = (geo.w * 0.86) / this.texW;
     const image = this.add.image(0, -this.px(6), key).setScale(imgScale);
     const dirt = this.add.image(0, -this.px(6), key).setScale(imgScale).setTint(MUD);
     const label = this.add

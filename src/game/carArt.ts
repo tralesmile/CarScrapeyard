@@ -23,11 +23,27 @@ export interface FamilyShape {
   roofRack?: boolean;
   /** Side air intake behind the door (sports and hyper). */
   intake?: boolean;
+  /** Shark fin along the engine deck, from the canopy back towards the wing (hyper). */
+  fin?: boolean;
+  /** Dark front splitter and rear diffuser under the bumpers (hyper). */
+  splitter?: boolean;
+  /** Thin LED strip lights instead of round headlights (hyper). */
+  slimLights?: boolean;
   /** Height (y fraction) of the head and tail lights. */
   lightY: number;
 }
 
 export const WHEEL_Y = 0.76;
+
+/**
+ * Car texture size for a bay car shown `displayPx` device pixels wide. Always a power of two (2:1) so WebGL builds
+ * mipmaps and the lot thumbnails scale down without stair-steps; 1024 is the cap (a 3x phone upscales a little,
+ * which stays smooth).
+ */
+export function carTextureSize(displayPx: number): { w: number; h: number } {
+  const w = displayPx > 600 ? 1024 : 512;
+  return { w, h: w / 2 };
+}
 
 export const SHAPES: Record<CarFamily, FamilyShape> = {
   sedan: {
@@ -111,17 +127,70 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
     intake: true,
     lightY: 0.56,
   },
+  // Hypercar: very low, cab-forward bubble canopy, long engine deck with a shark fin, tall wing, splitter and
+  // slim LED lights, so it reads apart from the sports car even at thumbnail size (P0.14h).
   hyper: {
-    body: [[0.02, 0.6], [0.03, 0.52], [0.22, 0.5], [0.4, 0.36], [0.56, 0.35], [0.68, 0.48], [0.98, 0.6], [0.99, 0.67], [0.96, 0.74], [0.04, 0.74]],
-    windows: [[[0.42, 0.4], [0.55, 0.39], [0.63, 0.48], [0.34, 0.48]]],
-    wheels: [0.21, 0.79],
-    wheelR: 0.15,
-    round: 0.08,
+    body: [[0.02, 0.64], [0.02, 0.53], [0.06, 0.5], [0.4, 0.47], [0.52, 0.36], [0.63, 0.35], [0.73, 0.46], [0.84, 0.55], [0.98, 0.63], [0.99, 0.68], [0.96, 0.74], [0.04, 0.74]],
+    windows: [[[0.54, 0.395], [0.62, 0.385], [0.7, 0.47], [0.47, 0.47]]],
+    wheels: [0.21, 0.8],
+    wheelR: 0.16,
+    round: 0.06,
     spoiler: 'big',
     intake: true,
-    lightY: 0.62,
+    fin: true,
+    splitter: true,
+    slimLights: true,
+    lightY: 0.6,
   },
 };
+
+/** Shark fin outline (fractions), used by families with `fin`. */
+export const FIN: Pt[] = [[0.54, 0.37], [0.32, 0.385], [0.2, 0.4], [0.17, 0.5], [0.5, 0.5]];
+
+/** Wing blade and stalk (x, y, w, h fractions) for a spoiler size. */
+export function spoilerParts(size: 'small' | 'big'): { wing: Pt[]; stalk: [number, number, number, number] } {
+  const big = size === 'big';
+  const sy = big ? 0.31 : 0.38;
+  const x2 = big ? 0.17 : 0.14;
+  return {
+    wing: [[0.01, sy - 0.02], [x2, sy - (big ? 0.04 : 0.02)], [x2, sy + 0.03], [0.01, sy + 0.03]],
+    stalk: [0.07, sy, 0.025, big ? 0.2 : 0.08],
+  };
+}
+
+/** Everything that makes a family's outline: body, plus fin and wing. Fractions; used to test silhouettes. */
+export function silhouette(family: CarFamily): Pt[][] {
+  const shape = SHAPES[family];
+  const polys: Pt[][] = [shape.body];
+  if (shape.fin) polys.push(FIN);
+  if (shape.spoiler) {
+    const { wing, stalk } = spoilerParts(shape.spoiler);
+    const [x, y, sw, sh] = stalk;
+    polys.push(wing, [[x, y], [x + sw, y], [x + sw, y + sh], [x, y + sh]]);
+  }
+  return polys;
+}
+
+/**
+ * Intersection over union of two families' silhouettes above `maxY` (the roofline, where families differ),
+ * sampled on a grid. 1 = identical outlines.
+ */
+export function silhouetteOverlap(a: CarFamily, b: CarFamily, maxY = 0.55, step = 0.005): number {
+  const pa = silhouette(a);
+  const pb = silhouette(b);
+  const inside = (polys: Pt[][], x: number, y: number) => polys.some((p) => pointInPolygon(p, x, y));
+  let both = 0;
+  let either = 0;
+  for (let x = 0; x < 1; x += step) {
+    for (let y = 0; y < maxY; y += step) {
+      const ia = inside(pa, x, y);
+      const ib = inside(pb, x, y);
+      if (ia && ib) both++;
+      if (ia || ib) either++;
+    }
+  }
+  return either === 0 ? 1 : both / either;
+}
 
 const OUTLINE = '#1e2430';
 const TIRE = '#1b1d22';
@@ -228,13 +297,23 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
 
   // Spoiler behind the body.
   if (shape.spoiler) {
-    const big = shape.spoiler === 'big';
-    const sy = (big ? 0.36 : 0.38) * h;
+    const parts = spoilerParts(shape.spoiler);
     ctx.fillStyle = shade(look.paint, -0.35);
     ctx.strokeStyle = OUTLINE;
     ctx.lineWidth = line;
-    ctx.fillRect(w * 0.07, sy, w * 0.025, h * (big ? 0.14 : 0.08));
-    roundedPath(ctx, scaled([[0.01, sy / h - 0.02], [big ? 0.17 : 0.14, sy / h - (big ? 0.04 : 0.02)], [big ? 0.17 : 0.14, sy / h + 0.03], [0.01, sy / h + 0.03]], w, h), h * 0.015);
+    const [sx, sy, sw, sh] = parts.stalk;
+    ctx.fillRect(w * sx, h * sy, w * sw, h * sh);
+    roundedPath(ctx, scaled(parts.wing, w, h), h * 0.015);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Shark fin behind the canopy (drawn before the body so the deck covers its foot).
+  if (shape.fin) {
+    ctx.fillStyle = shade(look.paint, -0.25);
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = line;
+    roundedPath(ctx, scaled(FIN, w, h), h * 0.02);
     ctx.fill();
     ctx.stroke();
   }
@@ -353,7 +432,8 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
   if (front) {
     ctx.fillStyle = '#fff3c4';
     ctx.beginPath();
-    ctx.ellipse(front[1] - w * 0.022, h * shape.lightY, w * 0.02, h * 0.032, 0, 0, Math.PI * 2);
+    if (shape.slimLights) ctx.ellipse(front[1] - w * 0.04, h * shape.lightY - h * 0.005, w * 0.035, h * 0.012, -0.25, 0, Math.PI * 2);
+    else ctx.ellipse(front[1] - w * 0.022, h * shape.lightY, w * 0.02, h * 0.032, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#e5484d';
     roundedPath(ctx, [[front[0] + 1, h * (shape.lightY - 0.035)], [front[0] + w * 0.03, h * (shape.lightY - 0.035)], [front[0] + w * 0.03, h * (shape.lightY + 0.035)], [front[0] + 1, h * (shape.lightY + 0.035)]], h * 0.01);
@@ -365,6 +445,15 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
   ctx.strokeStyle = OUTLINE;
   ctx.lineWidth = line;
   ctx.stroke();
+
+  // Front splitter and rear diffuser: dark blades just under the bumpers.
+  if (shape.splitter) {
+    ctx.fillStyle = '#12151b';
+    roundedPath(ctx, scaled([[0.84, 0.73], [0.985, 0.715], [0.985, 0.75], [0.84, 0.765]], w, h), h * 0.008);
+    ctx.fill();
+    roundedPath(ctx, scaled([[0.015, 0.71], [0.1, 0.72], [0.1, 0.76], [0.03, 0.76]], w, h), h * 0.008);
+    ctx.fill();
+  }
 
   // Wheels.
   const rim = look.rarity === 'legendary' ? ['#fff1b8', '#d39e00'] : ['#eef2f6', '#9aa4b2'];

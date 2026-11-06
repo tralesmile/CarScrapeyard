@@ -89,6 +89,12 @@ export const ECON = {
   /** Random spread on car value, +/- this fraction. */
   valueSpread: 0.1,
 
+  /** Collection book counts (P0.14i). */
+  collection: {
+    /** First sales of the starter families during the first N sales get no toast (tutorial time). */
+    quietSales: 10,
+  },
+
   /** Car crusher: turn an unfinished wreck into Parts (and a little scrap cash). */
   crusher: {
     /** Unlocks after this many cars sold (plan: around minute 3). */

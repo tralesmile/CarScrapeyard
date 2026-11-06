@@ -20,7 +20,14 @@ to automate it, open new car businesses, then sell your empire and start again i
   pickup and muscle from the start; vans (15 sales), SUVs (40), sports cars (100) and hypercars (200) roll in later
   with a "NEW CARS!" banner, each worth more and the last two rarer. Rare+ cars get trim stripes, Legendary gold rims.
 - **Car art:** painted with the Canvas 2D API (antialiased, rounded corners, body gradient, gloss, wheel arches,
-  door seams, roof rack on SUVs, intakes and wings on sports/hyper). Review sheet: `?debug=1&gallery=1`.
+  door seams, roof rack on SUVs, intakes and wings on sports/hyper). The hypercar has its own silhouette: very low,
+  cab-forward bubble canopy, shark fin on the engine deck, tall wing, splitter and slim LED lights. Car textures are
+  1024x512 (512x256 on 1x screens) with trilinear mipmaps, so the bay car and the lot thumbnails stay smooth.
+  Review sheet: `?debug=1&gallery=1`.
+- **Yard backdrop:** one Canvas 2D painting per screen size: sky gradient, sun glow, clouds, two hill layers, junk
+  piles with tyres and scrap panels (kept clear of the customer's spot), fence, ground and the concrete work bay.
+- **Collection counts:** every sale counts its car type for the Collection book (P1.4). The first sale of a type shows
+  "📒 First Van sold! Collection: 5/8 car types" (the four starter types are counted quietly in the first 10 sales).
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of

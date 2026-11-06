@@ -53,6 +53,8 @@ export type GameEvent =
   | { type: 'legendary'; car: Car }
   /** A new car family starts arriving at the yard. */
   | { type: 'familyUnlocked'; family: CarFamily }
+  /** The first car of a family was sold: it starts its page in the Collection book. `families` = families collected so far. */
+  | { type: 'firstOfFamily'; family: CarFamily; families: number }
   | { type: 'crushed'; car: Car; parts: number; cash: number; auto: boolean }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
@@ -112,9 +114,20 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   state.tutorial.firstSale = true;
   events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
+  recordCollection(state, car.family, events);
   const fam = familyUnlockedAt(state.carsSold);
   if (fam) events.push({ type: 'familyUnlocked', family: fam });
   ensureFocus(state);
+}
+
+/** Count a sold car for the Collection book; the first of a family announces itself. */
+export function recordCollection(state: GameState, family: CarFamily, events: { push(e: GameEvent): void }): void {
+  const sold = state.collection.sold;
+  sold[family] = (sold[family] ?? 0) + 1;
+  if (sold[family] === 1) {
+    const families = Object.values(sold).filter((n) => n > 0).length;
+    events.push({ type: 'firstOfFamily', family, families });
+  }
 }
 
 /** A car just finished washing: spare parts (if any) take a chunk off its damage. */

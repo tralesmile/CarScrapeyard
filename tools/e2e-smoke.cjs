@@ -69,6 +69,30 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(geo.w > 100, 'big car is on screen');
 
+    // Art pass (P0.14h): power-of-two car textures with trilinear mipmaps, and a Canvas 2D backdrop.
+    const art14h = await page.evaluate(() => {
+      const g = window.__jye.game;
+      const sc = g.scene.getScene('yard');
+      const src = sc.bigCar.texture.source[0];
+      const gl = g.renderer.gl;
+      const glt = src.glTexture;
+      const bd = sc.textures.get('backdrop');
+      return {
+        aa: g.renderer.config.antialias === true,
+        w: src.width,
+        h: src.height,
+        mip: !!gl && !!glt && glt.minFilter === gl.LINEAR_MIPMAP_LINEAR,
+        backdrop: sc.bg.texture.key,
+        canvas: !!bd && bd.source[0].isCanvas,
+        full: !!bd && bd.source[0].width === g.scale.width,
+      };
+    });
+    const pot = (n) => n > 0 && (n & (n - 1)) === 0;
+    assert(pot(art14h.w) && pot(art14h.h), `bay car texture is a power of two (${art14h.w}x${art14h.h})`);
+    assert(art14h.aa, 'textures use smooth (linear) filtering, not pixel-art mode');
+    assert(art14h.mip, 'bay car texture is mipmapped (trilinear)');
+    assert(art14h.backdrop === 'backdrop' && art14h.canvas && art14h.full, 'backdrop is one Canvas 2D texture the size of the game');
+
     console.log('wash by swiping');
     await page.mouse.move(geo.x - geo.w * 0.35, geo.y);
     await page.mouse.down();
@@ -188,6 +212,28 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('NEW CARS'), null, { timeout: 4000 });
     assert((await page.textContent('.banner')).includes('Vans'), 'selling car #15 announces Vans');
     assert(await page.evaluate(() => window.__vib.length > 0), 'haptics fire on sales and taps (navigator.vibrate)');
+
+    console.log('collection hook');
+    const quiet = await page.evaluate(() => ({ ...window.__jye.state.collection.sold }));
+    assert(Object.values(quiet).reduce((a, b) => a + b, 0) >= 3 && quiet.van === 0, `sales are counted per family (${JSON.stringify(quiet)})`);
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.buyer = null;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.family = 'van';
+      c.rarity = 'common';
+      c.dirt = 0;
+      c.damage = 0;
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    if (await page.$('.haggle:not(.hidden)')) await page.click('.haggle');
+    await page.waitForFunction(() => window.__jye.state.collection.sold.van === 1, null, { timeout: 7000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('First Van sold')), null, { timeout: 4000 });
+    const toastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('First Van')));
+    assert(/Collection: \d\/8/.test(toastText), `first Van sold shows a Collection toast (${toastText})`);
 
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
@@ -413,11 +459,12 @@ async function waitForServer(url, ms = 15000) {
     assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
     await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
     await page.waitForTimeout(200);
-    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
+    // Check the 620 ms slam before the screenshot: a 3x screenshot can take longer than the tween.
     const plateMoved = await page.evaluate(() => {
       const st = window.__jye.game.scene.getScene('yard').station;
       return st.plate.scene.tweens.isTweening(st.plate);
     });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
     assert(plateMoved, 'the press slams when the Scrapper crushes a wreck');
     const afterScrap = await page.evaluate(() => ({ parts: window.__jye.state.parts, rest: window.__jye.state.scrapperRest }));
     assert(afterScrap.parts > 0 && afterScrap.rest > 0, `Scrapper crushes a wreck when parts run low (+${afterScrap.parts} parts)`);

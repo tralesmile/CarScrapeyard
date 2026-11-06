@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 8; next run is run 9). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 9; next run is run 10). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -34,18 +34,22 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       "Keep classics for the Collection book" moved to P1.4.
 - [x] P0.14g Barn card below the fold: the barn card now leads the Yard tab once the barn opens, tapping the barn scrolls to
       and flashes it, and a red dot on the barn sign shows when a stage is affordable or the classic is ready (run 8)
-- [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
-      is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
-      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills on Canvas 2D too (the barn, tarp, Scrapper
-      and press are Canvas 2D since run 8)
-- [ ] P0.14i Collection hook for new families (found in run 5): show "first Van!" style toasts and count each family
-      for the Collection book (P1.4)
+- [x] P0.14h Art polish (run 9): stair-steps fixed at the root (Phaser's automatic pixel-art mode when zoomed was on;
+      forced off), power-of-two car textures sized to the bay with trilinear mipmaps, a distinct hypercar silhouette
+      (cab-forward canopy, shark fin, tall wing, splitter, slim lights), and the backdrop painted on Canvas 2D
+- [x] P0.14i Collection hook (run 9): sales counted per family in `state.collection.sold`, "📒 First Van sold!" toast
+      with the families collected so far (starter families quiet in the first 10 sales). The book UI is P1.4.
 - [x] P0.15 Playtest gate: owner played ~10 minutes (2026-11-05): "works well, held my attention for 10 minutes";
       asks for better graphics (P0.14h) and a city map like other tycoons (P1.1). Owner chose to keep the current task order.
 
 ## Phase 1 — Web MVP
 
-- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage
+- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage.
+      Next run: start with a slice (P1.1a core `businesses` state + switching + save migration; P1.1b city map screen with
+      the scrapyard and a locked Repair Garage; P1.1c the Repair Garage loop), one slice per run, each fully green.
+- [ ] P1.1x Art follow-ups found in run 9: muscle and sports cars still overlap a lot in silhouette (0.83), as do hatch and
+      SUV (0.86); give each pair one distinct feature (e.g. muscle hood scoop, hatch's short rear overhang). Redraw the
+      backdrop when the buyer strip changes the insets (horizon is fixed at the first layout).
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

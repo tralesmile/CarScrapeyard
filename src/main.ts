@@ -59,6 +59,13 @@ function onEvents(events: GameEvent[]) {
       ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
       sfx.fanfare();
     }
+    // First car of a family sold (P0.14i). The starter families are counted quietly during the first sales,
+    // so the tutorial hints and the haggle lesson are not crowded.
+    if (e.type === 'firstOfFamily' && (ECON.families[e.family].unlockCarsSold > 0 || state.carsSold > ECON.collection.quietSales)) {
+      const total = Object.keys(ECON.families).length;
+      ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
+      sfx.repaired();
+    }
     if (e.type === 'legendary') ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
       ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
@@ -123,7 +130,10 @@ const game = new Phaser.Game({
   width: app.clientWidth * dpr,
   height: app.clientHeight * dpr,
   scale: { mode: Phaser.Scale.NONE, zoom: 1 / dpr },
-  render: { antialias: true, powerPreference: 'high-performance' },
+  // pixelArt must be off explicitly: Phaser turns it on whenever zoom !== 1 (we zoom by 1/dpr), which silently
+  // switched every texture to nearest-neighbour filtering (the stair-steps found in run 5). Trilinear mipmaps for
+  // power-of-two textures (car art) keep the lot thumbnails smooth when they scale down (P0.14h).
+  render: { antialias: true, pixelArt: false, powerPreference: 'high-performance', mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   banner: false,
   disableContextMenu: true,
 });

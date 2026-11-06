@@ -7,7 +7,7 @@ import { contractFamilies, generateContract } from '../src/core/contracts';
 import { generateCar, sellCar, tick, type GameEvent } from '../src/core/sim';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, type Contract } from '../src/core/state';
-import { SHAPES, WHEEL_Y, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade } from '../src/game/carArt';
+import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts } from '../src/game/carArt';
 import { HAPTIC_PATTERNS, Haptics } from '../src/platform/haptics';
 
 const T0 = 1_800_000_000_000;
@@ -183,5 +183,39 @@ describe('haptics', () => {
       const total = Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p;
       expect(total).toBeLessThanOrEqual(200);
     }
+  });
+});
+
+describe('hypercar silhouette (P0.14h)', () => {
+  it('reads apart from every other family above the shoulder line, the sports car included', () => {
+    for (const f of FAMILIES) {
+      if (f === 'hyper') continue;
+      expect(silhouetteOverlap('hyper', f), f).toBeLessThan(0.66);
+    }
+  });
+
+  it('is the lowest car, with a cab-forward canopy, a shark fin and a taller wing than the sports car', () => {
+    const top = (f: CarFamily) => Math.min(...SHAPES[f].body.map((p) => p[1]));
+    const roofX = (f: CarFamily) => {
+      const t = top(f);
+      const xs = SHAPES[f].body.filter((p) => p[1] <= t + 0.02).map((p) => p[0]);
+      return (Math.min(...xs) + Math.max(...xs)) / 2;
+    };
+    for (const f of FAMILIES) if (f !== 'hyper') expect(top('hyper'), f).toBeGreaterThan(top(f));
+    expect(roofX('hyper')).toBeGreaterThan(roofX('sports') + 0.02);
+    expect(SHAPES.hyper.fin).toBe(true);
+    expect(SHAPES.sports.fin).toBeFalsy();
+    expect(spoilerParts('big').wing[0]![1]).toBeLessThan(spoilerParts('small').wing[0]![1]);
+  });
+
+  it('car textures are powers of two (for mipmaps) and follow the bay size', () => {
+    const pot = (n: number) => (n & (n - 1)) === 0;
+    for (const px of [300, 430, 760, 1290]) {
+      const t = carTextureSize(px);
+      expect(pot(t.w) && pot(t.h)).toBe(true);
+      expect(t.w).toBe(t.h * 2);
+    }
+    expect(carTextureSize(430).w).toBe(512);
+    expect(carTextureSize(1290).w).toBe(1024);
   });
 });

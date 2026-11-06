@@ -129,3 +129,21 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Mutation-test UI-order checks by flipping the feature off** (`barnFirst = false && ...`) and confirming the e2e fails,
   then restore it and grep the line. A "card is on screen" check first passed even with the card third in the list,
   because it only tested the card's top edge; it now checks the whole button fits on the phone screen.
+
+## 2026-11-06 (run 9)
+
+- **Check the engine's effective config, not the config you wrote.** We set `antialias: true` from run 1, yet every
+  texture was nearest-filtered: Phaser 3 defaults `pixelArt` to `zoom !== 1` and pixel-art forces `antialias` off.
+  Runs 5-8 fought the resulting stair-steps with art changes (Canvas 2D painting helped, but filtering stayed nearest). Reading `game.renderer.config.antialias` and a
+  texture's `glTexture.minFilter` in the browser found it in one minute. When a visual bug survives an art fix, probe
+  the renderer state first, and pin the finding with an e2e assertion (now: smooth filtering + mipmaps).
+- **Mipmaps only exist for power-of-two textures in Phaser's WebGL1 path, and a POT render texture gets stale mips.**
+  The dirt render texture is one texel taller on purpose so it stays non-POT and plain linear.
+- **Turn "looks alike" into a number.** "Hyper and sports look alike" became `silhouetteOverlap()` (IoU of outlines above
+  the shoulder line on a grid). The first redesign only moved it from ~0.8 to 0.81 for the body alone; adding the fin
+  and wing to the silhouette and moving the canopy forward got it to 0.62. The same metric flagged two other close
+  pairs (muscle/sports, hatch/SUV) for a follow-up task.
+- **Timing checks go before slow steps.** A 3x full-page screenshot can take longer than a 620 ms tween; the check that
+  the press is mid-slam failed once the backdrop got heavier. Assert time-sensitive state first, screenshot after.
+- **Long `npm run check` runs exceed the 2-minute tool timeout.** Run it in the background with an exit-code marker
+  (`(npm run check > log 2>&1; echo EXIT $? >> log) &`) and poll the log, instead of re-running it under `timeout`.

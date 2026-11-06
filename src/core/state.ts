@@ -115,6 +115,11 @@ export interface GameState {
     /** Sell at the asking price without the haggle slider. */
     skipHaggle: boolean;
   };
+  /**
+   * Collection book counts (P0.14i, the book itself is P1.4): cars sold per family. Saves from before run 9 start
+   * at 0, so a veteran sees each "first of a family" toast once as their collection begins.
+   */
+  collection: { sold: Record<CarFamily, number> };
   stats: {
     legendaryFound: number;
     playSeconds: number;
@@ -124,6 +129,12 @@ export interface GameState {
     perfectHaggles: number;
     buyersServed: number;
   };
+}
+
+export function emptyFamilyCounts(): Record<CarFamily, number> {
+  const out = {} as Record<CarFamily, number>;
+  for (const f of Object.keys(ECON.families) as CarFamily[]) out[f] = 0;
+  return out;
 }
 
 export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
@@ -154,6 +165,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
+    collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
   };
 }
