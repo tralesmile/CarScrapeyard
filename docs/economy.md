@@ -168,6 +168,21 @@ Buy at the auction board, refurbish, sell. Retail = $35,000 x (family base value
   (bids on the best profit per work when cash >= 2x the price). Offline needs both: profit per car over
   max(refurbish time, buyer interval), with the yard's 50% efficiency and 2 h cap.
 
+Walk-up buyer types (P1.2c): a buyer arrives 3.5 s into the 6 s wait and looks the car over for 2.5 s, then pays
+list x (1 + bonus) for a car they like. They choose the waiting car with the biggest bonus.
+
+| Buyer | Likes | Bonus | Weight | Shows up after |
+| --- | --- | --- | --- | --- |
+| Family | sedan, van, SUV | +15% | 3 | 0 yard sales |
+| Collector | bought Good or Mint (condition >= 4) | +30% | 2 | 0 |
+| Speed Freak | muscle, sports, hyper | +20% | 2 | 0 |
+| Tradie | pickup, van | +20% | 2 | 20 |
+| Influencer | sports, hyper | +40% | 1 | 100 |
+
+Idle and offline income use the average multiplier (every buyer type by weight x every unlocked family x the board's
+condition mix), about x1.06-1.09. Run 15 sim: lot profit by 2 h $83.6M -> $84.8M active (55%), $25.0M -> $25.7M relaxed
+(35%): active bots haggle most sales by hand, so the bonus mostly helps idle play. No other milestone moved.
+
 Run 14 sim (120 minutes, `Used Car Lot (P1.2a)`): retailBase $90K first gave the lot 81% of all earnings ($434M by 2 h),
 far too strong; $45K 61%, $35K 55% (chosen), $28K 48%. With $35K the active bot reaches the goal at 39m30s, opens at
 45m30s, hires the Detailer at 50m and the Agent at 58m, the lot makes 55% of earnings by 2 h and Paint & Tuning's $50M
@@ -191,7 +206,7 @@ between 30 and 75 min, lot share 15-65%, garage share > 5%.
 | Repair Garage opened ($100K) | < 17 min for active players (every seed) | 14m 24s | 19m 1s |
 | Garage share of earnings at 40 min | 15-60% | 35% | 33% |
 | Used Car Lot opened ($2.5M) | 30-75 min | 45m 30s | 52m 43s |
-| Lot share of earnings at 2 h | 15-65% | 55% | 34% |
+| Lot share of earnings at 2 h | 15-65% | 55% | 35% |
 | Paint & Tuning goal ($50M) | - | 1h 22m | 1h 45m |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs

@@ -114,6 +114,16 @@ to automate it, open new car businesses, then sell your empire and start again i
   backwards cap, spray bottle) refurbishes on his own; the Auction Agent bids on the best-value lot when cash covers 2x
   its price. With both, the lot earns while you're away. Map tiers: 3 / 4 forecourt spots (a second row of cars, then a
   gold balloon and price tags).
+- **Used Car Lot polish** (P1.2c): each auction card counts down ("⏱ 32s"); in the last 8 s it says "🔨 Going… 5s" and
+  the timer bar turns red and pulses. A lot that runs out gets a red "SOLD!" rubber stamp (another bidder won it); one you
+  buy gets a green "YOURS!" (or "AGENT WON!") stamp and a two-knock gavel sound. Walk-up buyers come in five types
+  that share the yard buyers' looks: Family (sedan/van/SUV +15%), Collector (cars bought Good or Mint, "all original",
+  +30%), Speed Freak (muscle/sports/hyper +20%), Tradie (pickup/van +20%, after 20 yard sales) and Influencer
+  (sports/hyper +40%, after 100 yard sales). 3.5 s after a car is ready a buyer walks up, picks the waiting car they
+  like best, stands by it leaning in to look it over and says a line ("All original? Marvellous!" when they like it,
+  "Bit slow for me…" when not); 2.5 s later they pay the list price plus their bonus ("Collector paid +30%") and drive
+  it away. A buyer looking at a car in the spot row shows as their icon on its thumbnail. If you sell that car first,
+  they pick another ready car or walk off.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

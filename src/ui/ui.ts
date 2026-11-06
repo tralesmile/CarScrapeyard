@@ -124,6 +124,8 @@ export class Ui {
   private banner!: HTMLElement;
   private cards: CardView[] = [];
   private tab: Tab = 'upgrades';
+  /** Auction card stamps (P1.2c): "SOLD!" when a lot went to another bidder, "YOURS!" when you won it. */
+  private stamps: ({ text: string; cls: 'won' | 'lost'; until: number } | null)[] = [];
   /** Business the panel was last built for; the tab set swaps when it changes. */
   private shownBiz: string = 'scrapyard';
   private mode: BuyMode = 1;
@@ -616,14 +618,17 @@ export class Ui {
     const fill = el('i');
     bar.append(fill);
     const btn = el('button', 'buy') as HTMLButtonElement;
-    root.append(title, desc, bar, btn);
+    const stamp = el('div', 'stamp display hidden');
+    stamp.setAttribute('aria-live', 'polite');
+    root.append(title, desc, bar, btn, stamp);
+    let stampKey = '';
     btn.onclick = () => {
       const s = this.deps.state();
       const lot = s.carlot.board[index];
       if (!lot) return;
       const events = buyLot(s, lot.id);
       if (events.length) {
-        sfx.buy();
+        // The gavel sound plays from the lotBought event (also when the Auction Agent bids).
         this.deps.onEvents(events);
         this.deps.onChange();
       } else sfx.denied();
@@ -631,7 +636,17 @@ export class Ui {
     };
     const update = (s: GameState) => {
       const lot = s.carlot.board[index];
+      const st = this.stamps[index];
+      const key = st && st.until > performance.now() ? `${st.cls}|${st.until}` : '';
+      if (key !== stampKey) {
+        stampKey = key;
+        stamp.classList.toggle('hidden', !key);
+        stamp.classList.toggle('won', st?.cls === 'won');
+        stamp.classList.toggle('lost', st?.cls === 'lost');
+        if (st && key) setText(stamp, st.text);
+      }
       root.classList.toggle('empty', !lot);
+      root.classList.toggle('closing', !!lot && lot.timeLeft <= ECON.carlot.auctionClosingSeconds);
       if (!lot) {
         name.textContent = 'Next lot';
         setText(lvl, '');
@@ -644,7 +659,9 @@ export class Ui {
         return;
       }
       name.textContent = lot.model;
-      setText(lvl, '');
+      // Bid countdown: "Going, going…" in the last seconds.
+      const secs = Math.max(0, Math.ceil(lot.timeLeft));
+      setText(lvl, lot.timeLeft <= ECON.carlot.auctionClosingSeconds ? `🔨 Going… ${secs}s` : `⏱ ${secs}s`);
       const cond = ECON.carlot.conditions[lot.condition];
       const stars = conditionStars(lot.condition);
       const html =
@@ -1421,6 +1438,18 @@ export class Ui {
     back.append(box);
     this.root.append(back);
     done.focus();
+  }
+
+  /** Stamp an auction card (P1.2c): `won` when you (or your Agent) bought the lot, `lost` when another bidder did. */
+  auctionStamp(index: number, cls: 'won' | 'lost', auto = false) {
+    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : 'SOLD!';
+    this.stamps[index] = { text, cls, until: performance.now() + ECON.carlot.stampSeconds * 1000 };
+    this.render();
+  }
+
+  /** True while the Auction tab is on screen (auction sounds only play then). */
+  auctionShown(): boolean {
+    return this.shownBiz === 'carlot' && this.tab === 'auction';
   }
 
   offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0) {

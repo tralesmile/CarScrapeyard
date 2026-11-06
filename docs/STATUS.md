@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 14; next run is run 15). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 15; next run is run 16). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -82,9 +82,10 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.2b Used Car Lot scene and UI (run 14): `CarLotScene` + `carlotArt.ts` (forecourt backdrop, showroom sign,
         bunting, platform, condition rust, FOR SALE tag, spot thumbnails, Detailer, buyer drives the car away),
         Auction / Lot / Crew tabs, Sell with haggle, hints, map tiers and back button, welcome-back line. `ready: true`.
-  - [ ] P1.2c Used Car Lot polish: auction feel (a bid countdown/gavel, "SOLD!" stamp when a lot goes to someone else),
-        the walk-up buyer looks over the car before buying, lot-specific buyer types (e.g. the Collector pays more for
-        mint cars), sounds for the auction.
+  - [x] P1.2c Used Car Lot polish (run 15): bid countdown with "Going…" and a red timer in the last 8 s, SOLD! / YOURS!
+        stamps, gavel and "missed it" sounds; five walk-up buyer types (Family, Collector for Good/Mint cars, Speed
+        Freak, Tradie, Influencer) with bonuses; the buyer walks up, looks the car over with a speech bubble, then pays
+        (`buyer` in the lot state, saved). Still open (owner question): a real bidding mini-game instead of fixed prices.
   - [ ] P1.2d Paint & Tuning core (business 4, $50M goal): paint jobs, wraps, rims, engine tunes for customer cars;
         design note: use the lot's cars as one source (tune before selling for a higher list price).
   - [ ] P1.2e Paint & Tuning scene and UI.

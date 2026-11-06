@@ -11,6 +11,8 @@ export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
 export type GarageUpgradeKind = 'tools' | 'rep';
 export type CarLotUpgradeKind = 'valet' | 'showroom';
 export type CarLotCrewKind = 'detailer' | 'agent';
+/** Walk-up buyer types on the Used Car Lot (P1.2c); they share the yard buyers' looks. */
+export type LotBuyerKind = 'family' | 'collector' | 'speed' | 'tradie' | 'influencer';
 /** Auction condition grade of a used car, 1 (rough) to 5 (nearly mint). */
 export type Condition = 1 | 2 | 3 | 4 | 5;
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
@@ -263,6 +265,10 @@ export const ECON = {
     lotSeconds: 45,
     /** Seconds before an empty board slot gets a new lot (after you bought one). */
     refillSeconds: 4,
+    /** The last seconds of a lot: the card says "Going…" and its timer turns red (P1.2c). */
+    auctionClosingSeconds: 8,
+    /** How long the "SOLD!" / "YOURS!" stamp stays on an auction card, seconds. */
+    stampSeconds: 1.6,
     spots: {
       start: 2,
       /** Cost of forecourt spot 3 and 4. */
@@ -283,6 +289,23 @@ export const ECON = {
     workPerTap: 1,
     /** Seconds until a buyer walks up while a refurbished car waits (they pay the full price). */
     buyerInterval: 6,
+    /** The last seconds of `buyerInterval`: the buyer stands by the car and looks it over before paying. */
+    buyerLookSeconds: 2.5,
+    /**
+     * Walk-up buyer types (P1.2c). Each pays a bonus for the cars they like: some by family, the Collector for cars you
+     * bought in Good or Mint condition ("all original"). A buyer picks the waiting car they like best. `weight` is how
+     * often they show up; they show up once that many cars have been sold in the yard.
+     */
+    buyers: {
+      family: { name: 'Family', likes: 'family cars', families: ['sedan', 'van', 'suv'], minCondition: 0, bonus: 0.15, weight: 3, unlockCarsSold: 0 },
+      collector: { name: 'Collector', likes: 'all-original cars (bought Good or Mint)', families: null, minCondition: 4, bonus: 0.3, weight: 2, unlockCarsSold: 0 },
+      speed: { name: 'Speed Freak', likes: 'fast cars', families: ['muscle', 'sports', 'hyper'], minCondition: 0, bonus: 0.2, weight: 2, unlockCarsSold: 0 },
+      tradie: { name: 'Tradie', likes: 'pickups and vans', families: ['pickup', 'van'], minCondition: 0, bonus: 0.2, weight: 2, unlockCarsSold: 20 },
+      influencer: { name: 'Influencer', likes: 'show-off cars', families: ['sports', 'hyper'], minCondition: 0, bonus: 0.4, weight: 1, unlockCarsSold: 100 },
+    } satisfies Record<
+      LotBuyerKind,
+      { name: string; likes: string; families: readonly CarFamily[] | null; minCondition: number; bonus: number; weight: number; unlockCarsSold: number }
+    >,
     upgrades: {
       /** Faster refurbishing (taps and the Detailer), doubled at the station milestones. */
       valet: { name: 'Valet Bay', baseCost: 250_000, growth: 1.17 },

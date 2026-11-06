@@ -85,6 +85,16 @@ function onEvents(events: GameEvent[]) {
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
+    // Auction feel (P1.2c): stamps on the board; sounds only while the Auction tab is on screen.
+    if (e.type === 'lotBought') {
+      ui.auctionStamp(e.index, 'won', e.auto);
+      if (!e.auto || ui.auctionShown()) sfx.gavel();
+    }
+    if (e.type === 'lotExpired') {
+      ui.auctionStamp(e.index, 'lost');
+      if (ui.auctionShown()) sfx.lotLost();
+    }
+    if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();
     if (e.type.startsWith('garage') || e.type.startsWith('lot')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
@@ -256,6 +266,6 @@ ui.render();
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }

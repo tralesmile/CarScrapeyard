@@ -142,6 +142,27 @@ class Sfx {
     [392, 494, 587, 698, 784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.18, 'sine', 0.12, undefined, i * 0.07));
     [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.1, 'triangle', 0.16, undefined, 0.6));
   }
+  /** Auction gavel (P1.2c): two wooden knocks, the second louder. */
+  gavel() {
+    haptics.play('tap');
+    this.wood(0, 0.12);
+    this.wood(0.16, 0.22);
+  }
+  /** A lot went to another bidder: a soft falling "aww". */
+  lotLost() {
+    this.tone(523, 0.16, 'triangle', 0.1, 466);
+    this.tone(440, 0.28, 'triangle', 0.1, 349, 0.14);
+  }
+  /** A walk-up buyer pays extra for a car they love: a bright cash-register ding. */
+  bonus() {
+    this.tone(1319, 0.1, 'sine', 0.14);
+    this.tone(1760, 0.3, 'sine', 0.14, undefined, 0.09);
+  }
+  /** One wooden knock: a short low tone with a click of filtered noise. */
+  private wood(delay: number, vol: number) {
+    this.tone(190, 0.09, 'triangle', vol, 120, delay);
+    this.tone(720, 0.03, 'square', vol * 0.35, undefined, delay);
+  }
   fanfare() {
     haptics.play('celebrate');
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, undefined, i * 0.12));

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.0 - 2026-11-06 (run 15)
+
+- **Auction feel (P1.2c):** every auction card counts down its bid ("⏱ 32s"), says "🔨 Going… 5s" with a red,
+  pulsing timer in the last 8 seconds, and gets a rubber stamp when it goes: a red "SOLD!" when another bidder wins it,
+  a green "YOURS!" (or "AGENT WON!") with a gavel knock when you buy it. A soft "aww" plays when you miss a lot.
+- **Walk-up buyers with personalities:** Family, Collector, Speed Freak, Tradie and Influencer buyers now visit the lot.
+  Each walks up to a car, leans in to look it over, says what they think ("All original? Marvellous!", "Plenty of room
+  for tools!") and pays a bonus for the cars they like: the Collector +30% for cars you bought in Good or Mint
+  condition, the Influencer +40% for sports cars and hypercars. A "Collector paid +30%" note and a ding show the bonus.
+  The buyer's icon shows on a spot thumbnail when they look at a car that isn't on the platform.
+- Fix: the auction cards no longer clip their Buy button.
+- Balance: idle lot income includes the average buyer bonus (about +6-9%); pacing unchanged (sim run 15).
+- Tests: 8 new unit tests (buyer bonuses, unlocks, arrive-look-pay timing, best-car choice, buyer leaves when the car
+  is sold, idle bonus, save repair, buyer lines). E2e: bid countdown, "Going…", SOLD! and YOURS! stamps, auction
+  cards hold their button, a buyer looks a car over with a speech bubble and then buys it.
+
 ## 0.14.0 - 2026-11-06 (run 14)
 
 - **Used Car Lot (P1.2a/b), business 3:** earn $5M in total, open it on the map for $2.5M and tap "Go". Buy used cars

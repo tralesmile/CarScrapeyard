@@ -49,6 +49,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       Agent and it runs on its own. Is choosing between rough (cheap, lots of tapping) and mint (quick flip) cars an
       interesting choice? Should the auction be a real bidding mini-game (rival bidders, raise or pass) instead of a
       fixed price? The sim puts the lot opening at about 45 minutes for an active player.
+      New since run 15: the auction counts down ("Going… 5s"), stamps lots SOLD! when someone else gets them and YOURS!
+      when you do, with a gavel knock. Walk-up buyers now have personalities: they walk up, look the car over, say what
+      they think and pay extra for cars they like (the Collector +30% for cars you bought in Good or Mint condition).
+      Does the countdown make you want to grab a lot before it goes?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

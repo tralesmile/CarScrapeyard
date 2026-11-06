@@ -244,3 +244,19 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   then start one clean run.
 - **Paint decorations before the sign they could cover.** The bunting hung over the "USED CAR LOT" lettering in the
   first screenshot; drawing the flags first and stringing them above the band keeps the sign readable on any height.
+
+## 2026-11-06 (run 15)
+
+- **`overflow: hidden` on a grid or flex item changes its size, not just its painting.** It drops the item's
+  automatic minimum size to 0, so the auction cards shrank to their grid row and clipped their Buy button. I only
+  wanted a stamp to stay inside the card; it didn't need clipping at all. The screenshot showed it at once, and the
+  e2e now asserts that each auction card holds its text and button. Check a screenshot after any CSS change to a card.
+- **Every cash check in the e2e must silence all businesses.** The "skip haggling pays the asking price" check
+  switched off the yard's Salesperson, the Scrapper and the garage Foreman, but not the lot's crew, so a walk-up sale
+  landed in the 200 ms window. When a new business earns on its own, search the e2e for `cash -` checks and quiet it there.
+- **Give a timed state its own field instead of reading it off a timer.** The walk-up buyer is `carlot.buyer`
+  (kind + car), set when they arrive and cleared when they pay or leave. The scene, the spot icons, the save and the
+  tests all read that one field; deriving "a buyer is looking" from `buyerTimer > 3.5` in four places would drift.
+- **Expose the UI object on the debug hook** (`__jye.ui`) so the e2e can hold a short-lived UI state (the 1.6 s
+  stamp) for its screenshot, the same "find it and hold it" rule as for scene states.
+

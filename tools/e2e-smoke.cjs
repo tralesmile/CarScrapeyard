@@ -783,6 +783,38 @@ async function waitForServer(url, ms = 15000) {
     assert(auction.length === 3 && auction.every((a) => /★/.test(a.desc) && /profit \$\d/.test(a.desc) && /^Buy \$/.test(a.btn)), `the auction board shows three lots with condition, price and profit (${auction[0].title} · ${auction[0].desc})`);
     assert(/Buy a car at the auction/.test(await page.textContent('.hint')), 'the lot hint points at the auction');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-19a-carlot-auction.png') });
+    // P1.2c auction feel: a bid countdown on every card, "Going…" with a red timer in the last seconds, and a SOLD!
+    // stamp when a lot goes to another bidder.
+    const timers = await page.evaluate(() => [...document.querySelectorAll('.cards .card.auction-lot .lvl')].map((l) => l.textContent));
+    assert(timers.every((t) => /^⏱ \d+s$/.test(t)), `each lot shows its bid countdown (${timers.join(', ')})`);
+    const fit = await page.evaluate(() =>
+      [...document.querySelectorAll('.cards .card.auction-lot')].map((c) => {
+        const r = c.getBoundingClientRect();
+        const b = c.querySelector('.buy').getBoundingClientRect();
+        const d = c.querySelector('.desc').getBoundingClientRect();
+        return Math.round(r.bottom - b.bottom) >= 0 && Math.round(b.top - d.bottom) >= -1;
+      }),
+    );
+    assert(fit.every(Boolean), `every auction card holds its text and Buy button (${fit.join(', ')})`);
+    await page.evaluate(() => (window.__jye.state.carlot.board[1].timeLeft = 5));
+    await page.waitForFunction(() => document.querySelectorAll('.cards .card.auction-lot')[1].classList.contains('closing'), null, { timeout: 2000 });
+    const going = await page.evaluate(() => document.querySelectorAll('.cards .card.auction-lot .lvl')[1].textContent);
+    assert(/^🔨 Going… [45]s$/.test(going), `a closing lot says "Going…" (${going})`);
+    await page.evaluate(() => (window.__jye.state.carlot.board[2].timeLeft = 0.05));
+    await page.waitForFunction(() => {
+      const st = document.querySelectorAll('.cards .card.auction-lot')[2].querySelector('.stamp');
+      const ok = !st.classList.contains('hidden') && st.textContent === 'SOLD!';
+      // Hold the stamp for the screenshot.
+      if (ok) for (const x of window.__jye.ui.stamps) if (x) x.until += 60_000;
+      return ok;
+    }, null, { timeout: 2000 });
+    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder with a SOLD! stamp');
+    await page.waitForTimeout(350);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-19d-carlot-auction-sold.png') });
+    await page.evaluate(() => {
+      for (const x of window.__jye.ui.stamps) if (x) x.until = 0;
+      window.__jye.state.carlot.board[1].timeLeft = 40;
+    });
     const cashLot0 = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.cards .card.auction-lot >> nth=0 >> .buy');
     await page.waitForFunction(() => {
@@ -790,6 +822,8 @@ async function waitForServer(url, ms = 15000) {
       return window.__jye.state.carlot.cars.length === 1 && sc.debugView().carVisible && !sc.debugView().arriving;
     }, null, { timeout: 4000 });
     const bought = await page.evaluate(() => ({ cash: window.__jye.state.cash, car: window.__jye.state.carlot.cars[0], hint: document.querySelector('.hint').textContent }));
+    const wonStamp = await page.evaluate(() => document.querySelectorAll('.cards .card.auction-lot')[0].querySelector('.stamp').textContent);
+    assert(wonStamp === 'YOURS!', `the bought lot gets a YOURS! stamp (${wonStamp})`);
     assert(bought.cash < cashLot0 && bought.car.condition === 1 && bought.car.work > 0, `buying moves the car onto the lot (${bought.car.model}, paid ${bought.car.paid})`);
     assert(/Tap the car to refurbish/.test(bought.hint), `the hint says to tap the car (${bought.hint})`);
     const lotCarPos = async () =>
@@ -822,6 +856,34 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.state.carlot.sold === 1, null, { timeout: 3000 });
     const soldLot = await page.evaluate(() => ({ profit: window.__jye.state.carlot.profit, hold: window.__jye.state.carlot.holdId }));
     assert(soldLot.profit > 0 && soldLot.hold === null, `the haggled sale makes a profit (${soldLot.profit})`);
+    // P1.2c walk-up buyers: buy another car, finish it, and a buyer walks up, looks it over and says something.
+    await page.waitForSelector('.cards .card.auction-lot .buy:not([disabled])', { timeout: 8000 });
+    await page.click('.cards .card.auction-lot .buy:not([disabled]) >> nth=0');
+    await page.waitForFunction(() => window.__jye.state.carlot.cars.length === 1, null, { timeout: 3000 });
+    await page.evaluate(() => (window.__jye.state.carlot.cars[0].work = 0));
+    await page.waitForFunction(() => {
+      const v = window.__jye.game.scene.getScene('carlot').debugView();
+      const l = window.__jye.state.carlot;
+      const ok = !!l.buyer && v.buyerLooking === v.bigId && v.buyerVisible && !v.buyerWalking && v.speech !== '';
+      // Keep the buyer looking for the checks and the screenshot.
+      if (l.buyer) l.buyerTimer = Math.min(l.buyerTimer, 4.5);
+      return ok;
+    }, null, { timeout: 12000 });
+    const look = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('carlot');
+      const sb = sc.speech.getBounds();
+      return {
+        speech: sc.debugView().speech,
+        kind: window.__jye.state.carlot.buyer.kind,
+        right: sc.buyer.x > sc.bigCar.x + sc.bigCar.displayWidth * 0.3,
+        onScreen: sb.left >= 0 && sb.right <= sc.scale.width && sb.top >= 0,
+        sold: window.__jye.state.carlot.sold,
+      };
+    });
+    assert(look.right && look.onScreen && look.sold === 1, `a ${look.kind} buyer stands by the car and looks it over: "${look.speech}"`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-19e-carlot-buyer-looks.png') });
+    await page.waitForFunction(() => window.__jye.state.carlot.sold === 2, null, { timeout: 6000 });
+    assert(await page.evaluate(() => window.__jye.state.carlot.buyer === null && window.__jye.state.carlot.cars.length === 0), 'then the buyer pays and drives the car away');
     // Upgrades and crew: Valet Bay, Showroom, a third spot, the Detailer and the Auction Agent.
     await page.click('.tab:has-text("Lot"):visible');
     const valet0 = await page.textContent('.cards .card.carlot-valet .desc');
@@ -836,7 +898,7 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate(() => window.__jye.state.carlot.crew.detailer && window.__jye.state.carlot.crew.agent), 'Detailer and Auction Agent hired');
     await page.waitForFunction(() => window.__jye.state.carlot.cars.length > 0, null, { timeout: 8000 });
     assert(true, 'the Auction Agent buys a car on its own');
-    await page.waitForFunction(() => window.__jye.state.carlot.sold > 1, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__jye.state.carlot.sold > 2, null, { timeout: 30000 });
     assert(true, 'the Detailer refurbishes and a walk-up buyer drives a car away without input');
     await page.waitForFunction(() => {
       const sc = window.__jye.game.scene.getScene('carlot');
@@ -955,6 +1017,10 @@ async function waitForServer(url, ms = 15000) {
       s.managers.seller = false;
       s.managers.scrapper = false; // its scrap cash would muddle the sale amount
       s.garage.foreman = false; // and so would the garage Foreman's fees
+      // ...and the Used Car Lot's walk-up sales.
+      s.carlot.crew.detailer = s.carlot.crew.agent = false;
+      s.carlot.cars = [];
+      s.carlot.buyer = null;
       s.buyer = null;
       s.buyerTimer = 999;
     });

@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LotBuyerKind, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -74,6 +74,12 @@ export interface LotCar {
   work: number;
 }
 
+/** A walk-up buyer looking over one of your refurbished cars before paying for it (P1.2c). */
+export interface LotBuyer {
+  kind: LotBuyerKind;
+  carId: number;
+}
+
 export interface CarLot {
   spots: number;
   levels: Record<CarLotUpgradeKind, number>;
@@ -85,6 +91,8 @@ export interface CarLot {
   cars: LotCar[];
   /** Seconds a buyer has been on the way (runs while a refurbished car waits). */
   buyerTimer: number;
+  /** The buyer on the forecourt looking a car over (the last `buyerLookSeconds` of the wait), or null. */
+  buyer: LotBuyer | null;
   nextId: number;
   focusedId: number | null;
   /** Car being haggled over: walk-up buyers leave it alone until the slider stops. */
@@ -256,6 +264,7 @@ export function newCarLot(): CarLot {
     refill: Array.from({ length: n }, (_, i) => 0.3 + i * 0.4),
     cars: [],
     buyerTimer: 0,
+    buyer: null,
     nextId: 1,
     focusedId: null,
     holdId: null,
