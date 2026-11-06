@@ -50,7 +50,13 @@ export class Haptics {
 
 function webVibrate(): VibrateFn | null {
   if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return null;
-  return (p) => navigator.vibrate(p);
+  // Chrome blocks (and logs a console error for) vibrate before the first tap on the page; the Foreman or the crew can
+  // finish a job right after a reload, so skip until the page has had a user gesture.
+  return (p) => {
+    const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+    if (ua && !ua.hasBeenActive) return false;
+    return navigator.vibrate(p);
+  };
 }
 
 export const haptics = new Haptics(webVibrate());

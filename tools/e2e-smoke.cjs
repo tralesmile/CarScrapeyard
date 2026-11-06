@@ -40,15 +40,17 @@ async function waitForServer(url, ms = 15000) {
   const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
     cwd: path.join(__dirname, '..'),
     stdio: 'ignore',
+    // Own process group, so the cleanup below also stops vite (a plain kill only stops npx and left vite running).
+    detached: true,
   });
   let browser;
   let failed = false;
+  const errors = [];
   try {
     await waitForServer(`http://localhost:${PORT}/`);
     browser = await chromium.launch();
     const ctx = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await ctx.newPage();
-    const errors = [];
     page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
 
@@ -255,25 +257,35 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.crush:not(.hidden):not(:disabled)');
     await page.waitForTimeout(400); // car drive-in
     assert(await page.isVisible('.hud .parts'), 'parts counter appears once the crusher unlocks');
+    // Record the reward texts every frame from the click on: the 3x screenshot below can outlast their 1.3 s life.
+    await page.evaluate(() => {
+      const rec = (window.__floatRec = { max: 0, n: 0, texts: [] });
+      const t0 = performance.now();
+      const frame = () => {
+        const texts = window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text));
+        if (texts.length > rec.max) {
+          const r = texts.map((t) => t.getBounds());
+          let n = 0;
+          for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+            const a = r[i], b = r[j];
+            const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (ix > 0 && iy > a.height * 0.25) n++;
+          }
+          Object.assign(rec, { max: texts.length, n, texts: texts.map((t) => t.text) });
+        }
+        if (performance.now() - t0 < 4000) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
     await page.click('.crush');
     await page.waitForTimeout(450);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-06-crusher.png') });
     let crushed = await page.evaluate(() => ({ n: window.__jye.state.stats.carsCrushed, parts: window.__jye.state.parts }));
     assert(crushed.n === 1 && crushed.parts > 0, `crushing a wreck gives parts (${crushed.parts})`);
     // "+6 Parts" and "+$110" land together: they must stack, not overlap.
-    await page.waitForFunction(() => window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text)).length >= 2, null, { timeout: 3000 });
-    const overlaps = await page.evaluate(() => {
-      const texts = window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text));
-      const r = texts.map((t) => t.getBounds());
-      let n = 0;
-      for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
-        const a = r[i], b = r[j];
-        const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (ix > 0 && iy > a.height * 0.25) n++;
-      }
-      return { n, texts: texts.map((t) => t.text) };
-    });
+    await page.waitForFunction(() => window.__floatRec.max >= 2, null, { timeout: 4000 });
+    const overlaps = await page.evaluate(() => window.__floatRec);
     assert(overlaps.n === 0, `reward texts stack without overlapping (${overlaps.texts.join(' / ')})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-06b-crush-rewards.png') });
     await page.waitForTimeout(1200);
@@ -542,7 +554,7 @@ async function waitForServer(url, ms = 15000) {
     const yardCtl = await page.evaluate(() => ['.sell', '.crush', '.buyer', '.haggle'].filter((q) => !document.querySelector(q).classList.contains('hidden')));
     assert(yardCtl.length === 0, `the yard controls are hidden in the garage (${yardCtl.join(', ') || 'none shown'})`);
     await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
-    await page.waitForTimeout(800); // drive-in
+    await page.waitForTimeout(1300); // drive-in, lift up, customer steps out
     const hint = await page.textContent('.hint');
     assert(/Tap the car to fix the/.test(hint), `garage hint (${hint})`);
     const garageCar = async () =>
@@ -555,7 +567,39 @@ async function waitForServer(url, ms = 15000) {
       });
     const gc = await garageCar();
     assert(gc.visible && gc.bubble && gc.text.length > 3, `the customer's car stands on the lift with its fault (${gc.text})`);
+    const pose = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return { lift: sc.lift.v, cust: sc.customer.visible && sc.customer.alpha > 0.9, right: sc.customer.x > sc.bigCar.x + sc.bigCar.displayWidth * 0.3, rust: sc.bigRust.alpha, foreman: sc.foreman.visible };
+    });
+    assert(pose.lift === 1 && pose.cust && pose.right, `the lift raises the car and the customer waits beside it (lift ${pose.lift}, customer ${pose.cust}/${pose.right})`);
+    assert(pose.rust <= 0.5 && !pose.foreman, `customer cars carry light rust and no Foreman stands there before he is hired (${pose.rust.toFixed(2)})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-17-garage.png') });
+    // Fault-specific animation: a flat tyre tilts the car and bulges, a dead battery sparks, hot brakes glow.
+    const faultFx = await page.evaluate(async () => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const job = window.__jye.state.garage.jobs.find((j) => j.id === window.__jye.state.garage.focusedId);
+      const was = job.fault;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const out = {};
+      job.fault = 'tyre';
+      await wait(120);
+      out.tilt = sc.bigCar.angle;
+      out.tyreFx = sc.faultG.commandBuffer.length;
+      job.fault = 'brakes';
+      await wait(120);
+      out.tiltBrakes = sc.bigCar.angle;
+      out.brakeFx = sc.faultG.commandBuffer.length;
+      job.fault = 'battery';
+      out.zap = 0;
+      for (let i = 0; i < 30 && out.zap === 0; i++) {
+        await wait(60);
+        out.zap = sc.zap.getAliveParticleCount();
+      }
+      job.fault = was;
+      return out;
+    });
+    assert(faultFx.tilt > 0.5 && faultFx.tyreFx > 0 && faultFx.tiltBrakes === 0, `a flat tyre tilts the car and bulges (${faultFx.tilt.toFixed(2)} deg)`);
+    assert(faultFx.brakeFx > 0 && faultFx.zap > 0, `hot brakes glow and a dead battery sparks (${faultFx.zap} sparks)`);
     const g0 = await page.evaluate(() => ({ cash: window.__jye.state.cash, fee: window.__jye.state.garage.jobs[0].fee, sold: window.__jye.state.carsSold }));
     for (let i = 0; i < 20; i++) {
       if (await page.evaluate(() => window.__jye.state.garage.jobsDone > 0)) break;
@@ -577,7 +621,7 @@ async function waitForServer(url, ms = 15000) {
       if (s.barn.status === 'covered') s.barn.status = 'away', s.barn.timeLeft = 9999;
     });
     await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1300);
     const gc2 = await garageCar();
     const g2 = await page.evaluate(() => ({ fee: window.__jye.state.garage.jobs[0].fee, earned: window.__jye.state.garage.earned }));
     for (let i = 0; i < 20; i++) {
@@ -602,6 +646,19 @@ async function waitForServer(url, ms = 15000) {
     const doneBefore = await page.evaluate(() => window.__jye.state.garage.jobsDone);
     await page.waitForFunction((n) => window.__jye.state.garage.jobsDone > n, doneBefore, { timeout: 20000 });
     assert(true, 'the Foreman fixes a car without input');
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const g = window.__jye.state.garage;
+      const ok = !sc.carLeaving && !sc.arriving && sc.bigJobId === g.focusedId && sc.lift.v === 1 && sc.customer.visible && sc.customer.alpha === 1;
+      // Hold the cars for the screenshot (the Foreman would finish one while the page is captured).
+      if (ok) for (const j of g.jobs) j.work = Math.max(j.work, 3);
+      return ok;
+    }, null, { timeout: 10000 });
+    const fm = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return { shown: sc.foreman.visible, left: sc.foreman.x < sc.bigCar.x - sc.bigCar.displayWidth * 0.3, inside: sc.foreman.x - sc.foreman.displayWidth / 2 >= 0 && sc.customer.x + sc.customer.displayWidth / 2 <= sc.scale.width };
+    });
+    assert(fm.shown && fm.left && fm.inside, 'the Foreman stands at the car on the left, both characters on screen');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-18-garage-foreman.png') });
     // Reload with the garage on screen, then go back to the yard via the map.
     await page.evaluate(() => window.__jye.saveNow());
@@ -787,7 +844,7 @@ async function waitForServer(url, ms = 15000) {
         return red;
       }),
     }));
-    assert(extra.crew === 2 && extra.barn === 5, 'gallery draws the Scrapper, the press and 5 barn stages');
+    assert(extra.crew === 3 && extra.barn === 5, 'gallery draws the Scrapper, the press, the Foreman and 5 barn stages');
     assert(extra.tarpLeaks.every((n) => n < 30), `the reveal tarp covers vans, SUVs and pickups (${extra.tarpLeaks.join(', ')} red px)`);
     assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
     assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
@@ -806,9 +863,15 @@ async function waitForServer(url, ms = 15000) {
   } catch (e) {
     failed = true;
     console.error('\nE2E FAILED:', e.message);
+    // Page errors explain most timeouts (a throw in a scene's update stops the game loop).
+    if (errors.length) console.error('Page errors so far:\n  ' + errors.slice(0, 10).join('\n  '));
   } finally {
     await browser?.close();
-    server.kill();
+    try {
+      process.kill(-server.pid);
+    } catch {
+      server.kill();
+    }
     process.exit(failed ? 1 : 0);
   }
 })();

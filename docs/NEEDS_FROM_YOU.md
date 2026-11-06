@@ -35,6 +35,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       and they pay. Spare parts from the scrapyard save you the parts bill. Upgrades: Tool Wall, Reputation, two more
       bays, and a Foreman who works while you're away. Is tapping fun here, or should the garage have its own
       mini-game (e.g. hold to tighten, pick the right tool)? Is $100K and ~14 minutes the right moment?
+      New since run 12: the garage looks alive: the customer steps out and waits next to their car, the Foreman stands in
+      the workshop, the lift raises the car, a flat tyre makes the car lean, a dead battery sparks, and the lift's beam
+      is the "REPAIR GARAGE" sign. The SUV has a spare wheel on the back and sits higher, so it no longer looks like the
+      van. Does the garage read clearly on your phone?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

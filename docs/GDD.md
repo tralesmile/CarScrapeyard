@@ -86,6 +86,11 @@ to automate it, open new car businesses, then sell your empire and start again i
   parts ("Yard parts −2 ⚙"), otherwise a parts bill comes off the fee, so the two businesses feed each other. Garage
   tab: Tool Wall (repair speed), Reputation (fees), Repair Bay (up to 3 cars, shown as thumbnails above the lift);
   Crew tab: the Foreman fixes cars on his own, also while you're away (shown in the welcome-back popup).
+  Garage scene (P1.1e): the lift's cross beam is the "REPAIR GARAGE" sign (kept clear of the HUD, the bay row and the
+  tallest raised car); the car drives in, the lift raises it 10 px and the customer (one of the six buyer looks) steps
+  out to wait on the right; the Foreman (navy overalls, red cap, clipboard) stands on the left and bobs while he works.
+  Faults show on the car: a flat tyre tilts it and bulges, a dead battery sparks blue at the front, hot brakes glow
+  through the rear wheel, engine and exhaust smoke. Customer cars carry light rust (5 patches, 1 dent), not wreck rust.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

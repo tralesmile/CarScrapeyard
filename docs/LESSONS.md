@@ -180,3 +180,24 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   `setsid nohup bash -c '…; echo EXIT $? >> log' &` and poll the log in separate calls.
 - **Make new numbers pass the existing curve.** Reusing `stationPower` (milestones x2) for the Tool Wall and the yard's
   offline cap/efficiency for the Foreman kept the garage consistent and testable with the same idle-vs-real check.
+
+## 2026-11-06 (run 12)
+
+- **Never free a texture an image still points at, even a hidden one.** The garage released a car's texture after the
+  drive-off while the hidden image kept it; the new per-frame pose code read `displayHeight` and threw "sourceSize of
+  null", which stopped the whole game loop. The e2e only reported "waitForFunction timeout" twenty seconds later. Point
+  the image at `'__WHITE'` before `textures.remove`, and take sizes from the layout, not from images that may be hidden.
+- **Print the page errors when the e2e fails.** The errors list was only checked at the very end, so a failure in the
+  middle hid the cause. `tools/e2e-smoke.cjs` now prints the first page errors next to the failure message.
+- **Don't run vitest while the e2e runs.** Two e2e failures in the yard's floating-text check were CPU contention from a
+  parallel vitest run; alone the same build passed. Run the e2e (or `npm run check`) on its own and do docs meanwhile.
+- **`cat > file` without a heredoc waits on stdin forever** and eats the whole 2-minute tool timeout. Use the Write tool
+  for scratch files.
+- **Tween a value, not the sprite, when several systems move the same sprite.** The lift height, the tap dip and the
+  flat-tyre tilt each tween a small `{ v }` object and `poseCar()` combines them every frame, so they never fight over
+  `y` (the old tap tween on `y` would have undone the lift).
+- **A "ready for the screenshot" predicate must exclude transitions.** "Car visible, lift up, customer shown" was also
+  true on the first frame of the drive-off, so the Foreman screenshot showed an empty lift. Check the scene's own
+  transition flags (`carLeaving`, `arriving`) and the focused id, then hold the state (more work left) for the capture.
+- **Kill the dev server's process group, not just npx.** `server.kill()` stopped `npx` and left `vite preview` running
+  on the e2e port for the rest of the session; the e2e now spawns it `detached` and kills `-pid`.

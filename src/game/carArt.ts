@@ -31,6 +31,8 @@ export interface FamilyShape {
   splitter?: boolean;
   /** Thin LED strip lights instead of round headlights (hyper). */
   slimLights?: boolean;
+  /** Spare wheel on the tailgate (SUV): sticks out behind the body. */
+  spare?: boolean;
   /** Height (y fraction) of the head and tail lights. */
   lightY: number;
 }
@@ -108,17 +110,20 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
     lightY: 0.55,
   },
   suv: {
-    body: [[0.03, 0.66], [0.04, 0.25], [0.1, 0.18], [0.62, 0.18], [0.76, 0.39], [0.95, 0.44], [0.98, 0.64], [0.95, 0.78], [0.05, 0.78]],
+    // Rugged: high ground clearance (the body sits well above the wheels), a raked D-pillar and a spare wheel on the
+    // tailgate, so it reads apart from the boxy van (P1.1y).
+    body: [[0.07, 0.62], [0.07, 0.3], [0.16, 0.2], [0.6, 0.2], [0.74, 0.39], [0.95, 0.43], [0.98, 0.6], [0.96, 0.7], [0.06, 0.7]],
     windows: [
-      [[0.1, 0.24], [0.3, 0.24], [0.3, 0.39], [0.08, 0.39]],
-      [[0.33, 0.24], [0.49, 0.24], [0.49, 0.39], [0.33, 0.39]],
-      [[0.52, 0.24], [0.61, 0.24], [0.71, 0.39], [0.52, 0.39]],
+      [[0.16, 0.26], [0.3, 0.26], [0.3, 0.39], [0.11, 0.39]],
+      [[0.33, 0.26], [0.48, 0.26], [0.48, 0.39], [0.33, 0.39]],
+      [[0.51, 0.26], [0.6, 0.26], [0.7, 0.39], [0.51, 0.39]],
     ],
-    wheels: [0.2, 0.8],
+    wheels: [0.22, 0.8],
     wheelR: 0.17,
     round: 0.06,
-    door: 0.505,
+    door: 0.495,
     roofRack: true,
+    spare: true,
     lightY: 0.5,
   },
   sports: {
@@ -152,6 +157,17 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
 /** Shark fin outline (fractions), used by families with `fin`. */
 export const FIN: Pt[] = [[0.54, 0.37], [0.32, 0.385], [0.2, 0.4], [0.17, 0.5], [0.5, 0.5]];
 
+/** Tailgate spare wheel (SUV): centre (fractions) and radius as a fraction of the height (P1.1y). */
+export const SPARE = { x: 0.056, y: 0.44, r: 0.105 } as const;
+
+/** The spare wheel as a polygon (fractions; the texture is 2:1, so x radius is half the y radius). */
+export function sparePolygon(n = 20): Pt[] {
+  return Array.from({ length: n }, (_, i): Pt => {
+    const a = (i / n) * Math.PI * 2;
+    return [SPARE.x + Math.cos(a) * SPARE.r * 0.5, SPARE.y + Math.sin(a) * SPARE.r];
+  });
+}
+
 /** Hood scoop outline (fractions), used by families with `scoop`: a raised box on the hood, open at the front. */
 export const SCOOP: Pt[] = [[0.78, 0.425], [0.8, 0.35], [0.89, 0.35], [0.91, 0.43]];
 
@@ -172,6 +188,7 @@ export function silhouette(family: CarFamily): Pt[][] {
   const polys: Pt[][] = [shape.body];
   if (shape.fin) polys.push(FIN);
   if (shape.scoop) polys.push(SCOOP);
+  if (shape.spare) polys.push(sparePolygon());
   if (shape.spoiler) {
     const { wing, stalk } = spoilerParts(shape.spoiler);
     const [x, y, sw, sh] = stalk;
@@ -286,7 +303,7 @@ export interface CarLook {
 
 const TRIM: Record<Rarity, string | null> = { common: null, rare: '#c9d1d9', epic: '#a855f7', legendary: '#f5b700' };
 
-export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number, h: number): void {
+export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number, h: number, opts: { shadow?: boolean } = {}): void {
   const shape = SHAPES[look.family];
   const body = scaled(shape.body, w, h);
   const line = Math.max(2, w / 80);
@@ -298,11 +315,13 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
-  // Ground shadow.
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath();
-  ctx.ellipse(w / 2, h * 0.92, w * 0.44, h * 0.045, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Ground shadow (off for cars on the garage lift, which draws its own on the floor).
+  if (opts.shadow !== false) {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h * 0.92, w * 0.44, h * 0.045, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Spoiler behind the body.
   if (shape.spoiler) {
@@ -313,6 +332,25 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
     const [sx, sy, sw, sh] = parts.stalk;
     ctx.fillRect(w * sx, h * sy, w * sw, h * sh);
     roundedPath(ctx, scaled(parts.wing, w, h), h * 0.015);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Spare wheel on the tailgate, behind the body.
+  if (shape.spare) {
+    const sx = SPARE.x * w;
+    const sy = SPARE.y * h;
+    const r = SPARE.r * h;
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = line;
+    ctx.fillStyle = TIRE;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = shade(look.paint, -0.2);
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 0.66, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }
@@ -332,7 +370,7 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
     ctx.strokeStyle = '#3a4250';
     ctx.lineWidth = line * 1.2;
     ctx.beginPath();
-    ctx.moveTo(w * 0.12, top - h * 0.03);
+    ctx.moveTo(w * 0.14, top - h * 0.03);
     ctx.lineTo(w * 0.58, top - h * 0.03);
     for (const x of [0.16, 0.36, 0.54]) {
       ctx.moveTo(w * x, top - h * 0.03);
@@ -519,8 +557,18 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
   }
 }
 
-/** Rust patches and dents, shown over the car while it is damaged. Clipped to the body. */
-export function paintRust(ctx: CanvasRenderingContext2D, family: CarFamily, w: number, h: number, seed: number): void {
+/** Rust patches and dents, shown over the car while it is damaged. Clipped to the body. Customer cars in the garage
+ * are not wrecks: they pass fewer patches and dents. Returns how many patches were painted. */
+export function paintRust(
+  ctx: CanvasRenderingContext2D,
+  family: CarFamily,
+  w: number,
+  h: number,
+  seed: number,
+  amount: { patches?: number; dents?: number } = {},
+): number {
+  const maxPatches = amount.patches ?? 14;
+  const maxDents = amount.dents ?? 3;
   const shape = SHAPES[family];
   const body = scaled(shape.body, w, h);
   const rnd = seeded(seed);
@@ -529,7 +577,7 @@ export function paintRust(ctx: CanvasRenderingContext2D, family: CarFamily, w: n
   roundedPath(ctx, body, h * shape.round);
   ctx.clip();
   let placed = 0;
-  for (let i = 0; i < 80 && placed < 14; i++) {
+  for (let i = 0; i < 80 && placed < maxPatches; i++) {
     const x = between(w * 0.06, w * 0.94);
     const y = between(h * 0.28, h * 0.72);
     if (!pointInPolygon(body, x, y)) continue;
@@ -556,7 +604,7 @@ export function paintRust(ctx: CanvasRenderingContext2D, family: CarFamily, w: n
   ctx.strokeStyle = 'rgba(30,36,48,0.5)';
   ctx.lineWidth = Math.max(2, w / 90);
   ctx.lineCap = 'round';
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < maxDents; i++) {
     const x = between(w * 0.2, w * 0.8);
     const y = between(h * 0.5, h * 0.66);
     if (!pointInPolygon(body, x, y)) continue;
@@ -565,6 +613,7 @@ export function paintRust(ctx: CanvasRenderingContext2D, family: CarFamily, w: n
     ctx.stroke();
   }
   ctx.restore();
+  return placed;
 }
 
 /** Mud splotches that sit inside the body outline. */

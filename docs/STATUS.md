@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 11; next run is run 12). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 12; next run is run 13). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -57,16 +57,20 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         with progress, bay thumbnails, drive in/out, coins; DOM panel swaps to Garage/Crew tabs; map "Go" swaps scenes
         (only the shown scene runs; its tick advances every business). Open cost tuned to $100K (opens 14m24s, 35% of
         earnings at 40 min). `ready: true`.
-  - [ ] P1.1e Garage art follow-ups: draw the waiting customer and the Foreman as characters in the garage (reuse
-        `person()` from buyerArt), a garage sign that does not clash with the HUD or bay row, a lift that rises a little
-        while a car is worked on, and fault-specific animation (tyre squashed flat, battery sparks at the front), and lighter rust on customer cars (they are not wrecks).
+  - [x] P1.1e Garage art (run 12): the waiting customer (buyer looks) and the Foreman drawn in the garage, the lift's
+        cross beam as the "REPAIR GARAGE" sign (clear of the HUD, bay row and raised car; unit-tested on 4 phone sizes),
+        the lift raises the car 10 px while it is worked on, fault animation (flat tyre tilt + bulge, battery sparks,
+        brake glow), light rust on customer cars.
+  - [ ] P1.1f Garage feel (found in run 12): the customer could say what's wrong in a speech bubble when they arrive;
+        the bay thumbnails sit over the door and pegboard on short phones (consider a slimmer row); a tyre/wheel change
+        swap animation for flat tyres; owner feedback on a garage mini-game (NEEDS_FROM_YOU) may replace tapping.
   - [ ] P1.1d Map polish: the map's visual tiers per business (plan: three tiers per station visible on the map), a
         drive-between transition, the barn note "Restore it when you open the Garage" (plan story beat) if it still fits.
 - [x] P1.1x Art follow-ups (run 10): muscle car redrawn boxy with a hood scoop (overlap with sports 0.83 -> 0.69), hatch
       lower and rounder with a steep hatch (overlap with SUV 0.86 -> 0.64); every family pair now under 0.82. The yard lays
       out again (backdrop, slots, bay) when the HUD changes height, e.g. when the customer strip appears.
-- [ ] P1.1y Van and SUV are now the closest pair (0.81); give the SUV a distinct feature (taller ground clearance,
-      spare wheel on the tailgate) and bring every pair under 0.75.
+- [x] P1.1y SUV redrawn (run 12): high ground clearance, raked D-pillar, tailgate spare wheel; van/SUV 0.81 -> 0.74,
+      every family pair under 0.75 (asserted in families-art.test.ts).
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

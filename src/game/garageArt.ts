@@ -1,6 +1,8 @@
-// Repair Garage backdrop painted with the Canvas 2D API (P1.1c): teal back wall with a sign, an open roller door
+// Repair Garage backdrop painted with the Canvas 2D API (P1.1c): teal back wall, an open roller door
 // showing the street, a pegboard with tools, hanging lamps, a concrete floor with hazard stripes and the two-post lift
-// the customer's car stands on. Pure apart from the canvas context; layout helpers are unit-tested.
+// the customer's car stands on, its cross beam lettered as the garage sign (P1.1e). Pure apart from the canvas context; layout helpers are unit-tested.
+
+import type { BuyerKind } from '../core/config';
 
 export interface GarageLayout {
   /** Canvas size in px. */
@@ -12,8 +14,40 @@ export interface GarageLayout {
   s: number;
   /** The car on the lift: centre x, y of the wheels' contact line, car width (px). */
   lift: { cx: number; groundY: number; carW: number };
-  /** Sign text (kept short; drawn with the display font). */
+  /** Sign text painted on the lift's cross beam (kept short; drawn with the display font). */
   sign: string;
+  /** Lowest y the HUD and the bay thumbnails can reach, px: the beam stays below it. */
+  reservedTop: number;
+  /** Highest y the tallest car's roof reaches with the lift raised, px: the beam stays above it. */
+  roofY: number;
+}
+
+/**
+ * The lift's cross beam, which doubles as the garage sign (P1.1e): it hangs below the HUD and the bay row and above the
+ * tallest raised car. `sign` is false when the gap is too small for lettering (the beam is then a thin bar).
+ */
+export function liftBeam(L: GarageLayout): { y: number; h: number; sign: boolean } {
+  const s = L.s;
+  const h = s * 24;
+  const natural = L.lift.groundY - L.lift.carW * 0.55;
+  const y = Math.min(Math.max(natural, L.reservedTop), L.roofY - h - s * 2);
+  if (L.sign && y >= L.reservedTop) return { y, h, sign: true };
+  const thin = s * 5;
+  return { y: Math.min(Math.max(natural, L.reservedTop), L.roofY - thin - s * 2), h: thin, sign: false };
+}
+
+/** How far the lift raises a customer's car while it is worked on, CSS px. */
+export const LIFT_RISE = 10;
+
+/** Rust on customer cars: they are daily drivers with a fault, not scrapyard wrecks. */
+export const CUSTOMER_RUST = { patches: 5, dents: 1 } as const;
+
+const CUSTOMER_KINDS: readonly BuyerKind[] = ['family', 'tradie', 'bargain', 'speed', 'collector', 'influencer'];
+
+/** Which character brings a garage job in: stable for a job (by id) and cycling through every buyer look. */
+export function customerKind(jobId: number): BuyerKind {
+  const n = CUSTOMER_KINDS.length;
+  return CUSTOMER_KINDS[((jobId % n) + n) % n] ?? 'family';
 }
 
 /** The roller door opening on the back wall (left side), px. */
@@ -31,7 +65,7 @@ export function pegboardRect(L: GarageLayout): { x: number; y: number; w: number
 }
 
 /** Lift posts: x of the left and right post centres, px (just outside the car). */
-export function liftPosts(L: GarageLayout): [number, number] {
+export function liftPosts(L: Pick<GarageLayout, 'lift'>): [number, number] {
   const half = L.lift.carW * 0.56;
   return [L.lift.cx - half, L.lift.cx + half];
 }
@@ -126,28 +160,6 @@ function hazard(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, 
     ctx.stroke();
   }
   ctx.restore();
-}
-
-function sign(ctx: CanvasRenderingContext2D, L: GarageLayout) {
-  const s = L.s;
-  const w = Math.min(L.w * 0.5, s * 200);
-  const h = s * 34;
-  const x = L.w * 0.5 - w / 2 + Math.min(L.w * 0.08, s * 30);
-  const y = Math.max(s * 8, L.floorY * 0.12);
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  roundRect(ctx, x + s * 2, y + s * 3, w, h, s * 8);
-  ctx.fill();
-  ctx.fillStyle = '#fbf3e4';
-  roundRect(ctx, x, y, w, h, s * 8);
-  ctx.fill();
-  ctx.strokeStyle = '#e8762b';
-  ctx.lineWidth = s * 3;
-  ctx.stroke();
-  ctx.fillStyle = '#2b2118';
-  ctx.font = `${Math.round(s * 18)}px "Lilita One", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(L.sign, x + w / 2, y + h / 2 + s);
 }
 
 function pegboard(ctx: CanvasRenderingContext2D, L: GarageLayout) {
@@ -290,11 +302,12 @@ function props(ctx: CanvasRenderingContext2D, L: GarageLayout) {
   for (let i = 0; i < 3; i++) ctx.fillRect(cx + cw / 2 - s * 8, cy + s * 7 + i * s * 12, s * 16, s * 2.5);
 }
 
-/** The two-post lift: posts behind the car and the arms under its sills. */
+/** The two-post lift: posts behind the car and the cross beam on top, lettered with the garage's name. */
 function lift(ctx: CanvasRenderingContext2D, L: GarageLayout) {
   const s = L.s;
   const [l, r] = liftPosts(L);
-  const top = L.lift.groundY - L.lift.carW * 0.55;
+  const beam = liftBeam(L);
+  const top = beam.y;
   const pw = s * 12;
   for (const x of [l, r]) {
     const g = ctx.createLinearGradient(x - pw / 2, 0, x + pw / 2, 0);
@@ -305,11 +318,31 @@ function lift(ctx: CanvasRenderingContext2D, L: GarageLayout) {
     ctx.fillRect(x - pw / 2, top, pw, L.lift.groundY - top + s * 6);
     ctx.fillStyle = '#2b2f36';
     ctx.fillRect(x - pw, L.lift.groundY + s * 2, pw * 2, s * 6);
-    ctx.fillRect(x - pw / 2 - s, top - s * 4, pw + s * 2, s * 5);
   }
-  // Cross beam at the top.
-  ctx.fillStyle = '#5d6674';
-  ctx.fillRect(l, top - s * 3, r - l, s * 4);
+  const bx = l - pw / 2 - s * 2;
+  const bw = r - l + pw + s * 4;
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  roundRect(ctx, bx + s * 2, top + s * 3, bw, beam.h, Math.min(s * 6, beam.h / 2));
+  ctx.fill();
+  ctx.fillStyle = beam.sign ? '#2b2f36' : '#5d6674';
+  roundRect(ctx, bx, top, bw, beam.h, Math.min(s * 6, beam.h / 2));
+  ctx.fill();
+  if (!beam.sign) return;
+  ctx.strokeStyle = '#e8762b';
+  ctx.lineWidth = s * 2;
+  ctx.stroke();
+  // Bolts at both ends and the lettering.
+  ctx.fillStyle = '#9ca3af';
+  for (const x of [bx + s * 9, bx + bw - s * 9]) {
+    ctx.beginPath();
+    ctx.arc(x, top + beam.h / 2, s * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fbf3e4';
+  ctx.font = `${Math.round(s * 16)}px "Lilita One", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(L.sign, bx + bw / 2, top + beam.h / 2 + s);
 }
 
 export function paintGarageBackdrop(ctx: CanvasRenderingContext2D, L: GarageLayout): void {
@@ -318,7 +351,6 @@ export function paintGarageBackdrop(ctx: CanvasRenderingContext2D, L: GarageLayo
   wall(ctx, L);
   rollerDoor(ctx, L);
   pegboard(ctx, L);
-  if (L.sign) sign(ctx, L);
   lamps(ctx, L);
   floor(ctx, L);
   props(ctx, L);

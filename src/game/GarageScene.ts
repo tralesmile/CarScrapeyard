@@ -10,8 +10,10 @@ import { findJob, focusJob, garageTap } from '../core/garage';
 import { tick, type GameEvent } from '../core/sim';
 import type { GarageJob } from '../core/state';
 import type { Bridge } from './bridge';
-import { carTextureSize, paintCar, paintRust } from './carArt';
-import { paintGarageBackdrop } from './garageArt';
+import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
+import { SHAPES, WHEEL_Y, carTextureSize, paintCar, paintRust } from './carArt';
+import { SCRAPPER_H, SCRAPPER_W, paintForeman } from './crewArt';
+import { CUSTOMER_RUST, LIFT_RISE, customerKind, liftPosts, paintGarageBackdrop } from './garageArt';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 /** Where the fault bubble points on the car, as a fraction of the car's width/height from its centre. */
@@ -22,6 +24,11 @@ const FAULT_SPOT: Record<GarageJob['fault'], [number, number]> = {
   exhaust: [-0.46, 0.18],
   engine: [0.32, -0.12],
 };
+
+/** Height of the waiting customer and the Foreman on screen, CSS px. */
+const PERSON_H = 82;
+/** Top of the tallest body (van) as a fraction of the car texture's height: the garage sign stays above it. */
+const ROOF_FRAC = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.map((p) => p[1]))));
 
 interface BayView {
   jobId: number;
@@ -54,6 +61,19 @@ export class GarageScene extends Phaser.Scene {
   private floaters: Floater[] = [];
   private layoutInsets = '';
   private insetCheck = 0;
+  /** Lift height 0 (down) .. 1 (raised by LIFT_RISE) and the little dip on each tap, both tweened. */
+  private lift = { v: 0 };
+  private bump = { v: 0 };
+  /** The car is still driving in: no bubble yet, the lift waits. */
+  private arriving = false;
+  private shadowG!: Phaser.GameObjects.Graphics;
+  private liftG!: Phaser.GameObjects.Graphics;
+  private faultG!: Phaser.GameObjects.Graphics;
+  private zap!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private zapTimer = 0;
+  private customer!: Phaser.GameObjects.Image;
+  private foreman!: Phaser.GameObjects.Image;
+  private clock = 0;
 
   constructor() {
     super('garage');
@@ -93,9 +113,18 @@ export class GarageScene extends Phaser.Scene {
     this.texW = size.w;
     this.texH = size.h;
     this.bg = this.add.image(0, 0, '__WHITE').setOrigin(0, 0).setVisible(false);
+    this.shadowG = this.add.graphics();
+    this.liftG = this.add.graphics();
     this.bigCar = this.add.image(0, 0, '__WHITE').setVisible(false);
     this.bigRust = this.add.image(0, 0, '__WHITE').setVisible(false);
 
+    this.faultG = this.add.graphics().setDepth(1);
+    this.foreman = this.add
+      .image(0, 0, this.paintedTexture('crew-foreman', SCRAPPER_W, SCRAPPER_H, paintForeman))
+      .setOrigin(0.5, 1)
+      .setDepth(2)
+      .setVisible(false);
+    this.customer = this.add.image(0, 0, '__WHITE').setOrigin(0.5, 1).setDepth(2).setVisible(false);
     const bubbleBg = this.add.graphics();
     this.bubbleText = this.add
       .text(0, 0, '', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(14)}px`, color: '#1e2430' })
@@ -131,6 +160,18 @@ export class GarageScene extends Phaser.Scene {
       alpha: { start: 0.35, end: 0 },
       emitting: false,
     });
+    // Battery fault: little blue electric sparks at the front of the car.
+    this.zap = this.add.particles(0, 0, 'spark', {
+      speed: { min: 60, max: 220 },
+      angle: { min: 180, max: 360 },
+      gravityY: 300,
+      lifespan: 260,
+      scale: { start: 0.7, end: 0 },
+      tint: 0x8fd3ff,
+      blendMode: 'ADD',
+      emitting: false,
+    });
+    this.zap.setDepth(3);
     this.glitter = this.add.particles(0, 0, 'star', {
       speed: { min: 40, max: 200 },
       angle: { min: 0, max: 360 },
@@ -179,7 +220,10 @@ export class GarageScene extends Phaser.Scene {
       floorY,
       s: this.dpr,
       lift: { cx: W / 2, groundY, carW: this.px(a.carW) },
-      sign: '',
+      sign: ECON.businesses.list.garage.name.toUpperCase(),
+      // The bay row ends 82 CSS px under the HUD; keep the sign clear of it even before a 2nd bay is bought.
+      reservedTop: this.px(this.bridge.insets().top + 86),
+      roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2) - LIFT_RISE),
     });
     tex.refresh();
     this.bg.setTexture('garage-backdrop').setPosition(0, 0).setVisible(true);
@@ -190,11 +234,19 @@ export class GarageScene extends Phaser.Scene {
     const dt = Math.min(deltaMs / 1000, 0.25);
     const events = tick(this.bridge.state, dt);
     if (events.length) this.handleEvents(events);
+    this.clock += dt;
     this.syncBigCar();
+    this.poseCar();
+    this.syncPeople();
     this.syncBays();
     this.watchInsets(dt);
 
     const job = this.focused();
+    this.zapTimer -= dt;
+    if (job && !this.carLeaving && !this.arriving && job.fault === 'battery' && this.zapTimer <= 0 && this.bigCar.visible) {
+      this.zapTimer = 0.55 + Math.random() * 0.5;
+      this.zap.explode(this.calm ? 2 : 6, this.bigCar.x + this.bigCar.displayWidth * 0.44, this.bigCar.y + this.bigCar.displayHeight * 0.03);
+    }
     this.smokeTimer -= dt;
     if (job && !this.carLeaving && (job.fault === 'engine' || job.fault === 'exhaust') && this.smokeTimer <= 0) {
       this.smokeTimer = 0.4;
@@ -221,8 +273,9 @@ export class GarageScene extends Phaser.Scene {
     const key = `gcar-${job.id}`;
     if (this.textures.exists(key)) return key;
     for (const [k, paint] of [
-      [key, (ctx: CanvasRenderingContext2D) => paintCar(ctx, { family: job.family, paint: job.paint, rarity: 'common' }, this.texW, this.texH)],
-      [`grust-${job.id}`, (ctx: CanvasRenderingContext2D) => paintRust(ctx, job.family, this.texW, this.texH, job.id + 7)],
+      [key, (ctx: CanvasRenderingContext2D) => paintCar(ctx, { family: job.family, paint: job.paint, rarity: 'common' }, this.texW, this.texH, { shadow: false })],
+      // Customer cars are not wrecks: a few light patches, not the scrapyard's full rust.
+      [`grust-${job.id}`, (ctx: CanvasRenderingContext2D) => void paintRust(ctx, job.family, this.texW, this.texH, job.id + 7, CUSTOMER_RUST)],
     ] as const) {
       const tex = this.textures.createCanvas(k, this.texW, this.texH);
       if (!tex) continue;
@@ -264,18 +317,28 @@ export class GarageScene extends Phaser.Scene {
       this.bigCar.setTexture(this.ensureTextures(job)).setVisible(true);
       this.bigRust.setTexture(`grust-${job.id}`).setVisible(true);
       this.placeBigCar();
-      // Drive in through the roller door on the left.
+      // Drive in through the roller door on the left, then the lift raises the car and the customer steps out.
       const tx = this.bigCar.x;
+      this.tweens.killTweensOf(this.lift);
+      this.lift.v = 0;
+      this.arriving = true;
       for (const o of [this.bigCar, this.bigRust]) {
         o.x = -this.bigCar.displayWidth;
         this.tweens.add({ targets: o, x: tx, duration: this.calm ? 1 : 600, ease: 'Back.easeOut' });
       }
+      this.time.delayedCall(this.calm ? 1 : 620, () => this.carArrived(job.id));
       sfx.engine();
       this.drawBubble(job);
     }
+    if (this.arriving) {
+      this.bubble.setVisible(false);
+      this.barG.clear();
+      this.label.setText(`${job.model} · ${formatCash(job.fee)}`);
+      return;
+    }
     const max = ECON.garage.faults[job.fault].work;
-    const left = job.work / max;
-    this.bigRust.setAlpha(0.1 + 0.5 * left);
+    const left = Phaser.Math.Clamp(job.work / max, 0, 1);
+    this.bigRust.setAlpha(0.08 + 0.42 * left);
     const [fx, fy] = FAULT_SPOT[job.fault];
     // Keep the bubble on screen (the fault spot can be near the car's edge on a narrow phone).
     const half = this.bubbleW / 2 + this.px(6);
@@ -291,6 +354,133 @@ export class GarageScene extends Phaser.Scene {
     this.barG.fillStyle(0x1e2430, 0.25).fillRoundedRect(x, y, w, h, h / 2);
     this.barG.fillStyle(0x3bc45a, 1).fillRoundedRect(x, y, Math.max(h, w * (1 - left)), h, h / 2);
     this.label.setText(`${job.model} · ${formatCash(job.fee)}`);
+  }
+
+  private carArrived(id: number) {
+    if (this.bigJobId !== id) return;
+    this.arriving = false;
+    this.tweens.add({ targets: this.lift, v: 1, duration: this.calm ? 1 : 420, ease: 'Sine.easeInOut' });
+    const job = this.focused();
+    if (!job) return;
+    const kind = customerKind(job.id);
+    const spot = this.customerSpot();
+    this.tweens.killTweensOf(this.customer);
+    this.customer
+      .setTexture(this.paintedTexture(`buyer-${kind}`, BUYER_W, BUYER_H, (ctx) => paintBuyer(ctx, kind)))
+      .setScale(this.px(PERSON_H) / (BUYER_H * 2))
+      .setPosition(this.bigCar.x + this.bigCar.displayWidth * 0.1, spot.y)
+      .setAlpha(0)
+      .setVisible(true);
+    this.tweens.add({ targets: this.customer, x: spot.x, alpha: 1, duration: this.calm ? 1 : 450, ease: 'Sine.easeOut' });
+  }
+
+  /** Feet of the waiting customer (right of the car) and the Foreman (left of it), device px. */
+  private customerSpot() {
+    const a = this.focusArea();
+    const half = (PERSON_H * BUYER_W) / BUYER_H / 2;
+    const x = Math.min(a.cx + a.carW / 2 + 8, this.cssW - half - 2);
+    return { x: this.px(x), y: this.px(a.cy + a.carW * 0.13 + 14) };
+  }
+
+  private foremanSpot() {
+    const a = this.focusArea();
+    const half = (PERSON_H * SCRAPPER_W) / SCRAPPER_H / 2;
+    const x = Math.max(a.cx - a.carW / 2 - 8, half + 2);
+    return { x: this.px(x), y: this.px(a.cy + a.carW * 0.13 + 14) };
+  }
+
+  /** Paint a Canvas 2D texture once (2x for sharpness); textures are shared with the yard scene. */
+  private paintedTexture(key: string, w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void): string {
+    if (!this.textures.exists(key)) {
+      const tex = this.textures.createCanvas(key, w * 2, h * 2);
+      if (tex) {
+        const ctx = tex.getContext();
+        ctx.scale(2, 2);
+        paint(ctx);
+        tex.refresh();
+      }
+    }
+    return key;
+  }
+
+  /**
+   * Per frame: the car's height on the lift (and the tap dip), the tilt of a flat tyre, the floor shadow, the lift
+   * arms under the sills, and the fault overlays (flat tyre bulge, glowing brake disc).
+   */
+  private poseCar() {
+    const a = this.focusArea();
+    const baseY = this.px(a.cy);
+    const car = this.bigCar;
+    const job = this.carLeaving ? undefined : this.focused();
+    const left = job ? Math.min(1, job.work / ECON.garage.faults[job.fault].work) : 0;
+    const y = baseY - this.lift.v * this.px(LIFT_RISE) + this.bump.v * this.px(3);
+    const tilt = job && job.fault === 'tyre' && !this.arriving ? 2.2 * left : 0;
+    for (const o of [this.bigCar, this.bigRust]) o.setY(y).setAngle(tilt);
+    // From the layout, not the image: a hidden image may hold a stock texture of another size.
+    const dw = this.px(a.carW);
+    const dh = (dw * this.texH) / this.texW;
+    this.shadowG.clear();
+    this.liftG.clear();
+    this.faultG.clear();
+    // Lift carriages on the posts, at sill height when a car sits on the lift.
+    const [l, r] = liftPosts({ lift: { cx: this.px(a.cx), groundY: 0, carW: this.px(a.carW) } });
+    const armY = car.visible ? y + dh * 0.22 : baseY + dh * 0.22;
+    this.liftG.fillStyle(0x2b2f36, 1);
+    for (const x of [l, r]) this.liftG.fillRoundedRect(x - this.px(9), armY - this.px(8), this.px(18), this.px(16), this.px(3));
+    if (!car.visible) return;
+    const parked = Math.abs(car.x - this.px(a.cx)) < this.px(4);
+    if (parked) {
+      this.liftG.fillStyle(0x5d6674, 1);
+      this.liftG.fillRect(l, armY - this.px(3), this.px(a.carW) * 0.18, this.px(6));
+      this.liftG.fillRect(r - this.px(a.carW) * 0.18, armY - this.px(3), this.px(a.carW) * 0.18, this.px(6));
+    }
+    const floorY = baseY + dh * 0.42;
+    this.shadowG.fillStyle(0x000000, 0.2 - 0.07 * this.lift.v);
+    this.shadowG.fillEllipse(car.x, floorY, dw * 0.88 * (1 - 0.08 * this.lift.v), dh * 0.09);
+    if (!job || this.arriving) return;
+    const shape = SHAPES[job.family];
+    const wr = shape.wheelR * dh;
+    const wy = y + (WHEEL_Y - 0.5) * dh;
+    if (job.fault === 'tyre') {
+      // Flat front tyre: the rubber bulges out at the bottom; it rounds out as the repair goes on.
+      const wx = car.x + (shape.wheels[1] - 0.5) * dw;
+      this.faultG.fillStyle(0x1f2228, 1);
+      this.faultG.fillEllipse(wx, wy + wr * 0.86, wr * (2 + 0.5 * left), wr * (0.2 + 0.4 * left));
+    } else if (job.fault === 'brakes') {
+      // Hot brake disc glowing through the rear wheel.
+      const wx = car.x + (shape.wheels[0] - 0.5) * dw;
+      const pulse = this.calm ? 0.5 : 0.5 + 0.5 * Math.sin(this.clock * 6);
+      this.faultG.fillStyle(0xff5a1f, (0.25 + 0.3 * pulse) * left);
+      this.faultG.fillCircle(wx, wy, wr * 0.62);
+    }
+  }
+
+  /** The waiting customer and the Foreman (who bobs while he works on the car on the lift). */
+  private syncPeople() {
+    const g = this.bridge.state.garage;
+    const spot = this.foremanSpot();
+    this.foreman.setVisible(g.foreman);
+    if (!g.foreman) return;
+    this.foreman.setScale(this.px(PERSON_H) / (SCRAPPER_H * 2)).setX(spot.x);
+    const working = !this.carLeaving && !this.arriving && g.jobs[0] !== undefined && g.jobs[0].id === this.bigJobId;
+    const t = working && !this.calm ? this.clock * 7 : 0;
+    this.foreman.setY(spot.y - Math.abs(Math.sin(t)) * this.px(3)).setAngle(Math.sin(t) * 4);
+  }
+
+  private customerLeaves() {
+    if (!this.customer.visible) return;
+    this.tweens.killTweensOf(this.customer);
+    const y = this.customer.y;
+    // A happy hop, then off to the right after the car.
+    this.tweens.add({ targets: this.customer, y: y - this.px(10), duration: 130, yoyo: true, repeat: this.calm ? 0 : 1, ease: 'Sine.easeOut' });
+    this.tweens.add({
+      targets: this.customer,
+      x: this.scale.width + this.px(40),
+      delay: this.calm ? 0 : 260,
+      duration: this.calm ? 1 : 700,
+      ease: 'Sine.easeIn',
+      onComplete: () => this.customer.setVisible(false),
+    });
   }
 
   private bubbleW = 100;
@@ -356,7 +546,7 @@ export class GarageScene extends Phaser.Scene {
       const job = findJob(this.bridge.state, b.jobId);
       b.bar.clear();
       if (!job) continue;
-      const left = job.work / ECON.garage.faults[job.fault].work;
+      const left = Phaser.Math.Clamp(job.work / ECON.garage.faults[job.fault].work, 0, 1);
       b.bar.fillStyle(0x1e2430, 0.8).fillRect(-this.px(40), this.px(28), this.px(80), this.px(4));
       b.bar.fillStyle(0x3bc45a, 1).fillRect(-this.px(40), this.px(28), this.px(80) * (1 - left), this.px(4));
     }
@@ -381,7 +571,11 @@ export class GarageScene extends Phaser.Scene {
     if (!this.bigCar.getBounds().contains(p.x, p.y)) return;
     this.sparks.explode(10, p.x, p.y);
     sfx.wrench();
-    if (!this.calm) this.tweens.add({ targets: [this.bigCar, this.bigRust], y: this.bigCar.y + this.px(3), yoyo: true, duration: 60 });
+    if (!this.calm) {
+      this.tweens.killTweensOf(this.bump);
+      this.bump.v = 0;
+      this.tweens.add({ targets: this.bump, v: 1, yoyo: true, duration: 60 });
+    }
     const events = garageTap(this.bridge.state, job.id);
     this.handleEvents(events);
   }
@@ -412,17 +606,24 @@ export class GarageScene extends Phaser.Scene {
 
   private driveOff(id: number) {
     this.carLeaving = true;
+    this.arriving = false;
     this.bigJobId = null;
-    sfx.engine();
+    this.customerLeaves();
+    this.tweens.killTweensOf(this.lift);
+    // Lower the lift, then drive out to the right.
+    this.tweens.add({ targets: this.lift, v: 0, duration: this.calm ? 1 : 220, ease: 'Sine.easeIn' });
     this.tweens.add({
       targets: [this.bigCar, this.bigRust],
       x: this.scale.width + this.bigCar.displayWidth,
+      delay: this.calm ? 0 : 240,
+      onStart: () => sfx.engine(),
       duration: this.calm ? 1 : 520,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         this.carLeaving = false;
-        this.bigCar.setVisible(false);
-        this.bigRust.setVisible(false);
+        // Point the images at a stock texture before freeing the car's: poseCar() reads their size every frame.
+        this.bigCar.setTexture('__WHITE').setVisible(false);
+        this.bigRust.setTexture('__WHITE').setVisible(false);
         this.label.setText('');
         this.placeBigCar();
         this.releaseTextures(id);

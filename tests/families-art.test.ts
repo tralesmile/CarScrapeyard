@@ -7,7 +7,7 @@ import { contractFamilies, generateContract } from '../src/core/contracts';
 import { generateCar, sellCar, tick, type GameEvent } from '../src/core/sim';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, type Contract } from '../src/core/state';
-import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts, SCOOP } from '../src/game/carArt';
+import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts, SCOOP, SPARE } from '../src/game/carArt';
 import { HAPTIC_PATTERNS, Haptics } from '../src/platform/haptics';
 
 const T0 = 1_800_000_000_000;
@@ -226,12 +226,22 @@ describe('family silhouettes (P1.1x)', () => {
     expect(silhouetteOverlap('hatch', 'suv')).toBeLessThan(0.72);
   });
 
-  it('no two families share more than 82% of their outline above the shoulder line', () => {
+  it('the SUV has a tailgate spare wheel and more ground clearance than the van (P1.1y)', () => {
+    expect(SHAPES.suv.spare).toBe(true);
+    const bottom = (f: CarFamily) => Math.max(...SHAPES[f].body.map((p) => p[1]));
+    expect(bottom('suv')).toBeLessThan(bottom('van') - 0.05);
+    // The spare sticks out behind the body.
+    const rear = Math.min(...SHAPES.suv.body.map((p) => p[0]));
+    expect(SPARE.x - SPARE.r * 0.5).toBeLessThan(rear - 0.05);
+    expect(silhouetteOverlap('van', 'suv')).toBeLessThan(0.75);
+  });
+
+  it('no two families share more than 75% of their outline above the shoulder line', () => {
     for (let i = 0; i < FAMILIES.length; i++)
       for (let j = i + 1; j < FAMILIES.length; j++) {
         const a = FAMILIES[i]!;
         const b = FAMILIES[j]!;
-        expect(silhouetteOverlap(a, b), `${a}/${b}`).toBeLessThan(0.82);
+        expect(silhouetteOverlap(a, b), `${a}/${b}`).toBeLessThan(0.75);
       }
   });
 

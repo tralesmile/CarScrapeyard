@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.0 - 2026-11-06 (run 12)
+
+- **Garage art pass (P1.1e):** the lift's cross beam now carries a "REPAIR GARAGE" sign that stays clear of the top
+  bar, the bay thumbnails and the car. Each customer car drives in, the lift raises it a little (arms under the sills,
+  the floor shadow fades) and the customer steps out to wait beside it, then hops and walks off when it is fixed. The
+  Foreman is drawn in the workshop (navy overalls, red cap, clipboard, spanner) and bobs while he works.
+- **Faults you can see:** a flat tyre makes the car lean with the tyre bulging flat, a dead battery throws blue sparks
+  at the front, hot brakes glow through the rear wheel; engine and exhaust jobs keep their smoke. Customer cars have
+  light rust now (they are daily drivers, not wrecks). The fault bubble waits until the car has parked.
+- **SUV redraw (P1.1y):** higher ground clearance, a raked rear pillar and a spare wheel on the tailgate. Every pair of
+  car types now shares under 75% of its outline (van/SUV 0.81 -> 0.74).
+- Fix: a car texture freed after a drive-off could be read by the next frame ("sourceSize" of null), which stopped
+  the game loop; the images now point at a stock texture first. The e2e prints page errors when it fails.
+- Tests: 5 new unit tests (sign placement on four phone sizes and a short screen, customer looks, lighter rust, SUV
+  features, every family pair < 0.75). E2e: lift raised and customer waiting, light rust, flat tyre tilt and bulge,
+  brake glow, battery sparks, the Foreman beside the car, the Foreman in the art gallery.
+
 ## 0.11.0 - 2026-11-06 (run 11)
 
 - **The Repair Garage opens (P1.1c):** once you have earned $200K in total, the city map offers the garage for $100K.
