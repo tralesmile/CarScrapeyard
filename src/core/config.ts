@@ -13,6 +13,9 @@ export type CarLotUpgradeKind = 'valet' | 'showroom';
 export type CarLotCrewKind = 'detailer' | 'agent';
 /** Walk-up buyer types on the Used Car Lot (P1.2c); they share the yard buyers' looks. */
 export type LotBuyerKind = 'family' | 'collector' | 'speed' | 'tradie' | 'influencer';
+/** Services on the Paint & Tuning menu (P1.2d). */
+export type PaintService = 'respray' | 'rims' | 'wrap' | 'tune';
+export type PaintUpgradeKind = 'booth' | 'hype';
 /** Auction condition grade of a used car, 1 (rough) to 5 (nearly mint). */
 export type Condition = 1 | 2 | 3 | 4 | 5;
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
@@ -211,7 +214,7 @@ export const ECON = {
      * Map tiers (P1.1d): each open business grows on the map in three tiers. The number is the size needed for tier 2
      * and tier 3: lot slots for the scrapyard, repair bays for the garage. Businesses without an entry stay tier 1.
      */
-    tiers: { scrapyard: [3, 4], garage: [2, 3], carlot: [3, 4] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
+    tiers: { scrapyard: [3, 4], garage: [2, 3], carlot: [3, 4], paint: [2, 3] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
   },
 
   /**
@@ -322,6 +325,49 @@ export const ECON = {
     } satisfies Record<CarLotCrewKind, { name: string; cost: number; workPerSec: number }>,
     /** The agent only bids when cash covers this many times the lot price, so it never empties your wallet. */
     agentReserve: 2,
+  },
+
+  /**
+   * Paint & Tuning (business 4, P1.2d): customers order one to three services for their car (respray, rims, vinyl
+   * wrap, engine tune). The booth works through them in order (tap, or the Painter); bigger orders pay a combo bonus,
+   * and an order you finish yourself quickly earns a tip. Lot cars come in later (P1.2f).
+   */
+  paint: {
+    /** Seconds until the next customer drives in while a booth is free. */
+    arrivalInterval: 4,
+    booths: {
+      start: 1,
+      /** Cost of booth 2 and 3. */
+      costs: [25_000_000, 200_000_000] as const,
+    },
+    /** Fee per service = baseFee x service feeMult x (family base value / feeFamilyRef) x Hype multiplier. */
+    baseFee: 55_000,
+    feeFamilyRef: 600,
+    /** Each service beyond the first adds this fraction to the whole order's fee. */
+    comboBonus: 0.15,
+    /** Order sizes (number of services) by weight. */
+    orderSizes: { 1: 3, 2: 3, 3: 1 } satisfies Record<1 | 2 | 3, number>,
+    /** Tip on orders the player finishes by hand within tipSecondsPerService x services of the car arriving. */
+    tip: 0.25,
+    tipSecondsPerService: 3,
+    services: {
+      respray: { name: 'Respray', icon: '🎨', work: 8, feeMult: 1, weight: 3 },
+      rims: { name: 'Custom rims', icon: '🛞', work: 6, feeMult: 0.8, weight: 3 },
+      wrap: { name: 'Vinyl wrap', icon: '🌀', work: 12, feeMult: 1.5, weight: 2 },
+      tune: { name: 'Engine tune', icon: '⚙️', work: 16, feeMult: 2.2, weight: 1.5 },
+    } satisfies Record<PaintService, { name: string; icon: string; work: number; feeMult: number; weight: number }>,
+    /** Work removed per tap at Spray Booth level 1. */
+    workPerTap: 1,
+    upgrades: {
+      /** Faster work (taps and the Painter), doubled at the station milestones. */
+      booth: { name: 'Spray Booth', baseCost: 3_000_000, growth: 1.17 },
+      /** Higher fees. */
+      hype: { name: 'Hype', baseCost: 6_000_000, growth: 1.35 },
+    } satisfies Record<PaintUpgradeKind, { name: string; baseCost: number; growth: number }>,
+    /** Each Hype level multiplies fees by this. */
+    hypeFeeGrowth: 1.1,
+    /** The Painter works on the oldest order on its own (work units per second at Spray Booth level 1), also offline. */
+    painter: { name: 'Painter', cost: 60_000_000, workPerSec: 1.2 },
   },
 
   barn: {

@@ -263,3 +263,16 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   logs, and the main-branch run before this run's commit had failed the same way. A job that never gets a runner is
   an account or billing problem: re-run once to confirm, then hand it to the owner instead of changing code.
 
+
+## 2026-11-06 (run 16)
+
+- **A block-sliced sweep still clobbered another block because the anchor wasn't unique.** I sliced from `'  paint: {'`
+  to `'  barn: {'`, but that string also matched `      paint: { name: 'Paint & Tuning'` in the businesses list, so the
+  slice covered the garage and its `baseFee` became $55K (the sim's garage share jumped and the timeline went silly).
+  `git diff ... | grep '^-'` showed it at once. Anchor block slices with the newline and exact indent
+  (`'\n  paint: {\n'`), and always grep the removed lines after a sweep, before reading the sim output.
+- **Mutation-test each rule against the test meant for it.** Letting the Painter earn tips only broke the idle-income
+  test, not the tip test: the Painter was too slow to beat the deadline, so the "no tip" check passed for the wrong
+  reason. A fast Painter (booth level 200) plus an assertion that it did beat the deadline makes the tip test catch it.
+- **Compute expected values exactly when the draw is small.** The idle formula enumerates every ordered draw of 1-3
+  services by weight (a few dozen paths) instead of guessing an average; a test compares it with 4,000 generated orders.

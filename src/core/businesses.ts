@@ -77,6 +77,7 @@ function tierSize(state: GameState, id: BusinessId): number {
   if (id === 'scrapyard') return state.slots;
   if (id === 'garage') return state.garage.bays;
   if (id === 'carlot') return state.carlot.spots;
+  if (id === 'paint') return state.paint.booths;
   return 0;
 }
 
@@ -96,5 +97,6 @@ export function nextTierGoal(state: GameState, id: BusinessId): string | null {
   if (!at || tier < 1 || tier >= MAX_TIER) return null;
   const n = at[tier - 1]!;
   if (id === 'scrapyard') return `${n} lot slots`;
-  return id === 'garage' ? `${n} repair bays` : `${n} forecourt spots`;
+  if (id === 'garage') return `${n} repair bays`;
+  return id === 'carlot' ? `${n} forecourt spots` : `${n} paint booths`;
 }

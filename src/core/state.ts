@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LotBuyerKind, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -104,6 +104,42 @@ export interface CarLot {
   earned: number;
 }
 
+/** A customer order in the Paint & Tuning shop (P1.2d): services done one after another. */
+export interface PaintJob {
+  id: number;
+  family: CarFamily;
+  model: string;
+  /** Colour the car arrives in. */
+  paint: number;
+  /** Colour the customer asked for (shown once a respray or wrap is done). */
+  newPaint: number;
+  /** Ordered services, 1-3, no repeats. */
+  services: PaintService[];
+  /** Index of the service being worked on (services.length = done). */
+  step: number;
+  /** Work units left on the current service. */
+  work: number;
+  /** Full fee (combo bonus included), fixed when the car arrives. */
+  fee: number;
+  /** Seconds since the car arrived (for the quick-finish tip). */
+  age: number;
+}
+
+export interface PaintShop {
+  booths: number;
+  levels: Record<PaintUpgradeKind, number>;
+  painter: boolean;
+  /** Cars in the booths, oldest first. */
+  jobs: PaintJob[];
+  arrivalTimer: number;
+  nextJobId: number;
+  focusedId: number | null;
+  jobsDone: number;
+  tips: number;
+  /** Cash the shop has earned in total. */
+  earned: number;
+}
+
 export type ContractKind = 'sellAny' | 'sellFamily' | 'sellRare' | 'crush';
 
 export interface Contract {
@@ -178,6 +214,8 @@ export interface GameState {
   garage: Garage;
   /** Used Car Lot (business 3). Ticks only once opened. */
   carlot: CarLot;
+  /** Paint & Tuning (business 4). Ticks only once opened. */
+  paint: PaintShop;
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -274,6 +312,21 @@ export function newCarLot(): CarLot {
   };
 }
 
+export function newPaintShop(): PaintShop {
+  return {
+    booths: ECON.paint.booths.start,
+    levels: { booth: 1, hype: 1 },
+    painter: false,
+    jobs: [],
+    arrivalTimer: ECON.paint.arrivalInterval - 0.5,
+    nextJobId: 1,
+    focusedId: null,
+    jobsDone: 0,
+    tips: 0,
+    earned: 0,
+  };
+}
+
 export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   return {
     version: SAVE_VERSION,
@@ -295,6 +348,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     businesses: newBusinesses(),
     garage: newGarage(),
     carlot: newCarLot(),
+    paint: newPaintShop(),
     buyer: null,
     buyerTimer: 0,
     focusedId: null,

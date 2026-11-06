@@ -762,6 +762,16 @@ async function waitForServer(url, ms = 15000) {
     assert((await page.textContent('.map-row[data-biz="carlot"] button')) === 'Open $2.50M', 'the Used Car Lot is for sale on the map');
     await page.click('.map-row[data-biz="carlot"] button');
     await page.waitForFunction(() => window.__jye.state.businesses.opened.carlot);
+    // Paint & Tuning (P1.2d): rules are in, the scene is not, so the map says "soon" and the shop never ticks.
+    const paintRow = await page.evaluate(() => ({
+      line: document.querySelector('.map-row[data-biz="paint"] .map-line')?.textContent ?? null,
+      button: !!document.querySelector('.map-row[data-biz="paint"] button'),
+      shop: window.__jye.state.paint,
+    }));
+    assert(
+      paintRow.line === 'Unlocked! Opening in the next update' && !paintRow.button && paintRow.shop.booths === 1 && paintRow.shop.jobs.length === 0,
+      `Paint & Tuning is unlocked but "opening in the next update", with an idle shop in the save (${paintRow.line})`,
+    );
     await page.click('.map-row[data-biz="carlot"] button');
     await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
     await page.waitForSelector('.modal.city-map', { state: 'detached' });

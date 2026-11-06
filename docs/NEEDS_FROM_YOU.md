@@ -59,6 +59,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       when you do, with a gavel knock. Walk-up buyers now have personalities: they walk up, look the car over, say what
       they think and pay extra for cars they like (the Collector +30% for cars you bought in Good or Mint condition).
       Does the countdown make you want to grab a lot before it goes?
+      New since run 16 (rules only, playable next update): the fourth business, Paint & Tuning ($50M goal), takes orders
+      of one to three services (respray, rims, vinyl wrap, engine tune) and tips you +25% when you finish an order fast
+      yourself. Do you like a tip for speed here, or would you rather have a style mini-game (pick the colour the
+      customer asked for)?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

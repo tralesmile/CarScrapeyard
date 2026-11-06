@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 15; next run is run 16). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 16; next run is run 17). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -86,9 +86,16 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         stamps, gavel and "missed it" sounds; five walk-up buyer types (Family, Collector for Good/Mint cars, Speed
         Freak, Tradie, Influencer) with bonuses; the buyer walks up, looks the car over with a speech bubble, then pays
         (`buyer` in the lot state, saved). Still open (owner question): a real bidding mini-game instead of fixed prices.
-  - [ ] P1.2d Paint & Tuning core (business 4, $50M goal): paint jobs, wraps, rims, engine tunes for customer cars;
-        design note: use the lot's cars as one source (tune before selling for a higher list price).
-  - [ ] P1.2e Paint & Tuning scene and UI.
+  - [x] P1.2d Paint & Tuning core (run 16): `src/core/paint.ts` (customer orders of 1-3 services: respray, rims, vinyl
+        wrap, engine tune, worked in order; combo bonus +15% per extra service; +25% tip for a hand-finished order within
+        3 s per service; Spray Booth / Hype / booths 2-3 / Painter; idle and offline income from an exactly enumerated
+        expected order; save repair; map tiers by booths). Tuned with a 180-minute bot run (baseFee $55K: opens 1h35m,
+        41% of earnings at 3 h). `ready: false` until the scene ships.
+  - [ ] P1.2e Paint & Tuning scene and UI: `PaintScene` + `paintArt.ts` (spray booth backdrop, car shows each finished
+        service: new colour, rims, wrap stripes, tune flames/exhaust), order ticket with service icons and a tip timer,
+        Shop / Crew tabs, map tier art, welcome-back line (`ElapsedResult.paint`), e2e. Then set `ready: true`.
+  - [ ] P1.2f Lot cars through the shop (design note from P1.2d): send a refurbished Used Car Lot car to Paint & Tuning
+        for one service; it comes back with a higher list price (walk-up buyers like tuned cars).
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements

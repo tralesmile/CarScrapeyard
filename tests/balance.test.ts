@@ -38,6 +38,7 @@ import {
   sellLotCar,
   spotCost,
 } from '../src/core/carlot';
+import { boothCost, buyBooth, buyPaintUpgrade, hirePainter, paintTap, paintUpgradeCost } from '../src/core/paint';
 import { buyGarageBay, buyGarageUpgrade, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
 
 interface BotProfile {
@@ -100,6 +101,18 @@ function spendSmart(s: GameState): void {
       }
     }
   }
+  // Paint & Tuning is the fourth goal once the lot runs on its own: save for it, open it, then hire the Painter.
+  const pt = ECON.businesses.list.paint;
+  if (s.carlot.crew.agent && !s.businesses.opened.paint && pt.ready && s.lifetimeEarnings >= pt.unlockLifetime && !barnMidway) {
+    if (canOpenBusiness(s, 'paint')) {
+      openBusiness(s, 'paint');
+      switchBusiness(s, 'paint');
+    } else return;
+  }
+  if (s.businesses.opened.paint && !s.paint.painter) {
+    if (s.cash >= ECON.paint.painter.cost) hirePainter(s);
+    reserve = Math.max(reserve, ECON.paint.painter.cost);
+  }
   if (nextBarnStage(s)) {
     const c = barnStageCost(s);
     if (s.cash - reserve >= c.cash && s.parts >= c.parts) startBarnStage(s);
@@ -123,6 +136,11 @@ function spendSmart(s: GameState): void {
     for (const k of ['valet', 'showroom'] as const) options.push({ cost: carlotUpgradeCost(k, s.carlot.levels[k]), buy: () => buyCarLotUpgrade(s, k) });
     const sp = spotCost(s.carlot.spots);
     if (sp !== null) options.push({ cost: sp, buy: () => buySpot(s) });
+  }
+  if (s.businesses.opened.paint) {
+    for (const k of ['booth', 'hype'] as const) options.push({ cost: paintUpgradeCost(k, s.paint.levels[k]), buy: () => buyPaintUpgrade(s, k) });
+    const bo = boothCost(s.paint.booths);
+    if (bo !== null) options.push({ cost: bo, buy: () => buyBooth(s) });
   }
   options.sort((a, b) => a.cost - b.cost);
   const best = options[0];
@@ -157,6 +175,21 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (s.carlot.crew.agent && marks.agent === undefined) marks.agent = t;
     if (s.carlot.spots >= 3 && marks.spot3 === undefined) marks.spot3 = t;
     if (s.lifetimeEarnings >= ECON.businesses.list.paint.unlockLifetime && marks.paintGoal === undefined) marks.paintGoal = t;
+    if (s.businesses.opened.paint && marks.paintOpen === undefined) marks.paintOpen = t;
+    if (s.paint.painter && marks.painter === undefined) marks.painter = t;
+    if (s.paint.booths >= 2 && marks.booth2 === undefined) marks.booth2 = t;
+    // In the paint shop the bot taps the oldest order.
+    const inPaint = s.businesses.active === 'paint' && s.managers.seller;
+    if (inPaint) {
+      const job = s.paint.jobs[0];
+      if (job) {
+        tapBudget += profile.tapsPerSec * dt;
+        if (tapBudget >= 1) {
+          tapBudget -= 1;
+          paintTap(s, job.id);
+        }
+      }
+    }
     if (inGarage) {
       const job = s.garage.jobs[0];
       if (job) {
@@ -194,7 +227,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
         }
       }
     }
-    const car = inGarage || inLot ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
+    const car = inGarage || inLot || inPaint ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
     const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
     const wantsCrush = barnNeedsParts || s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
@@ -421,5 +454,46 @@ describe('Used Car Lot (P1.2a)', () => {
     expect(a.share).toBeLessThan(0.65);
     // The garage still matters after the lot opens.
     expect(a.garageShare).toBeGreaterThan(0.05);
+  });
+});
+
+describe('Paint & Tuning (P1.2d)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('opens within the first three hours and becomes a fourth income', () => {
+    const rows: string[] = [];
+    const res: Record<string, { open: number; share: number; lotShare: number; tips: number; jobs: number }> = {};
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyPaint(() => run(profile, 180 * 60));
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      const share = s.paint.earned / s.lifetimeEarnings;
+      const lotShare = s.carlot.profit / s.lifetimeEarnings;
+      rows.push(
+        `${profile.name}: lot open ${fmt('lotOpen')}, Agent ${fmt('agent')}, paint goal ${fmt('paintGoal')}, opened ${fmt('paintOpen')}, ` +
+          `Painter ${fmt('painter')}, booth 2 ${fmt('booth2')}, orders ${s.paint.jobsDone} (tips ${s.paint.tips}), ` +
+          `paint earned ${formatCash(s.paint.earned)} (${(share * 100).toFixed(0)}% of all), lot ${(lotShare * 100).toFixed(0)}%, ` +
+          `lifetime ${formatCash(s.lifetimeEarnings)}, levels ${JSON.stringify(s.paint.levels)}`,
+      );
+      res[profile.name] = { open: marks.paintOpen ?? Infinity, share, lotShare, tips: s.paint.tips, jobs: s.paint.jobsDone };
+    }
+    console.log(['--- Paint & Tuning, 180 minutes ---', ...rows].join('\n'));
+    const a = res.active!;
+    expect(a.open).toBeGreaterThan(70 * 60);
+    expect(a.open).toBeLessThan(140 * 60);
+    expect(a.share).toBeGreaterThan(0.12);
+    expect(a.share).toBeLessThan(0.6);
+    // The lot still matters after the shop opens, and an active player earns tips on some orders.
+    expect(a.lotShare).toBeGreaterThan(0.1);
+    expect(a.tips).toBeGreaterThan(0);
+    expect(a.tips).toBeLessThan(a.jobs);
   });
 });

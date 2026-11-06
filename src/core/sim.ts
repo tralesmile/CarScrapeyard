@@ -36,6 +36,7 @@ import type { BuyerKind } from './config';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
+import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -63,7 +64,8 @@ export type GameEvent =
   | BuyerEvent
   | BarnEvent
   | GarageEvent
-  | CarLotEvent;
+  | CarLotEvent
+  | PaintEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -164,6 +166,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   tickBarn(state, dt, events);
   tickGarage(state, dt, events);
   tickCarLot(state, dt, events);
+  tickPaint(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -370,6 +373,8 @@ export interface ElapsedResult {
   garage: number;
   /** Part of `earned` that came from the Used Car Lot's crew. */
   carlot: number;
+  /** Part of `earned` that came from the Paint & Tuning shop's Painter. */
+  paint: number;
 }
 
 /**
@@ -392,7 +397,7 @@ export function offlineScrapper(state: GameState, seconds: number): { crushes: n
 }
 
 export function applyElapsed(state: GameState, now: number): ElapsedResult {
-  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0 };
+  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0, paint: 0 };
   const seconds = (now - state.lastSeen) / 1000;
   state.lastSeen = now;
   const scrap = offlineScrapper(state, seconds);
@@ -400,10 +405,11 @@ export function applyElapsed(state: GameState, now: number): ElapsedResult {
   state.stats.carsCrushed += scrap.crushes;
   const garage = garageOfflineEarnings(state, seconds);
   const carlot = carlotOfflineEarnings(state, seconds);
-  const earned = offlineEarnings(state, seconds) + scrap.cash + garage + carlot;
+  const paint = paintOfflineEarnings(state, seconds);
+  const earned = offlineEarnings(state, seconds) + scrap.cash + garage + carlot + paint;
   // The barn restoration keeps going while you're away (one stage at most).
   tickBarn(state, Math.min(seconds, ECON.offline.capSeconds), []);
-  return { seconds, earned, parts: scrap.parts, garage, carlot };
+  return { seconds, earned, parts: scrap.parts, garage, carlot, paint };
 }
 
 /** Mark the game as running at `now`. Never moves lastSeen backwards. */

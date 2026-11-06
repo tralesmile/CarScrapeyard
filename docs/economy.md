@@ -114,7 +114,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Scrapyard | - | - | open from the start |
 | Repair Garage | $200K | $100K | open (P1.1c, run 11) |
 | Used Car Lot | $5M | $2.5M | open (P1.2b, run 14) |
-| Paint & Tuning | $50M | $25M | later (P1.2) |
+| Paint & Tuning | $50M | $25M | core rules done (P1.2d, run 16); scene next (P1.2e), still "soon" on the map |
 
 The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
 the garage goal at 12m35s (seed 12345), 12m12s on average over 12 seeds (worst 13m49s), matching the plan's "second
@@ -189,6 +189,33 @@ far too strong; $45K 61%, $35K 55% (chosen), $28K 48%. With $35K the active bot 
 goal arrives at 1h22m (relaxed: opens 52m43s, 34%, goal 1h45m). The garage keeps 17% (relaxed 25%). Asserted: opens
 between 30 and 75 min, lot share 15-65%, garage share > 5%.
 
+## Paint & Tuning (P1.2d, run 16)
+
+Customers order 1-3 different services (sizes by weight 3 / 3 / 1), worked one after another in menu order.
+Fee = $55,000 x sum of the services' fee multipliers x (1 + 15% per service beyond the first) x (family base value / 600)
+x Hype (1.10^(level-1)), fixed on arrival. Leftover tap work does not carry into the next service.
+
+| Service | Work | Fee mult | Weight |
+| --- | --- | --- | --- |
+| Respray | 8 | 1.0 | 3 |
+| Custom rims | 6 | 0.8 | 3 |
+| Vinyl wrap | 12 | 1.5 | 2 |
+| Engine tune | 16 | 2.2 | 1.5 |
+
+- A new customer every 4 s while a booth is free. Booths 1 -> 3 ($25M, $200M).
+- Tip: +25% of the fee when the player finishes the order by hand within 3 s per service of the car arriving
+  (the Painter never earns tips). Active bot: 538 of 708 orders tipped; relaxed bot (2 taps/s): 84 of 288.
+- Spray Booth $3M x1.17^n (work per tap and Painter speed, station curve), Hype $6M x1.35^n.
+  Painter $60M (1.2 work/s x booth power), works offline with the yard's 50% efficiency and 2 h cap; no tips idle.
+- Idle income = expected fee / cycle, where the expected order is enumerated exactly over the weighted draw
+  (unit test: within 4% of 4,000 generated orders).
+
+Run 16 sim (180 minutes, `Paint & Tuning (P1.2d)`, shop forced `ready`): baseFee $90K gave the shop 52% of all earnings
+by 3 h, $70K 46%, $55K 41% (chosen; relaxed 29%). The active bot reaches the $50M goal at 1h22m, opens at 1h35m and
+hires the Painter at 2h0m; the lot keeps 20% (relaxed 21%). Asserted: opens between 70 and 140 min, shop share 12-60%,
+lot share > 10%, some but not all orders tipped. The bot buys only the cheapest upgrade each time, so it rarely buys Hype
+or a second booth in this window; that is a bot habit, not a price problem.
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -208,6 +235,8 @@ between 30 and 75 min, lot share 15-65%, garage share > 5%.
 | Used Car Lot opened ($2.5M) | 30-75 min | 45m 30s | 52m 43s |
 | Lot share of earnings at 2 h | 15-65% | 55% | 35% |
 | Paint & Tuning goal ($50M) | - | 1h 22m | 1h 45m |
+| Paint & Tuning opened ($25M) | 70-140 min | 1h 35m | 2h 7m |
+| Paint share of earnings at 3 h | 12-60% | 41% | 29% |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.

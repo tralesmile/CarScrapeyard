@@ -124,6 +124,14 @@ to automate it, open new car businesses, then sell your empire and start again i
   "Bit slow for me…" when not); 2.5 s later they pay the list price plus their bonus ("Collector paid +30%") and drive
   it away. A buyer looking at a car in the spot row shows as their icon on its thumbnail. If you sell that car first,
   they pick another ready car or walk off.
+- **Paint & Tuning** (business 4, P1.2d core; scene and UI in P1.2e): goal $50M earned in total, then $25M to open.
+  Customers drive in with an order of one to three services from the menu: Respray, Custom rims, Vinyl wrap, Engine
+  tune. The booth works through them in order (tap the car, or hire the Painter) and each finished service shows on the
+  car (new colour, new rims, a wrap pattern, a tune). Orders with more services pay a combo bonus (+15% per extra
+  service). Finish an order yourself within 3 s per service of the car arriving and the customer tips +25%, so active
+  play pays and the Painter (idle and offline) never tips. Upgrades: Spray Booth (speed, x2 at milestones), Hype
+  (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths). Planned next (P1.2f): send a refurbished
+  Used Car Lot car through the shop for a higher list price.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
