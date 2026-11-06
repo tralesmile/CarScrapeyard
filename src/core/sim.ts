@@ -34,6 +34,7 @@ import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
+import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -53,11 +54,14 @@ export type GameEvent =
   | { type: 'legendary'; car: Car }
   /** A new car family starts arriving at the yard. */
   | { type: 'familyUnlocked'; family: CarFamily }
+  /** The first car of a family was sold: it starts its page in the Collection book. `families` = families collected so far. */
+  | { type: 'firstOfFamily'; family: CarFamily; families: number }
   | { type: 'crushed'; car: Car; parts: number; cash: number; auto: boolean }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
   | BuyerEvent
-  | BarnEvent;
+  | BarnEvent
+  | GarageEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -112,9 +116,20 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   state.tutorial.firstSale = true;
   events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
+  recordCollection(state, car.family, events);
   const fam = familyUnlockedAt(state.carsSold);
   if (fam) events.push({ type: 'familyUnlocked', family: fam });
   ensureFocus(state);
+}
+
+/** Count a sold car for the Collection book; the first of a family announces itself. */
+export function recordCollection(state: GameState, family: CarFamily, events: { push(e: GameEvent): void }): void {
+  const sold = state.collection.sold;
+  sold[family] = (sold[family] ?? 0) + 1;
+  if (sold[family] === 1) {
+    const families = Object.values(sold).filter((n) => n > 0).length;
+    events.push({ type: 'firstOfFamily', family, families });
+  }
 }
 
 /** A car just finished washing: spare parts (if any) take a chunk off its damage. */
@@ -145,6 +160,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
   tickBarn(state, dt, events);
+  tickGarage(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -347,6 +363,8 @@ export interface ElapsedResult {
   earned: number;
   /** Parts the Scrapper added to the bin while away. */
   parts: number;
+  /** Part of `earned` that came from the Repair Garage's Foreman. */
+  garage: number;
 }
 
 /**
@@ -369,16 +387,17 @@ export function offlineScrapper(state: GameState, seconds: number): { crushes: n
 }
 
 export function applyElapsed(state: GameState, now: number): ElapsedResult {
-  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0 };
+  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0, garage: 0 };
   const seconds = (now - state.lastSeen) / 1000;
   state.lastSeen = now;
   const scrap = offlineScrapper(state, seconds);
   state.parts += scrap.parts;
   state.stats.carsCrushed += scrap.crushes;
-  const earned = offlineEarnings(state, seconds) + scrap.cash;
+  const garage = garageOfflineEarnings(state, seconds);
+  const earned = offlineEarnings(state, seconds) + scrap.cash + garage;
   // The barn restoration keeps going while you're away (one stage at most).
   tickBarn(state, Math.min(seconds, ECON.offline.capSeconds), []);
-  return { seconds, earned, parts: scrap.parts };
+  return { seconds, earned, parts: scrap.parts, garage };
 }
 
 /** Mark the game as running at `now`. Never moves lastSeen backwards. */

@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { ECON, type ManagerKind, type UpgradeKind } from '../src/core/config';
 import { slotCost, upgradeCost } from '../src/core/formulas';
+import { mapUnlocked } from '../src/core/businesses';
 import { formatCash, formatDuration } from '../src/core/format';
 import {
   buySlot,
@@ -25,6 +26,8 @@ import { barnStageCost, barnUnlocked, nextBarnStage, revealBarn, sellBarnCar, st
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
+import { canOpenBusiness, openBusiness, switchBusiness } from '../src/core/businesses';
+import { buyGarageBay, buyGarageUpgrade, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
 
 interface BotProfile {
   name: string;
@@ -54,10 +57,25 @@ function spendSmart(s: GameState): void {
   // ...then the barn restoration when the next stage is affordable...
   // (a player saves up for it: upgrades only from cash beyond the stage price).
   let reserve = 0;
+  // The Repair Garage is the big goal once its price shows on the map: save for it, then open it.
+  const g = ECON.businesses.list.garage;
+  // (A barn restoration already under way is finished first.)
+  const barnMidway = s.barn.stage > 0 && (s.barn.status === 'covered' || s.barn.status === 'working');
+  if (!s.businesses.opened.garage && g.ready && s.lifetimeEarnings >= g.unlockLifetime && !barnMidway) {
+    if (canOpenBusiness(s, 'garage')) {
+      openBusiness(s, 'garage');
+      switchBusiness(s, 'garage');
+    } else return;
+  }
+  // Like the yard's crew, the garage's Foreman comes first once the garage is open (it runs while you're away).
+  if (s.businesses.opened.garage && !s.garage.foreman) {
+    if (s.cash >= ECON.garage.foreman.cost) hireForeman(s);
+    reserve = ECON.garage.foreman.cost;
+  }
   if (nextBarnStage(s)) {
     const c = barnStageCost(s);
-    if (s.cash >= c.cash && s.parts >= c.parts) startBarnStage(s);
-    else reserve = c.cash;
+    if (s.cash - reserve >= c.cash && s.parts >= c.parts) startBarnStage(s);
+    else reserve += c.cash;
   }
   // ...then the cheapest of slot / upgrades.
   const kinds: UpgradeKind[] = crusherUnlocked(s) ? ['wash', 'repair', 'quality', 'press'] : ['wash', 'repair', 'quality'];
@@ -68,6 +86,11 @@ function spendSmart(s: GameState): void {
   if (barnUnlocked(s) && !s.managers.scrapper) options.push({ cost: ECON.managers.scrapper.cost, buy: () => hireManager(s, 'scrapper') });
   const sc = slotCost(s.slots);
   if (sc !== null) options.push({ cost: sc, buy: () => buySlot(s) });
+  if (s.businesses.opened.garage) {
+    for (const k of ['tools', 'rep'] as const) options.push({ cost: garageUpgradeCost(k, s.garage.levels[k]), buy: () => buyGarageUpgrade(s, k) });
+    const bc = garageBayCost(s.garage.bays);
+    if (bc !== null) options.push({ cost: bc, buy: () => buyGarageBay(s) });
+  }
   options.sort((a, b) => a.cost - b.cost);
   const best = options[0];
   if (best && best.cost <= s.cash - reserve) best.buy();
@@ -93,7 +116,19 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
   let scrapperCrushes = 0;
   for (let t = 0; t < seconds; t += dt) {
     for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
-    const car = s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0];
+    // In the garage (once the yard runs on its own) the bot taps customer cars instead of working the yard.
+    const inGarage = s.businesses.active === 'garage' && s.managers.seller;
+    if (inGarage) {
+      const job = s.garage.jobs[0];
+      if (job) {
+        tapBudget += profile.tapsPerSec * dt;
+        if (tapBudget >= 1) {
+          tapBudget -= 1;
+          garageTap(s, job.id);
+        }
+      }
+    }
+    const car = inGarage ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
     const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
     const wantsCrush = barnNeedsParts || s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
@@ -137,6 +172,11 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (contractsUnlocked(s) && marks.contracts === undefined) marks.contracts = t;
     if (barnUnlocked(s) && marks.barn === undefined) marks.barn = t;
     if (s.barn.restored > 0 && marks.barnSold === undefined) marks.barnSold = t;
+    if (mapUnlocked(s) && marks.map === undefined) marks.map = t;
+    if (s.lifetimeEarnings >= ECON.businesses.list.garage.unlockLifetime && marks.garage === undefined) marks.garage = t;
+    if (s.businesses.opened.garage && marks.garageOpen === undefined) marks.garageOpen = t;
+    if (s.garage.foreman && marks.foreman === undefined) marks.foreman = t;
+    if (s.garage.bays >= 2 && marks.bay2 === undefined) marks.bay2 = t;
   }
   return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes };
 }
@@ -147,7 +187,7 @@ describe('opening pacing', () => {
       const { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes } = run(profile, 15 * 60);
       const line = (k: string) => `${k.padEnd(10)} ${marks[k] === undefined ? 'never' : formatDuration(marks[k]!)}`;
       console.log(
-        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'scrapper', 'barnSold', 'slot2'].map(line),
+        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'scrapper', 'barnSold', 'slot2', 'map', 'garage'].map(line),
           `crushed by the Scrapper ${scrapperCrushes}`,
           `cash ${formatCash(s.cash)}, sold ${s.carsSold}, levels ${JSON.stringify(s.levels)}, slots ${s.slots}`,
           `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`,
@@ -172,6 +212,12 @@ describe('opening pacing', () => {
       expect(marks.barn).toBeGreaterThan(marks.contracts!);
       expect(barnCash / s.lifetimeEarnings).toBeLessThan(0.25);
       if (profile === ACTIVE) expect(marks.barnSold).toBeLessThan(15 * 60);
+      // City map (P1.1): the map opens between the crusher and contracts; an active player reaches the Repair
+      // Garage's goal inside the first session (plan: second business within 15 minutes), a relaxed one later.
+      expect(marks.map).toBeGreaterThan(marks.crusher!);
+      expect(marks.map).toBeLessThan(marks.contracts!);
+      if (profile === ACTIVE) expect(marks.garage).toBeGreaterThan(8 * 60);
+      if (profile === ACTIVE) expect(marks.garage).toBeLessThan(15 * 60);
       // Full automation inside the first session for an active player.
       if (profile === ACTIVE) expect(marks.seller).toBeLessThan(15 * 60);
     });
@@ -201,18 +247,75 @@ describe('many seeds', () => {
   it('active player: full crew and barn share hold on average over 12 seeds', () => {
     const sellers: number[] = [];
     const shares: number[] = [];
+    const garages: number[] = [];
     for (let seed = 1; seed <= 12; seed++) {
       const r = run(ACTIVE, 15 * 60, seed);
       sellers.push(r.marks.seller ?? 15 * 60);
+      garages.push(r.marks.garage ?? 15 * 60);
       shares.push(r.barnCash / r.s.lifetimeEarnings);
     }
     const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
     console.log(
       `--- active bot, 12 seeds ---\nSalesperson avg ${formatDuration(avg(sellers))} (worst ${formatDuration(Math.max(...sellers))}), ` +
-        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%)`,
+        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%), ` +
+        `Repair Garage goal avg ${formatDuration(avg(garages))} (worst ${formatDuration(Math.max(...garages))})`,
     );
+    // Plan: the second business within 15 minutes (the garage's open cost lands in P1.1c and is tuned then).
+    expect(avg(garages)).toBeLessThan(13 * 60);
+    expect(Math.max(...garages)).toBeLessThan(15 * 60);
     expect(avg(sellers)).toBeLessThan(12 * 60);
     expect(avg(shares)).toBeLessThan(0.22);
     expect(Math.max(...shares)).toBeLessThan(0.3);
+  });
+});
+
+describe('Repair Garage (P1.1c)', () => {
+  /** Run with the garage buyable even while its UI is still behind `ready: false`. */
+  function withReadyGarage<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.garage!.ready;
+    list.garage!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.garage!.ready = was;
+    }
+  }
+
+  it('opens in the first half hour, pays back, and becomes a real second income', () => {
+    const rows: string[] = [];
+    const opens: number[] = [];
+    const shares: number[] = [];
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyGarage(() => run(profile, 40 * 60));
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      const share = s.garage.earned / s.lifetimeEarnings;
+      rows.push(
+        `${profile.name}: goal ${fmt('garage')}, opened ${fmt('garageOpen')}, bay 2 ${fmt('bay2')}, Foreman ${fmt('foreman')}, ` +
+          `jobs ${s.garage.jobsDone}, garage earned ${formatCash(s.garage.earned)} (${(share * 100).toFixed(0)}% of all), ` +
+          `levels ${JSON.stringify(s.garage.levels)}, bays ${s.garage.bays}`,
+      );
+      if (profile === ACTIVE) {
+        opens.push(marks.garageOpen ?? Infinity);
+        shares.push(share);
+      }
+    }
+    console.log(['--- Repair Garage, 40 minutes ---', ...rows].join('\n'));
+    // Plan: the second business early in the session; the bot opens it a few minutes after the goal.
+    expect(opens[0]).toBeLessThan(18 * 60);
+    // The garage matters (a real second income) without replacing the yard.
+    expect(shares[0]).toBeGreaterThan(0.15);
+    expect(shares[0]).toBeLessThan(0.6);
+  });
+
+  it('active player opens the garage before minute 17 on every seed', () => {
+    const opens: number[] = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const { marks } = withReadyGarage(() => run(ACTIVE, 20 * 60, seed));
+      opens.push(marks.garageOpen ?? 20 * 60);
+    }
+    const avg = opens.reduce((a, b) => a + b, 0) / opens.length;
+    console.log(`--- garage opened, 12 seeds --- avg ${formatDuration(avg)}, worst ${formatDuration(Math.max(...opens))}`);
+    expect(Math.max(...opens)).toBeLessThan(17 * 60);
   });
 });

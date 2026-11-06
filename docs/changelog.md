@@ -1,5 +1,76 @@
 # Changelog
 
+## 0.12.0 - 2026-11-06 (run 12)
+
+- **Garage art pass (P1.1e):** the lift's cross beam now carries a "REPAIR GARAGE" sign that stays clear of the top
+  bar, the bay thumbnails and the car. Each customer car drives in, the lift raises it a little (arms under the sills,
+  the floor shadow fades) and the customer steps out to wait beside it, then hops and walks off when it is fixed. The
+  Foreman is drawn in the workshop (navy overalls, red cap, clipboard, spanner) and bobs while he works.
+- **Faults you can see:** a flat tyre makes the car lean with the tyre bulging flat, a dead battery throws blue sparks
+  at the front, hot brakes glow through the rear wheel; engine and exhaust jobs keep their smoke. Customer cars have
+  light rust now (they are daily drivers, not wrecks). The fault bubble waits until the car has parked.
+- **SUV redraw (P1.1y):** higher ground clearance, a raked rear pillar and a spare wheel on the tailgate. Every pair of
+  car types now shares under 75% of its outline (van/SUV 0.81 -> 0.74).
+- Fix: a car texture freed after a drive-off could be read by the next frame ("sourceSize" of null), which stopped
+  the game loop; the images now point at a stock texture first. The e2e prints page errors when it fails.
+- Tests: 5 new unit tests (sign placement on four phone sizes and a short screen, customer looks, lighter rust, SUV
+  features, every family pair < 0.75). E2e: lift raised and customer waiting, light rust, flat tyre tilt and bulge,
+  brake glow, battery sparks, the Foreman beside the car, the Foreman in the art gallery.
+
+## 0.11.0 - 2026-11-06 (run 11)
+
+- **The Repair Garage opens (P1.1c):** once you have earned $200K in total, the city map offers the garage for $100K.
+  "Go" drives you there: a teal workshop with a roller door, a pegboard of tools and a two-post lift. Customers drive
+  in with one fault (flat tyre, dead battery, worn brakes, rusty exhaust or engine trouble) shown in a bubble with a
+  progress bar; tap the car to fix it and the customer pays and drives off. Engine and exhaust jobs smoke.
+- **Yard parts help the garage:** a fix uses the scrapyard's spare parts when there are any; without them the garage
+  buys parts and a 30% parts bill comes off the fee.
+- **Garage upgrades and crew:** Tool Wall (faster repairs, x2 at the usual milestones), Reputation (+12% fees per
+  level), Repair Bays 2 and 3 (more customers waiting, shown as thumbnails above the lift) and the Foreman, who fixes
+  cars on his own, also while you're away (the welcome-back popup shows what he earned).
+- The scrapyard keeps running while you are in the garage; the map takes you back ("Back to the garage" closes it).
+  The game remembers which business you were in.
+- 22 new unit tests (171 total): garage rules, fees, parts, upgrades, Foreman, idle/offline income vs the real
+  simulation, save repair, backdrop layout. The balance sim plays the garage (opens at 14m24s, 35% of earnings at
+  40 min). E2e: open and enter the garage, tap a car to fix it (with and without yard parts), the yard selling in the
+  background, upgrades, a second bay, the Foreman, reload into the garage, back to the yard, offline garage earnings.
+
+## 0.10.0 - 2026-11-06 (run 10)
+
+- **City map (first slice of P1.1):** after 30 sales a 🗺 button appears in the top bar (with a red dot and a
+  "CITY MAP!" banner until you open it). The map shows Rust Valley: your scrapyard with a "you are here" pin, the
+  Repair Garage with a padlock whose ring fills as you earn, and the Used Car Lot and Paint & Tuning shop greyed out
+  further up the road. The list under the map shows the goal ("Earn $200K in total to unlock") and a live progress bar.
+  The garage itself opens in the next slice (P1.1c); until then it shows "SOON" once its goal is reached.
+- **Businesses in the save:** the save format is now version 2 (`businesses`: which are open, which is on screen);
+  older saves upgrade automatically through the first real save migration, and impossible values are repaired.
+- **Car art:** the muscle car is boxier with a flat high hood, a set-back cabin and a hood scoop; the hatchback is lower
+  and rounder with a steep hatch. Neither looks like the sports car or SUV any more (outline overlap 0.83 -> 0.69 and
+  0.86 -> 0.64).
+- Fix: the yard did not re-lay itself out when the customer strip appeared under the top bar (the horizon, slot row
+  and bay kept their first positions). It now checks twice a second and lays out again when the HUD changes height.
+- 17 new unit tests (149 total): business rules, the v1 -> v2 migration, map SVG and rows, family silhouettes. The
+  balance sim prints when the map opens and when the garage goal is reached (12 seeds). E2e covers the map button,
+  dot, map contents, progress, the "soon" state, fitting the phone screen, and the re-layout under the customer strip.
+
+## 0.9.0 - 2026-11-06 (run 9)
+
+- **Sharper cars everywhere:** the stair-steps on car outlines are gone. Root cause: Phaser switches on pixel-art mode
+  (nearest-neighbour filtering) by itself whenever the game is zoomed, and we zoom by 1/devicePixelRatio. Smooth
+  filtering is now forced on, car textures are powers of two sized to the bay (1024x512, or 512x256 on 1x screens)
+  and WebGL builds trilinear mipmaps, so lot thumbnails scale down cleanly too.
+- **New hypercar look:** very low, with a cab-forward bubble canopy, a shark fin along the engine deck, a taller wing,
+  a front splitter and rear diffuser and slim LED headlights. It no longer looks like the sports car at thumbnail size.
+- **Painted yard:** the backdrop is now one smooth Canvas 2D painting: sky gradient, glowing sun, clouds, two hill
+  layers, rounded junk piles with tyres and scrap panels, shaded fence posts, a dirt ground with an oil stain and a
+  concrete work bay with a soft shadow. The pile behind the customer moved aside so customers read clearly.
+- **Collection counts:** every sale counts its car type for the upcoming Collection book; the first sale of a type
+  shows a toast ("📒 First Van sold! Collection: 4/8 car types"). The starter types count quietly in the first 10 sales.
+- 14 new unit tests (132 total): hypercar silhouette overlap with every other family, power-of-two texture sizes,
+  backdrop layout, collection counts and their save handling. E2e checks smooth filtering, mipmapped car textures,
+  the backdrop texture, the per-family counts and the first-Van toast.
+- Fix (test): the "press slams" e2e check ran after a 3x screenshot that could outlast the 620 ms slam; it checks first now.
+
 ## 0.8.0 - 2026-11-05 (run 8)
 
 - **Scrapper while you're away:** with the full crew and the Scrapper hired, the parts bin is topped up to the

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05 (run 8; next run is run 9). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 12; next run is run 13). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -34,18 +34,43 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       "Keep classics for the Collection book" moved to P1.4.
 - [x] P0.14g Barn card below the fold: the barn card now leads the Yard tab once the barn opens, tapping the barn scrolls to
       and flashes it, and a red dot on the barn sign shows when a stage is affordable or the classic is ready (run 8)
-- [ ] P0.14h Art polish (found in run 5; owner asked for better graphics after the playtest): the big car in the bay still shows slight stair-steps when the 720 px texture
-      is scaled down in WebGL (try mipmaps / a texture sized to the bay); hypercar and sports car look alike at thumbnail
-      size (give the hyper a distinct silhouette or a rear fin); paint the backdrop hills on Canvas 2D too (the barn, tarp, Scrapper
-      and press are Canvas 2D since run 8)
-- [ ] P0.14i Collection hook for new families (found in run 5): show "first Van!" style toasts and count each family
-      for the Collection book (P1.4)
+- [x] P0.14h Art polish (run 9): stair-steps fixed at the root (Phaser's automatic pixel-art mode when zoomed was on;
+      forced off), power-of-two car textures sized to the bay with trilinear mipmaps, a distinct hypercar silhouette
+      (cab-forward canopy, shark fin, tall wing, splitter, slim lights), and the backdrop painted on Canvas 2D
+- [x] P0.14i Collection hook (run 9): sales counted per family in `state.collection.sold`, "📒 First Van sold!" toast
+      with the families collected so far (starter families quiet in the first 10 sales). The book UI is P1.4.
 - [x] P0.15 Playtest gate: owner played ~10 minutes (2026-11-05): "works well, held my attention for 10 minutes";
       asks for better graphics (P0.14h) and a city map like other tycoons (P1.1). Owner chose to keep the current task order.
 
 ## Phase 1 — Web MVP
 
-- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage
+- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage.
+  - [x] P1.1a Core (run 10): `state.businesses` (active + opened), `src/core/businesses.ts` (status locked/soon/forSale/open,
+        unlock progress, open, switch), save v2 with the first real migration (v1 -> v2) and repair of impossible blocks.
+        Garage goal: $200K lifetime earnings (active bot 12m12s avg over 12 seeds), open cost $150K (tune in P1.1c).
+  - [x] P1.1b City map (run 10): 🗺 button after 30 sales (red dot until first visit, "CITY MAP!" banner), Rust Valley
+        drawn as inline SVG (scrapyard with "you are here" pin, Repair Garage with a padlock progress ring, Used Car Lot and
+        Paint & Tuning greyed out), a list with the open businesses and the next goal, live progress while open.
+  - [x] P1.1c Repair Garage loop (run 11): `src/core/garage.ts` (customers with one of five faults, tap or Foreman
+        work, fee on arrival, yard parts used or a 30% parts bill, Tool Wall / Reputation / bays 2-3 / Foreman, idle and
+        offline income, save repair), `GarageScene` with a Canvas 2D workshop (roller door, pegboard, lift), fault bubble
+        with progress, bay thumbnails, drive in/out, coins; DOM panel swaps to Garage/Crew tabs; map "Go" swaps scenes
+        (only the shown scene runs; its tick advances every business). Open cost tuned to $100K (opens 14m24s, 35% of
+        earnings at 40 min). `ready: true`.
+  - [x] P1.1e Garage art (run 12): the waiting customer (buyer looks) and the Foreman drawn in the garage, the lift's
+        cross beam as the "REPAIR GARAGE" sign (clear of the HUD, bay row and raised car; unit-tested on 4 phone sizes),
+        the lift raises the car 10 px while it is worked on, fault animation (flat tyre tilt + bulge, battery sparks,
+        brake glow), light rust on customer cars.
+  - [ ] P1.1f Garage feel (found in run 12): the customer could say what's wrong in a speech bubble when they arrive;
+        the bay thumbnails sit over the door and pegboard on short phones (consider a slimmer row); a tyre/wheel change
+        swap animation for flat tyres; owner feedback on a garage mini-game (NEEDS_FROM_YOU) may replace tapping.
+  - [ ] P1.1d Map polish: the map's visual tiers per business (plan: three tiers per station visible on the map), a
+        drive-between transition, the barn note "Restore it when you open the Garage" (plan story beat) if it still fits.
+- [x] P1.1x Art follow-ups (run 10): muscle car redrawn boxy with a hood scoop (overlap with sports 0.83 -> 0.69), hatch
+      lower and rounder with a steep hatch (overlap with SUV 0.86 -> 0.64); every family pair now under 0.82. The yard lays
+      out again (backdrop, slots, bay) when the HUD changes height, e.g. when the customer strip appears.
+- [x] P1.1y SUV redrawn (run 12): high ground clearance, raked D-pillar, tailgate spare wheel; van/SUV 0.81 -> 0.74,
+      every family pair under 0.75 (asserted in families-art.test.ts).
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

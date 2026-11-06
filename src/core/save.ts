@@ -5,7 +5,9 @@
 // - Missing fields are filled from a fresh game, so adding fields never breaks old saves.
 
 import { ECON } from './config';
-import { newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
+import { sanitizeBusinesses } from './businesses';
+import { sanitizeGarage } from './garage';
+import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
   get(key: string): string | null;
@@ -36,8 +38,9 @@ type Migration = (data: Record<string, unknown>) => Record<string, unknown>;
 
 /** migrations[n] upgrades a save from version n to n + 1. */
 const migrations: Record<number, Migration> = {
-  // Example for the future:
-  // 1: (d) => ({ ...d, gems: 0 }),
+  // v1 -> v2 (run 10): the city map. Every v1 player owns just the scrapyard and has it on screen. A v1 save that
+  // already has lifetime earnings past a business's unlock goal sees that business for sale on the map at once.
+  1: (d) => ({ ...d, businesses: newBusinesses() }),
 };
 
 export function migrate(data: Record<string, unknown>, fromVersion: number): Record<string, unknown> {
@@ -124,6 +127,11 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract).map((c) => ({ ...c, rerolled: c.rerolled === true }));
     state.buyer = validBuyer(state.buyer);
+    for (const f of Object.keys(state.collection.sold) as (keyof typeof state.collection.sold)[]) {
+      state.collection.sold[f] = Math.max(0, Math.floor(state.collection.sold[f]));
+    }
+    sanitizeBusinesses(state.businesses);
+    sanitizeGarage(state.garage);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

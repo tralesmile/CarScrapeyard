@@ -20,7 +20,14 @@ to automate it, open new car businesses, then sell your empire and start again i
   pickup and muscle from the start; vans (15 sales), SUVs (40), sports cars (100) and hypercars (200) roll in later
   with a "NEW CARS!" banner, each worth more and the last two rarer. Rare+ cars get trim stripes, Legendary gold rims.
 - **Car art:** painted with the Canvas 2D API (antialiased, rounded corners, body gradient, gloss, wheel arches,
-  door seams, roof rack on SUVs, intakes and wings on sports/hyper). Review sheet: `?debug=1&gallery=1`.
+  door seams, roof rack on SUVs, intakes and wings on sports/hyper). The hypercar has its own silhouette: very low,
+  cab-forward bubble canopy, shark fin on the engine deck, tall wing, splitter and slim LED lights. Car textures are
+  1024x512 (512x256 on 1x screens) with trilinear mipmaps, so the bay car and the lot thumbnails stay smooth.
+  Review sheet: `?debug=1&gallery=1`.
+- **Yard backdrop:** one Canvas 2D painting per screen size: sky gradient, sun glow, clouds, two hill layers, junk
+  piles with tyres and scrap panels (kept clear of the customer's spot), fence, ground and the concrete work bay.
+- **Collection counts:** every sale counts its car type for the Collection book (P1.4). The first sale of a type shows
+  "📒 First Van sold! Collection: 5/8 car types" (the four starter types are counted quietly in the first 10 sales).
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of
@@ -69,9 +76,32 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
   the OS asks for it), number format (short 1.5M or scientific 1.5e6), reset progress (two-step confirm),
   credits with the version.
+- **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
+  earned in total, then $100K to open), Used Car Lot ($5M goal) and Paint & Tuning ($50M goal). Locked plots are grey
+  with a padlock whose ring shows progress; the list shows open businesses and the next goal. "Go" puts that business
+  on screen; the others keep running in the background.
+- **Repair Garage** (business 2): a teal workshop with a roller door, pegboard, tool chest and a two-post lift.
+  Customers drive in with one fault (flat tyre, dead battery, worn brakes, rusty exhaust, engine trouble) shown in a
+  bubble with a progress bar; tap the car to fix it, the customer pays and drives off. Fixes use the scrapyard's spare
+  parts ("Yard parts −2 ⚙"), otherwise a parts bill comes off the fee, so the two businesses feed each other. Garage
+  tab: Tool Wall (repair speed), Reputation (fees), Repair Bay (up to 3 cars, shown as thumbnails above the lift);
+  Crew tab: the Foreman fixes cars on his own, also while you're away (shown in the welcome-back popup).
+  Garage scene (P1.1e): the lift's cross beam is the "REPAIR GARAGE" sign (kept clear of the HUD, the bay row and the
+  tallest raised car); the car drives in, the lift raises it 10 px and the customer (one of the six buyer looks) steps
+  out to wait on the right; the Foreman (navy overalls, red cap, clipboard) stands on the left and bobs while he works.
+  Faults show on the car: a flat tyre tilts it and bulges, a dead battery sparks blue at the front, hot brakes glow
+  through the rear wheel, engine and exhaust smoke. Customer cars carry light rust (5 patches, 1 dent), not wreck rust.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
+
+- Only the business on screen runs a Phaser scene; the core tick inside it advances every business, so the yard keeps
+  selling while the garage is shown (and the yard redraws from the state when you come back).
+- The garage has no buying or selling (plan: "fix customer cars for fees"); it ties into the yard through spare parts.
+
+- Businesses unlock by lifetime earnings (one number the player already watches), then cost cash to open, so the
+  goal is visible long before it can be bought. The map lists only the open businesses and the next goal; later ones
+  are visible on the map but not spelled out, to keep the screen short on a phone.
 
 - Barn timers run offline (unlike contracts): a restoration is a "come back later" hook, and only one stage can
   finish while away, so it never skips the fun of starting the next one.

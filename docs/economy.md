@@ -107,6 +107,47 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Next find | 5 min after a sale (runs offline) |
 | Share of income | sim limit < 25% of first-15-minute earnings (active 21%; relaxed bot reaches stage 3) |
 
+## Businesses (city map)
+
+| Business | Unlock goal (lifetime earnings) | Open cost | Status |
+| --- | --- | --- | --- |
+| Scrapyard | - | - | open from the start |
+| Repair Garage | $200K | $100K | open (P1.1c, run 11) |
+| Used Car Lot | $5M | $2.5M | later (P1.2) |
+| Paint & Tuning | $50M | $25M | later (P1.2) |
+
+The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
+the garage goal at 12m35s (seed 12345), 12m12s on average over 12 seeds (worst 13m49s), matching the plan's "second
+business within 15 minutes"; the relaxed bot reaches it in its second session. $250K was tried first (13m41s, too close
+to 15 min).
+
+Run 11 set the open cost from the sim with the garage loop in the bots: $150K opened it at 16m13s (active), $100K at
+14m24s (12-seed average 14m21s, worst 15m18s; the bot finishes a barn restoration already under way first).
+
+## Repair Garage (P1.1c)
+
+Customers drive in one at a time per free bay (every 3 s) with one fault. Tap the car (or let the Foreman work) until
+the fault's work is done; the customer pays and leaves. No buying or selling.
+
+| Fault | Work | Fee mult | Yard parts | Weight |
+| --- | --- | --- | --- | --- |
+| Flat tyre | 3 | 1.0 | 1 | 3 |
+| Dead battery | 4 | 1.4 | 1 | 3 |
+| Worn brakes | 5 | 1.6 | 2 | 2.5 |
+| Rusty exhaust | 6 | 2.0 | 2 | 2 |
+| Engine trouble | 10 | 3.5 | 4 | 1 |
+
+- Fee = $2,000 x fault mult x (family base value / 600) x 1.12^(Reputation level - 1), fixed when the car arrives.
+- Spare parts from the scrapyard are used when there are enough (and the barn's next stage doesn't need them); without
+  them the garage buys parts and a 30% parts bill comes off the fee.
+- Work per tap = 1 x Tool Wall power (same curve as the yard stations: +15% per level, x2 at 10/25/50/100/200).
+- Tool Wall $15K x1.15^n, Reputation $40K x1.3^n, bays 2 and 3 cost $60K and $600K, Foreman $200K (0.8 work/s x Tool
+  Wall power, also offline at the yard's 50% efficiency and 2 h cap; offline the garage always pays the parts bill).
+
+Run 11 sim (40 minutes): the active bot opens at 14m24s, hires the Foreman at 17m10s and the garage makes 35% of all
+earnings ($1.90M); the relaxed bot opens at 19m01s (33%). Asserted: open < 18 min, worst seed < 17 min, garage share
+between 15% and 60% for the active bot.
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -119,6 +160,10 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Barn find opens | after contracts | 5m 15s | 7m 40s |
 | Salesperson hired (full automation) | < 15 min for active players | 8m 7s | 12m 18s |
 | First barn classic sold | < 15 min for active players | 12m 12s | next session |
+| City map opens | between crusher and contracts | 2m 39s | 4m 0s |
+| Repair Garage goal ($200K earned) | < 15 min for active players | 12m 35s | next session |
+| Repair Garage opened ($100K) | < 17 min for active players (every seed) | 14m 24s | 19m 1s |
+| Garage share of earnings at 40 min | 15-60% | 35% | 33% |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.

@@ -129,3 +129,75 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Mutation-test UI-order checks by flipping the feature off** (`barnFirst = false && ...`) and confirming the e2e fails,
   then restore it and grep the line. A "card is on screen" check first passed even with the card third in the list,
   because it only tested the card's top edge; it now checks the whole button fits on the phone screen.
+
+## 2026-11-06 (run 9)
+
+- **Check the engine's effective config, not the config you wrote.** We set `antialias: true` from run 1, yet every
+  texture was nearest-filtered: Phaser 3 defaults `pixelArt` to `zoom !== 1` and pixel-art forces `antialias` off.
+  Runs 5-8 fought the resulting stair-steps with art changes (Canvas 2D painting helped, but filtering stayed nearest). Reading `game.renderer.config.antialias` and a
+  texture's `glTexture.minFilter` in the browser found it in one minute. When a visual bug survives an art fix, probe
+  the renderer state first, and pin the finding with an e2e assertion (now: smooth filtering + mipmaps).
+- **Mipmaps only exist for power-of-two textures in Phaser's WebGL1 path, and a POT render texture gets stale mips.**
+  The dirt render texture is one texel taller on purpose so it stays non-POT and plain linear.
+- **Turn "looks alike" into a number.** "Hyper and sports look alike" became `silhouetteOverlap()` (IoU of outlines above
+  the shoulder line on a grid). The first redesign only moved it from ~0.8 to 0.81 for the body alone; adding the fin
+  and wing to the silhouette and moving the canopy forward got it to 0.62. The same metric flagged two other close
+  pairs (muscle/sports, hatch/SUV) for a follow-up task.
+- **Timing checks go before slow steps.** A 3x full-page screenshot can take longer than a 620 ms tween; the check that
+  the press is mid-slam failed once the backdrop got heavier. Assert time-sensitive state first, screenshot after.
+- **Long `npm run check` runs exceed the 2-minute tool timeout.** Run it in the background with an exit-code marker
+  (`(npm run check > log 2>&1; echo EXIT $? >> log) &`) and poll the log, instead of re-running it under `timeout`.
+
+## 2026-11-06 (run 10)
+
+- **Check that a modal fits before styling it.** The first map sheet listed all four businesses and was taller than the
+  phone; the Back button's `focus()` then scrolled the sheet and hid the title, which only the screenshot showed. The e2e
+  now asserts the title and the Back button sit inside the sheet's box, and the list shows only the open businesses plus
+  the next goal. Use `focus({ preventScroll: true })` on buttons at the bottom of tall sheets.
+- **A selector by class can silently retarget when a new element shares the class.** The sound check used
+  `.hud .icon-btn`; the new map button (also `icon-btn`, placed earlier) would have become the match. Give each control
+  its own class (`.sound-btn`) and use that in tests.
+- **Layout that reads DOM sizes once goes stale when the DOM changes without a resize.** The yard used the HUD height
+  from its first layout; the customer strip later made the HUD taller. Watching the insets (twice a second, cheap) fixed
+  it, and flipping the watcher off made the new e2e check fail (mutation-tested as in run 8).
+- **Pick unlock goals from the sim, then sweep seeds.** $250K landed at 13m41s on one seed, too close to the 15-minute
+  target; $200K gives 12m12s average and 13m49s worst over 12 seeds, now asserted in the many-seeds test.
+- **Ship a feature in slices with a `ready` flag.** The map and core business rules shipped before the garage loop;
+  `ready: false` in config keeps the garage unbuyable ("SOON") so a half-built business can't sink the player's cash.
+
+## 2026-11-06 (run 11)
+
+- **A Phaser scene cannot be put to sleep from inside its own `create()`.** The SceneManager marks the scene RUNNING
+  after `create()` returns, which undid `sleep('yard')` called from the yard's ready hook, so a reload into the garage
+  ran both scenes. Defer scene switches out of `create()` (`setTimeout(…, 0)`); the e2e reload check caught it.
+- **Playwright's `isVisible` treats `opacity: 0` as visible.** The Sell and Crush buttons hide with opacity (so they
+  can fade), which made "yard controls are hidden" fail although nothing showed. Assert on the class that hides them
+  (`.hidden`), and print which element failed in the message so one run tells you why.
+- **When a new business competes for the same cash, rerun every old pacing check.** Saving up for the garage made the
+  bot skip the barn and broke "first classic sold < 15 min". Finishing a restoration already under way first is both
+  what a player does and what kept the old target; the change was in the bot, not the economy.
+- **Background jobs started with `&` die with the 2-minute tool timeout.** Start long e2e runs with
+  `setsid nohup bash -c '…; echo EXIT $? >> log' &` and poll the log in separate calls.
+- **Make new numbers pass the existing curve.** Reusing `stationPower` (milestones x2) for the Tool Wall and the yard's
+  offline cap/efficiency for the Foreman kept the garage consistent and testable with the same idle-vs-real check.
+
+## 2026-11-06 (run 12)
+
+- **Never free a texture an image still points at, even a hidden one.** The garage released a car's texture after the
+  drive-off while the hidden image kept it; the new per-frame pose code read `displayHeight` and threw "sourceSize of
+  null", which stopped the whole game loop. The e2e only reported "waitForFunction timeout" twenty seconds later. Point
+  the image at `'__WHITE'` before `textures.remove`, and take sizes from the layout, not from images that may be hidden.
+- **Print the page errors when the e2e fails.** The errors list was only checked at the very end, so a failure in the
+  middle hid the cause. `tools/e2e-smoke.cjs` now prints the first page errors next to the failure message.
+- **Don't run vitest while the e2e runs.** Two e2e failures in the yard's floating-text check were CPU contention from a
+  parallel vitest run; alone the same build passed. Run the e2e (or `npm run check`) on its own and do docs meanwhile.
+- **`cat > file` without a heredoc waits on stdin forever** and eats the whole 2-minute tool timeout. Use the Write tool
+  for scratch files.
+- **Tween a value, not the sprite, when several systems move the same sprite.** The lift height, the tap dip and the
+  flat-tyre tilt each tween a small `{ v }` object and `poseCar()` combines them every frame, so they never fight over
+  `y` (the old tap tween on `y` would have undone the lift).
+- **A "ready for the screenshot" predicate must exclude transitions.** "Car visible, lift up, customer shown" was also
+  true on the first frame of the drive-off, so the Foreman screenshot showed an empty lift. Check the scene's own
+  transition flags (`carLeaving`, `arriving`) and the focused id, then hold the state (more work left) for the capture.
+- **Kill the dev server's process group, not just npx.** `server.kill()` stopped `npx` and left `vite preview` running
+  on the e2e port for the rest of the session; the e2e now spawns it `detached` and kills `-pid`.

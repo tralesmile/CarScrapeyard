@@ -66,6 +66,57 @@ export function paintScrapper(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+/** The garage Foreman (P1.1e): navy overalls with a name patch, a red cap, a clipboard in one hand and a spanner in
+ * the other. Same box as the customers. */
+export function paintForeman(ctx: CanvasRenderingContext2D): void {
+  const cx = SCRAPPER_W / 2;
+  const { headY, headR } = person(ctx, cx, 1, { shirt: '#1e3a5f', pants: '#1e3a5f', skin: '#c68863', hair: '#2b2118' });
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = OUTLINE;
+  // Name patch and pocket.
+  ctx.fillStyle = '#fbf3e4';
+  ctx.fillRect(cx - 9, headY + 20, 9, 4);
+  ctx.fillStyle = '#e8762b';
+  ctx.fillRect(cx + 2, headY + 20, 6, 6);
+  // Moustache.
+  ctx.fillStyle = '#2b2118';
+  ctx.beginPath();
+  ctx.ellipse(cx, headY + 4, 5, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Red cap with a peak facing forward (right).
+  ctx.fillStyle = '#e5484d';
+  ctx.beginPath();
+  ctx.arc(cx, headY - 3, headR, Math.PI, Math.PI * 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillRect(cx, headY - 5, headR + 8, 3.5);
+  // Clipboard in the left hand.
+  ctx.fillStyle = '#c99a62';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(cx - 25, headY + 30, 12, 15, 1.5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fbf3e4';
+  ctx.fillRect(cx - 23, headY + 33, 8, 10);
+  // Spanner in the right hand.
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx + 16, headY + 39);
+  ctx.lineTo(cx + 24, headY + 22);
+  ctx.stroke();
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 1.5;
+  ctx.fillStyle = '#9ca3af';
+  ctx.beginPath();
+  ctx.arc(cx + 25, headY + 19, 4.5, Math.PI * 0.75, Math.PI * 2.05);
+  ctx.fill();
+  ctx.stroke();
+}
+
 /** The press frame: two posts, a top beam with a piston housing, a base plate, and a crushed cube beside it. */
 export function paintPress(ctx: CanvasRenderingContext2D): void {
   ctx.lineJoin = 'round';

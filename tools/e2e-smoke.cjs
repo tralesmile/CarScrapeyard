@@ -40,15 +40,17 @@ async function waitForServer(url, ms = 15000) {
   const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
     cwd: path.join(__dirname, '..'),
     stdio: 'ignore',
+    // Own process group, so the cleanup below also stops vite (a plain kill only stops npx and left vite running).
+    detached: true,
   });
   let browser;
   let failed = false;
+  const errors = [];
   try {
     await waitForServer(`http://localhost:${PORT}/`);
     browser = await chromium.launch();
     const ctx = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await ctx.newPage();
-    const errors = [];
     page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
 
@@ -68,6 +70,30 @@ async function waitForServer(url, ms = 15000) {
       return { x: r.x + b.centerX * z, y: r.y + b.centerY * z, w: b.width * z, h: b.height * z };
     });
     assert(geo.w > 100, 'big car is on screen');
+
+    // Art pass (P0.14h): power-of-two car textures with trilinear mipmaps, and a Canvas 2D backdrop.
+    const art14h = await page.evaluate(() => {
+      const g = window.__jye.game;
+      const sc = g.scene.getScene('yard');
+      const src = sc.bigCar.texture.source[0];
+      const gl = g.renderer.gl;
+      const glt = src.glTexture;
+      const bd = sc.textures.get('backdrop');
+      return {
+        aa: g.renderer.config.antialias === true,
+        w: src.width,
+        h: src.height,
+        mip: !!gl && !!glt && glt.minFilter === gl.LINEAR_MIPMAP_LINEAR,
+        backdrop: sc.bg.texture.key,
+        canvas: !!bd && bd.source[0].isCanvas,
+        full: !!bd && bd.source[0].width === g.scale.width,
+      };
+    });
+    const pot = (n) => n > 0 && (n & (n - 1)) === 0;
+    assert(pot(art14h.w) && pot(art14h.h), `bay car texture is a power of two (${art14h.w}x${art14h.h})`);
+    assert(art14h.aa, 'textures use smooth (linear) filtering, not pixel-art mode');
+    assert(art14h.mip, 'bay car texture is mipmapped (trilinear)');
+    assert(art14h.backdrop === 'backdrop' && art14h.canvas && art14h.full, 'backdrop is one Canvas 2D texture the size of the game');
 
     console.log('wash by swiping');
     await page.mouse.move(geo.x - geo.w * 0.35, geo.y);
@@ -148,6 +174,13 @@ async function waitForServer(url, ms = 15000) {
     });
     await page.waitForSelector('.sell.match:not(.hidden)');
     assert((await page.textContent('.buyer')).includes('Speed Freak'), 'buyer strip names the customer');
+    await page.waitForTimeout(600);
+    const lay = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('yard');
+      const ins = sc.bridge.insets();
+      return { used: sc.layoutInsets, now: `${Math.round(ins.top)},${Math.round(ins.bottom)}`, stripBottom: document.querySelector('.buyer').getBoundingClientRect().bottom, slotTop: sc.focusArea().slotY };
+    });
+    assert(lay.used === lay.now && lay.slotTop >= lay.stripBottom, `the yard lays out again below the customer strip (${lay.used}; slots at ${Math.round(lay.slotTop)} >= strip ${Math.round(lay.stripBottom)})`);
     assert(await page.$eval('.buyer', (e) => e.classList.contains('match')), 'buyer strip lights up for a matching car');
     await page.waitForTimeout(1300); // walk-in
     const figure = await page.evaluate(() => {
@@ -189,6 +222,28 @@ async function waitForServer(url, ms = 15000) {
     assert((await page.textContent('.banner')).includes('Vans'), 'selling car #15 announces Vans');
     assert(await page.evaluate(() => window.__vib.length > 0), 'haptics fire on sales and taps (navigator.vibrate)');
 
+    console.log('collection hook');
+    const quiet = await page.evaluate(() => ({ ...window.__jye.state.collection.sold }));
+    assert(Object.values(quiet).reduce((a, b) => a + b, 0) >= 3 && quiet.van === 0, `sales are counted per family (${JSON.stringify(quiet)})`);
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.buyer = null;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.family = 'van';
+      c.rarity = 'common';
+      c.dirt = 0;
+      c.damage = 0;
+    });
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    if (await page.$('.haggle:not(.hidden)')) await page.click('.haggle');
+    await page.waitForFunction(() => window.__jye.state.collection.sold.van === 1, null, { timeout: 7000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('First Van sold')), null, { timeout: 4000 });
+    const toastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('First Van')));
+    assert(/Collection: \d\/8/.test(toastText), `first Van sold shows a Collection toast (${toastText})`);
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');
@@ -202,25 +257,35 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.crush:not(.hidden):not(:disabled)');
     await page.waitForTimeout(400); // car drive-in
     assert(await page.isVisible('.hud .parts'), 'parts counter appears once the crusher unlocks');
+    // Record the reward texts every frame from the click on: the 3x screenshot below can outlast their 1.3 s life.
+    await page.evaluate(() => {
+      const rec = (window.__floatRec = { max: 0, n: 0, texts: [] });
+      const t0 = performance.now();
+      const frame = () => {
+        const texts = window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text));
+        if (texts.length > rec.max) {
+          const r = texts.map((t) => t.getBounds());
+          let n = 0;
+          for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+            const a = r[i], b = r[j];
+            const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (ix > 0 && iy > a.height * 0.25) n++;
+          }
+          Object.assign(rec, { max: texts.length, n, texts: texts.map((t) => t.text) });
+        }
+        if (performance.now() - t0 < 4000) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
     await page.click('.crush');
     await page.waitForTimeout(450);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-06-crusher.png') });
     let crushed = await page.evaluate(() => ({ n: window.__jye.state.stats.carsCrushed, parts: window.__jye.state.parts }));
     assert(crushed.n === 1 && crushed.parts > 0, `crushing a wreck gives parts (${crushed.parts})`);
     // "+6 Parts" and "+$110" land together: they must stack, not overlap.
-    await page.waitForFunction(() => window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text)).length >= 2, null, { timeout: 3000 });
-    const overlaps = await page.evaluate(() => {
-      const texts = window.__jye.game.scene.getScene('yard').children.list.filter((o) => o.type === 'Text' && /^\+/.test(o.text));
-      const r = texts.map((t) => t.getBounds());
-      let n = 0;
-      for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
-        const a = r[i], b = r[j];
-        const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (ix > 0 && iy > a.height * 0.25) n++;
-      }
-      return { n, texts: texts.map((t) => t.text) };
-    });
+    await page.waitForFunction(() => window.__floatRec.max >= 2, null, { timeout: 4000 });
+    const overlaps = await page.evaluate(() => window.__floatRec);
     assert(overlaps.n === 0, `reward texts stack without overlapping (${overlaps.texts.join(' / ')})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-06b-crush-rewards.png') });
     await page.waitForTimeout(1200);
@@ -284,6 +349,50 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.cards .contract.ready .buy');
     const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));
     assert(claimed.cash >= claim.cash + claim.reward && claimed.status === 'empty', `claiming pays ${claim.reward}`);
+
+    console.log('city map');
+    await page.waitForSelector('.map-btn:not(.hidden)');
+    assert(await page.isVisible('.map-btn .dot.on'), 'map button appears after 30 sales with a red dot');
+    const lifeBefore = await page.evaluate(() => window.__jye.state.lifetimeEarnings);
+    await page.evaluate(() => (window.__jye.state.lifetimeEarnings = Math.max(window.__jye.state.lifetimeEarnings, 80000)));
+    await page.waitForTimeout(3200); // let the unlock banners pass
+    await page.click('.map-btn');
+    await page.waitForSelector('.modal.city-map .city-svg');
+    const mapInfo = await page.evaluate(() => ({
+      plots: [...document.querySelectorAll('.city-svg .plot')].map((g) => g.getAttribute('data-biz') + ':' + g.getAttribute('class')),
+      rows: [...document.querySelectorAll('.map-row')].map((r) => r.dataset.biz + ':' + r.querySelector('.map-line').textContent),
+      bar: document.querySelector('.map-row[data-biz="garage"] .bar > i')?.style.width,
+      pins: document.querySelectorAll('.city-svg .pin').length,
+      seen: window.__jye.state.tutorial.mapSeen,
+      svgBox: document.querySelector('.city-svg').getBoundingClientRect().toJSON(),
+      modalBox: document.querySelector('.modal.city-map').getBoundingClientRect().toJSON(),
+      titleTop: document.querySelector('.modal.city-map h2').getBoundingClientRect().top,
+      backBottom: document.querySelector('.modal.city-map > .buy').getBoundingClientRect().bottom,
+    }));
+    assert(mapInfo.plots.length === 4 && mapInfo.plots[0] === 'scrapyard:plot open', `map draws four businesses (${mapInfo.plots.join(', ')})`);
+    assert(mapInfo.rows[0] === 'scrapyard:You are here' && mapInfo.pins === 1, 'the scrapyard is marked "You are here" with one pin');
+    assert(mapInfo.rows[1].startsWith('garage:Earn $200K') && mapInfo.bar === '40%', `the Repair Garage is locked with its goal and progress (${mapInfo.rows[1]}, ${mapInfo.bar})`);
+    assert(mapInfo.seen, 'opening the map marks it seen');
+    assert(mapInfo.svgBox.width > 300 && mapInfo.svgBox.right <= 390 && mapInfo.modalBox.bottom <= 844 && mapInfo.titleTop >= mapInfo.modalBox.top && mapInfo.backBottom <= mapInfo.modalBox.bottom, `map, title and Back button fit the phone screen (${Math.round(mapInfo.svgBox.width)}px wide)`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-16-city-map.png') });
+    await page.evaluate(() => (window.__jye.state.lifetimeEarnings = Math.max(window.__jye.state.lifetimeEarnings, 200000)));
+    await page.waitForFunction(() => document.querySelector('.map-row[data-biz="garage"]')?.classList.contains('forSale'), null, { timeout: 2000 });
+    const forSale = await page.evaluate(() => {
+      const b = document.querySelector('.map-row[data-biz="garage"] button');
+      return {
+        line: document.querySelector('.map-row[data-biz="garage"] .map-line').textContent,
+        btn: b?.textContent,
+        disabled: b?.disabled,
+        sign: document.querySelector('.city-svg .plot[data-biz="garage"]').textContent,
+        cash: window.__jye.state.cash,
+      };
+    });
+    assert(forSale.line === "Ready to open" && forSale.btn === "Open $100K" && forSale.sign.includes("FOR SALE"), `reaching the goal puts the garage up for sale (${forSale.btn})`);
+    assert(forSale.disabled === forSale.cash < 100000, 'the Open button is disabled while cash is short');
+    await page.click('.modal.city-map > .buy');
+    await page.waitForSelector('.modal.city-map', { state: 'detached' });
+    assert(!(await page.isVisible('.map-btn .dot.on')), 'the map dot clears after the first visit');
+    await page.evaluate((v) => (window.__jye.state.lifetimeEarnings = Math.max(v, window.__jye.state.cash)), lifeBefore);
 
     console.log('barn find');
     await page.click('.tab:nth-child(3)');
@@ -413,14 +522,166 @@ async function waitForServer(url, ms = 15000) {
     assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
     await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
     await page.waitForTimeout(200);
-    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
+    // Check the 620 ms slam before the screenshot: a 3x screenshot can take longer than the tween.
     const plateMoved = await page.evaluate(() => {
       const st = window.__jye.game.scene.getScene('yard').station;
       return st.plate.scene.tweens.isTweening(st.plate);
     });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-15-scrapper.png') });
     assert(plateMoved, 'the press slams when the Scrapper crushes a wreck');
     const afterScrap = await page.evaluate(() => ({ parts: window.__jye.state.parts, rest: window.__jye.state.scrapperRest }));
     assert(afterScrap.parts > 0 && afterScrap.rest > 0, `Scrapper crushes a wreck when parts run low (+${afterScrap.parts} parts)`);
+
+    console.log('repair garage');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.cash += 2e6;
+      s.lifetimeEarnings += 2e6;
+      s.parts = 0; // first fix pays a parts bill
+      s.managers.scrapper = false; // keep the parts bin empty while measuring
+    });
+    await page.click('.map-btn');
+    await page.waitForSelector('.map-row[data-biz="garage"] button:not([disabled])');
+    await page.click('.map-row[data-biz="garage"] button');
+    await page.waitForFunction(() => window.__jye.state.businesses.opened.garage);
+    assert((await page.textContent('.map-row[data-biz="garage"] button')) === 'Go', 'opening the garage costs cash and offers "Go"');
+    await page.click('.map-row[data-biz="garage"] button');
+    await page.waitForSelector('.modal.city-map', { state: 'detached' });
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('garage') && window.__jye.game.scene.isSleeping('yard'));
+    assert(true, '"Go" puts the garage scene on screen and the yard to sleep');
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').map((t) => t.textContent.replace(/\s+$/, '')));
+    assert(tabs.join(',') === 'Garage,Crew', `the panel shows the garage's tabs (${tabs.join(', ')})`);
+    const yardCtl = await page.evaluate(() => ['.sell', '.crush', '.buyer', '.haggle'].filter((q) => !document.querySelector(q).classList.contains('hidden')));
+    assert(yardCtl.length === 0, `the yard controls are hidden in the garage (${yardCtl.join(', ') || 'none shown'})`);
+    await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
+    await page.waitForTimeout(1300); // drive-in, lift up, customer steps out
+    const hint = await page.textContent('.hint');
+    assert(/Tap the car to fix the/.test(hint), `garage hint (${hint})`);
+    const garageCar = async () =>
+      page.evaluate(() => {
+        const sc = window.__jye.game.scene.getScene('garage');
+        const b = sc.bigCar.getBounds();
+        const z = window.__jye.game.scale.zoom;
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        return { x: c.x + b.centerX * z, y: c.y + b.centerY * z, visible: sc.bigCar.visible, bubble: sc.bubble.visible, text: sc.bubbleText.text };
+      });
+    const gc = await garageCar();
+    assert(gc.visible && gc.bubble && gc.text.length > 3, `the customer's car stands on the lift with its fault (${gc.text})`);
+    const pose = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return { lift: sc.lift.v, cust: sc.customer.visible && sc.customer.alpha > 0.9, right: sc.customer.x > sc.bigCar.x + sc.bigCar.displayWidth * 0.3, rust: sc.bigRust.alpha, foreman: sc.foreman.visible };
+    });
+    assert(pose.lift === 1 && pose.cust && pose.right, `the lift raises the car and the customer waits beside it (lift ${pose.lift}, customer ${pose.cust}/${pose.right})`);
+    assert(pose.rust <= 0.5 && !pose.foreman, `customer cars carry light rust and no Foreman stands there before he is hired (${pose.rust.toFixed(2)})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-17-garage.png') });
+    // Fault-specific animation: a flat tyre tilts the car and bulges, a dead battery sparks, hot brakes glow.
+    const faultFx = await page.evaluate(async () => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const job = window.__jye.state.garage.jobs.find((j) => j.id === window.__jye.state.garage.focusedId);
+      const was = job.fault;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const out = {};
+      job.fault = 'tyre';
+      await wait(120);
+      out.tilt = sc.bigCar.angle;
+      out.tyreFx = sc.faultG.commandBuffer.length;
+      job.fault = 'brakes';
+      await wait(120);
+      out.tiltBrakes = sc.bigCar.angle;
+      out.brakeFx = sc.faultG.commandBuffer.length;
+      job.fault = 'battery';
+      out.zap = 0;
+      for (let i = 0; i < 30 && out.zap === 0; i++) {
+        await wait(60);
+        out.zap = sc.zap.getAliveParticleCount();
+      }
+      job.fault = was;
+      return out;
+    });
+    assert(faultFx.tilt > 0.5 && faultFx.tyreFx > 0 && faultFx.tiltBrakes === 0, `a flat tyre tilts the car and bulges (${faultFx.tilt.toFixed(2)} deg)`);
+    assert(faultFx.brakeFx > 0 && faultFx.zap > 0, `hot brakes glow and a dead battery sparks (${faultFx.zap} sparks)`);
+    const g0 = await page.evaluate(() => ({ cash: window.__jye.state.cash, fee: window.__jye.state.garage.jobs[0].fee, sold: window.__jye.state.carsSold }));
+    for (let i = 0; i < 20; i++) {
+      if (await page.evaluate(() => window.__jye.state.garage.jobsDone > 0)) break;
+      await page.mouse.click(gc.x, gc.y);
+      await page.waitForTimeout(60);
+    }
+    const g1 = await page.evaluate(() => ({ cash: window.__jye.state.cash, done: window.__jye.state.garage.jobsDone, earned: window.__jye.state.garage.earned }));
+    assert(g1.done === 1, 'tapping the car fixes it');
+    assert(g1.earned === Math.round(g0.fee * 0.7), `without yard parts a parts bill comes off the fee (${g1.earned} of ${g0.fee})`);
+    await page.waitForTimeout(600);
+    const yardRan = await page.evaluate((n) => window.__jye.state.carsSold > n, g0.sold);
+    await page.waitForFunction((n) => window.__jye.state.carsSold > n, g0.sold, { timeout: 20000 });
+    assert(true, `the yard crew keeps selling while the garage is on screen${yardRan ? '' : ' (after a wait)'}`);
+    // Spare parts from the yard: the next fix pays the full fee.
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.parts = 50;
+      // A barn stage that needs parts would keep them; park the barn between finds for this check.
+      if (s.barn.status === 'covered') s.barn.status = 'away', s.barn.timeLeft = 9999;
+    });
+    await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
+    await page.waitForTimeout(1300);
+    const gc2 = await garageCar();
+    const g2 = await page.evaluate(() => ({ fee: window.__jye.state.garage.jobs[0].fee, earned: window.__jye.state.garage.earned }));
+    for (let i = 0; i < 20; i++) {
+      if (await page.evaluate(() => window.__jye.state.garage.jobsDone > 1)) break;
+      await page.mouse.click(gc2.x, gc2.y);
+      await page.waitForTimeout(60);
+    }
+    const g3 = await page.evaluate(() => ({ earned: window.__jye.state.garage.earned, parts: window.__jye.state.parts }));
+    assert(g3.earned - g2.earned === g2.fee && g3.parts < 50, `with yard parts the customer pays the full fee (${g2.fee}, parts left ${g3.parts})`);
+    // Garage upgrades and crew.
+    const tools0 = await page.textContent('.cards .card.garage-tools .desc');
+    await page.click('.cards .card.garage-tools .buy');
+    await page.click('.cards .card.garage-rep .buy');
+    await page.click('.cards .card.garage-bay .buy');
+    const gl = await page.evaluate(() => window.__jye.state.garage);
+    assert(gl.levels.tools === 2 && gl.levels.rep === 2 && gl.bays === 2 && (await page.textContent('.cards .card.garage-tools .desc')) !== tools0, 'Tool Wall, Reputation and a second bay bought');
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('garage').bays.length === 2, null, { timeout: 8000 });
+    assert(true, 'two bays show as thumbnails above the lift');
+    await page.click('.tab:has-text("Crew"):visible');
+    await page.click('.cards .card.garage-foreman .buy');
+    assert(await page.evaluate(() => window.__jye.state.garage.foreman), 'Foreman hired');
+    const doneBefore = await page.evaluate(() => window.__jye.state.garage.jobsDone);
+    await page.waitForFunction((n) => window.__jye.state.garage.jobsDone > n, doneBefore, { timeout: 20000 });
+    assert(true, 'the Foreman fixes a car without input');
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const g = window.__jye.state.garage;
+      const ok = !sc.carLeaving && !sc.arriving && sc.bigJobId === g.focusedId && sc.lift.v === 1 && sc.customer.visible && sc.customer.alpha === 1;
+      // Hold the cars for the screenshot (the Foreman would finish one while the page is captured).
+      if (ok) for (const j of g.jobs) j.work = Math.max(j.work, 3);
+      return ok;
+    }, null, { timeout: 10000 });
+    const fm = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return { shown: sc.foreman.visible, left: sc.foreman.x < sc.bigCar.x - sc.bigCar.displayWidth * 0.3, inside: sc.foreman.x - sc.foreman.displayWidth / 2 >= 0 && sc.customer.x + sc.customer.displayWidth / 2 <= sc.scale.width };
+    });
+    assert(fm.shown && fm.left && fm.inside, 'the Foreman stands at the car on the left, both characters on screen');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-18-garage-foreman.png') });
+    // Reload with the garage on screen, then go back to the yard via the map.
+    await page.evaluate(() => window.__jye.saveNow());
+    await page.reload();
+    await page.waitForFunction(() => window.__jye && window.__jye.game.scene.isActive('garage'), null, { timeout: 8000 });
+    assert(await page.evaluate(() => !window.__jye.game.scene.isActive('yard')), 'a reload brings back the garage on screen');
+    await page.evaluate(() => (window.__jye.state.managers.scrapper = true));
+    // The crews earned a little during the reload: close the welcome-back popup if it came up.
+    await page.waitForTimeout(500);
+    if (await page.isVisible('.modal-back .modal .buy')) await page.click('.modal-back .modal .buy');
+    await page.click('.map-btn');
+    assert((await page.textContent('.modal.city-map > .buy')) === 'Back to the garage', 'the map\'s back button names the garage');
+    await page.click('.map-row[data-biz="scrapyard"] button');
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('garage'));
+    const yardTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').length);
+    assert(yardTabs === 4, '"Go" on the scrapyard brings the yard and its four tabs back');
+    await page.waitForTimeout(1200);
+    const yardCar = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('yard');
+      const s = window.__jye.state;
+      return { shown: sc.bigCarId, focused: s.focusedId, cars: s.cars.length };
+    });
+    assert(yardCar.cars === 0 || yardCar.shown === yardCar.focused, `the yard shows its current car after the garage (${yardCar.shown} / ${yardCar.focused})`);
 
     console.log('save and reload');
     const before = await page.evaluate(() => {
@@ -464,6 +725,8 @@ async function waitForServer(url, ms = 15000) {
     const scrapLine = (await page.textContent('.modal .offline-parts').catch(() => '')) || '';
     const partsBack = await page.evaluate(() => window.__jye.state.parts);
     assert(/\+\d+ ⚙/.test(scrapLine) && partsBack > 0, `the Scrapper topped up parts while away (${scrapLine.trim()})`);
+    const shopLine = (await page.textContent('.modal .offline-garage').catch(() => '')) || '';
+    assert(/Foreman fixed cars in the garage: \$/.test(shopLine), `the welcome-back popup shows the garage's earnings (${shopLine.trim()})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');
@@ -486,7 +749,7 @@ async function waitForServer(url, ms = 15000) {
     assert(true, `scientific numbers in the top bar (${await page.textContent('.hud .cash')})`);
     await page.click('.seg-btn[data-fmt="short"]');
     await page.click('.toggle[aria-label="Sound effects"]');
-    assert((await page.textContent('.hud .icon-btn')).includes('🔇'), 'sound toggle mutes the game');
+    assert((await page.textContent('.hud .sound-btn')).includes('🔇'), 'sound toggle mutes the game');
     await page.click('.toggle[aria-label="Sound effects"]');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate(() => window.__jye.state.settings.vibration === false), 'vibration switches off');
@@ -503,6 +766,7 @@ async function waitForServer(url, ms = 15000) {
       const s = window.__jye.state;
       s.managers.seller = false;
       s.managers.scrapper = false; // its scrap cash would muddle the sale amount
+      s.garage.foreman = false; // and so would the garage Foreman's fees
       s.buyer = null;
       s.buyerTimer = 999;
     });
@@ -580,7 +844,7 @@ async function waitForServer(url, ms = 15000) {
         return red;
       }),
     }));
-    assert(extra.crew === 2 && extra.barn === 5, 'gallery draws the Scrapper, the press and 5 barn stages');
+    assert(extra.crew === 3 && extra.barn === 5, 'gallery draws the Scrapper, the press, the Foreman and 5 barn stages');
     assert(extra.tarpLeaks.every((n) => n < 30), `the reveal tarp covers vans, SUVs and pickups (${extra.tarpLeaks.join(', ')} red px)`);
     assert(art.every((a) => a.solid > 5000), 'every car has a solid body');
     assert(art.every((a) => a.soft > 200), 'car edges are antialiased (soft edge pixels)');
@@ -599,9 +863,15 @@ async function waitForServer(url, ms = 15000) {
   } catch (e) {
     failed = true;
     console.error('\nE2E FAILED:', e.message);
+    // Page errors explain most timeouts (a throw in a scene's update stops the game loop).
+    if (errors.length) console.error('Page errors so far:\n  ' + errors.slice(0, 10).join('\n  '));
   } finally {
     await browser?.close();
-    server.kill();
+    try {
+      process.kill(-server.pid);
+    } catch {
+      server.kill();
+    }
     process.exit(failed ? 1 : 0);
   }
 })();

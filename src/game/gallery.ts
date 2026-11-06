@@ -6,7 +6,7 @@ import { paintCar, paintRust } from './carArt';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import type { BuyerKind } from '../core/config';
 import { BARN_BOX_H, BARN_BOX_W, paintBarn, paintTarp, type BarnLook } from './barnArt';
-import { PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintPress, paintScrapper } from './crewArt';
+import { PRESS_H, PRESS_W, SCRAPPER_H, SCRAPPER_W, paintForeman, paintPress, paintScrapper } from './crewArt';
 
 export function showCarGallery(): HTMLElement {
   const root = document.createElement('div');
@@ -42,9 +42,10 @@ export function showCarGallery(): HTMLElement {
     paintBuyer(ctx, kind);
     root.append(c);
   }
-  // The Scrapper and its press.
+  // The Scrapper and its press, and the garage Foreman.
   for (const [name, w, h, paint] of [
     ['scrapper', SCRAPPER_W, SCRAPPER_H, paintScrapper],
+    ['foreman', SCRAPPER_W, SCRAPPER_H, paintForeman],
     ['press', PRESS_W, PRESS_H, paintPress],
   ] as const) {
     const c = document.createElement('canvas');

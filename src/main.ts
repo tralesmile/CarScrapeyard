@@ -14,6 +14,7 @@ import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim'
 import { newGame, type GameState } from './core/state';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
+import { GarageScene } from './game/GarageScene';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 
@@ -54,10 +55,17 @@ function saveNow() {
 
 function onEvents(events: GameEvent[]) {
   for (const e of events) {
-    if (e.type === 'sold') sales.push({ t: performance.now(), amount: e.amount });
+    if (e.type === 'sold' || e.type === 'garageFixed') sales.push({ t: performance.now(), amount: e.amount });
     if (e.type === 'familyUnlocked') {
       ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
       sfx.fanfare();
+    }
+    // First car of a family sold (P0.14i). The starter families are counted quietly during the first sales,
+    // so the tutorial hints and the haggle lesson are not crowded.
+    if (e.type === 'firstOfFamily' && (ECON.families[e.family].unlockCarsSold > 0 || state.carsSold > ECON.collection.quietSales)) {
+      const total = Object.keys(ECON.families).length;
+      ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
+      sfx.repaired();
     }
     if (e.type === 'legendary') ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
@@ -74,6 +82,7 @@ function onEvents(events: GameEvent[]) {
       sfx.repaired();
     }
     if (e.type === 'buyerArrived') sfx.bell();
+    if (e.type.startsWith('garage')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
   ui.render();
@@ -89,13 +98,14 @@ const ui = new Ui(document.getElementById('ui')!, {
   },
   incomePerSecond,
   barnReveal: (shown) => {
-    const sc = scene();
-    if (!sc) {
+    const sc = yardScene();
+    if (!sc || state.businesses.active !== 'scrapyard') {
       shown();
       return () => {};
     }
     return sc.barnReveal(shown);
   },
+  onSwitchBusiness: () => showBusiness(),
   resetProgress: () => {
     resetting = true;
     saves.wipe();
@@ -114,6 +124,8 @@ const bridge: Bridge = {
   onEvents,
   onInput: () => sfx.unlock(),
   onBarnTap: () => ui.showYard(),
+  // After the yard's create() has returned (a scene can't be put to sleep while it is still creating).
+  onYardReady: () => window.setTimeout(showBusiness, 0),
 };
 
 const game = new Phaser.Game({
@@ -123,14 +135,42 @@ const game = new Phaser.Game({
   width: app.clientWidth * dpr,
   height: app.clientHeight * dpr,
   scale: { mode: Phaser.Scale.NONE, zoom: 1 / dpr },
-  render: { antialias: true, powerPreference: 'high-performance' },
+  // pixelArt must be off explicitly: Phaser turns it on whenever zoom !== 1 (we zoom by 1/dpr), which silently
+  // switched every texture to nearest-neighbour filtering (the stair-steps found in run 5). Trilinear mipmaps for
+  // power-of-two textures (car art) keep the lot thumbnails smooth when they scale down (P0.14h).
+  render: { antialias: true, pixelArt: false, powerPreference: 'high-performance', mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   banner: false,
   disableContextMenu: true,
 });
 game.scene.add('yard', YardScene, true, { bridge });
+game.scene.add('garage', GarageScene, false, { bridge });
 
-function scene(): YardScene | undefined {
+function yardScene(): YardScene | undefined {
   return game.scene.getScene('yard') as YardScene | undefined;
+}
+
+/** The scene on screen (it runs the simulation tick and gets the player's events). */
+function scene(): YardScene | GarageScene | undefined {
+  if (state.businesses.active === 'garage') return game.scene.getScene('garage') as GarageScene | undefined;
+  return yardScene();
+}
+
+/**
+ * Put the active business's scene on screen (P1.1c). Only one scene runs at a time; the core tick inside it advances
+ * every business, so the yard keeps earning while the garage is shown. The yard always boots first (shared textures).
+ */
+function showBusiness() {
+  const m = game.scene;
+  if (state.businesses.active === 'garage') {
+    if (m.isActive('yard')) m.sleep('yard');
+    if (m.isSleeping('garage')) m.wake('garage');
+    else if (!m.isActive('garage')) m.run('garage', { bridge });
+  } else {
+    if (m.isActive('garage')) m.sleep('garage');
+    if (m.isSleeping('yard')) m.wake('yard');
+  }
+  dirty = true;
+  ui.render();
 }
 
 function resize() {
@@ -149,12 +189,18 @@ setInterval(() => {
 }, 5000);
 
 // ---- offline earnings -----------------------------------------------------
-function offerOffline(seconds: number, parts = 0) {
+function offerOffline(seconds: number, parts = 0, garage = 0) {
   if (state.pendingOffline <= 0) return;
-  ui.offlineModal(seconds, state.pendingOffline, parts, () => {
-    collectOffline(state);
-    saveNow();
-  });
+  ui.offlineModal(
+    seconds,
+    state.pendingOffline,
+    parts,
+    () => {
+      collectOffline(state);
+      saveNow();
+    },
+    garage,
+  );
 }
 
 let hiddenAt = 0;
@@ -166,7 +212,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     sfx.resume();
     const r = queueOffline(state, platform.now());
-    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts);
+    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage);
   }
 });
 window.addEventListener('pagehide', () => saveNow());
@@ -174,7 +220,7 @@ window.addEventListener('pagehide', () => saveNow());
 // ---- first launch / returning player --------------------------------------
 if (loaded) {
   const r = queueOffline(state, platform.now());
-  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts);
+  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage);
 }
 if (!state.tutorial.introSeen) {
   ui.modal({

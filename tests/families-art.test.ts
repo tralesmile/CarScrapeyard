@@ -7,7 +7,7 @@ import { contractFamilies, generateContract } from '../src/core/contracts';
 import { generateCar, sellCar, tick, type GameEvent } from '../src/core/sim';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, type Contract } from '../src/core/state';
-import { SHAPES, WHEEL_Y, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade } from '../src/game/carArt';
+import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts, SCOOP, SPARE } from '../src/game/carArt';
 import { HAPTIC_PATTERNS, Haptics } from '../src/platform/haptics';
 
 const T0 = 1_800_000_000_000;
@@ -183,5 +183,71 @@ describe('haptics', () => {
       const total = Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p;
       expect(total).toBeLessThanOrEqual(200);
     }
+  });
+});
+
+describe('hypercar silhouette (P0.14h)', () => {
+  it('reads apart from every other family above the shoulder line, the sports car included', () => {
+    for (const f of FAMILIES) {
+      if (f === 'hyper') continue;
+      expect(silhouetteOverlap('hyper', f), f).toBeLessThan(0.66);
+    }
+  });
+
+  it('is the lowest car, with a cab-forward canopy, a shark fin and a taller wing than the sports car', () => {
+    const top = (f: CarFamily) => Math.min(...SHAPES[f].body.map((p) => p[1]));
+    const roofX = (f: CarFamily) => {
+      const t = top(f);
+      const xs = SHAPES[f].body.filter((p) => p[1] <= t + 0.02).map((p) => p[0]);
+      return (Math.min(...xs) + Math.max(...xs)) / 2;
+    };
+    for (const f of FAMILIES) if (f !== 'hyper') expect(top('hyper'), f).toBeGreaterThan(top(f));
+    expect(roofX('hyper')).toBeGreaterThan(roofX('sports') + 0.02);
+    expect(SHAPES.hyper.fin).toBe(true);
+    expect(SHAPES.sports.fin).toBeFalsy();
+    expect(spoilerParts('big').wing[0]![1]).toBeLessThan(spoilerParts('small').wing[0]![1]);
+  });
+
+  it('car textures are powers of two (for mipmaps) and follow the bay size', () => {
+    const pot = (n: number) => (n & (n - 1)) === 0;
+    for (const px of [300, 430, 760, 1290]) {
+      const t = carTextureSize(px);
+      expect(pot(t.w) && pot(t.h)).toBe(true);
+      expect(t.w).toBe(t.h * 2);
+    }
+    expect(carTextureSize(430).w).toBe(512);
+    expect(carTextureSize(1290).w).toBe(1024);
+  });
+});
+
+describe('family silhouettes (P1.1x)', () => {
+  it('muscle vs sports and hatch vs SUV read apart (were 0.83 and 0.86)', () => {
+    expect(silhouetteOverlap('muscle', 'sports')).toBeLessThan(0.72);
+    expect(silhouetteOverlap('hatch', 'suv')).toBeLessThan(0.72);
+  });
+
+  it('the SUV has a tailgate spare wheel and more ground clearance than the van (P1.1y)', () => {
+    expect(SHAPES.suv.spare).toBe(true);
+    const bottom = (f: CarFamily) => Math.max(...SHAPES[f].body.map((p) => p[1]));
+    expect(bottom('suv')).toBeLessThan(bottom('van') - 0.05);
+    // The spare sticks out behind the body.
+    const rear = Math.min(...SHAPES.suv.body.map((p) => p[0]));
+    expect(SPARE.x - SPARE.r * 0.5).toBeLessThan(rear - 0.05);
+    expect(silhouetteOverlap('van', 'suv')).toBeLessThan(0.75);
+  });
+
+  it('no two families share more than 75% of their outline above the shoulder line', () => {
+    for (let i = 0; i < FAMILIES.length; i++)
+      for (let j = i + 1; j < FAMILIES.length; j++) {
+        const a = FAMILIES[i]!;
+        const b = FAMILIES[j]!;
+        expect(silhouetteOverlap(a, b), `${a}/${b}`).toBeLessThan(0.75);
+      }
+  });
+
+  it('the muscle car has a hood scoop on its bonnet, ahead of the windscreen', () => {
+    expect(SHAPES.muscle.scoop).toBe(true);
+    const screenFoot = Math.max(...SHAPES.muscle.windows[0]!.map((p) => p[0]));
+    for (const [x] of SCOOP) expect(x).toBeGreaterThan(screenFoot + 0.05);
   });
 });
