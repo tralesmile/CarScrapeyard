@@ -280,3 +280,6 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   before the push replayed only my commit and dropped the merge, so main was no longer an ancestor of dev. Check with
   `git merge-base --is-ancestor origin/main origin/dev` after pushing; if it fails, merge main again and push without
   rebasing (or use `git pull --rebase=merges`).
+- **Public repos get free Actions minutes.** The runner block was the private-repo minute quota; making the repo public
+  fixed it at once (the re-run went green in 25 s). Keep secrets out of the repo: it is public now.
+

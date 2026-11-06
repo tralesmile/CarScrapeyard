@@ -5,14 +5,6 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 ## Now
 
-- [ ] **GitHub Actions stopped running (since 2026-11-06 16:34 UTC).** Every CI job since the PR #5 merge on `main`
-      ends in 2-3 seconds without a runner ever starting (no logs), including PR #6 and a re-run. The code is fine: the
-      same checks pass locally (typecheck, 218 unit tests, build, browser e2e). This usually means the account's free
-      Actions minutes for private repos are used up, a spending limit of $0 was reached, or there is a billing/payment
-      problem. Please check github.com → Settings → Billing and plans (and the repo's Actions settings), then re-run the
-      failed job on PR #6. Making the repo public also gives unlimited free minutes.
-      Owner decision (2026-11-06): keep the repo private and wait for the monthly reset. CI now runs only on PRs into
-      `main` and on `main` (not on every push to `dev`), and a newer push cancels the older run, to save minutes.
 - [ ] **Play the prototype and give feedback.** Run `npm install && npm run dev` (or open the PR's
       build), play 10–15 minutes on your phone, and say what felt slow, confusing or fun.
       New since run 2: the car crusher (after ~25 sales) and the Jobs board (after ~45 sales) —
@@ -86,6 +78,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 ## Answered decisions
 
+- 2026-11-06 (run 15): GitHub Actions had stopped starting runners (private-repo minutes). The owner made the repo
+  public, which gives free unlimited minutes; CI ran green again on PR #6 at 22:14 UTC. CI still runs only on PRs into
+  `main` and on `main`, cancelling superseded runs.
 - 2026-11-05: Team = owner + Claude as the whole studio (no freelancers).
 - 2026-11-05 (after run 5): Playtest done, about 10 minutes: the game works well and held the owner's attention.
   Wants better graphics and a city map. Decision: keep the current task order (finish Phase 0 polish incl. art
