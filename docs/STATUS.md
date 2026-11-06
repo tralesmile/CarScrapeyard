@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 9; next run is run 10). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 10; next run is run 11). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -45,11 +45,23 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 ## Phase 1 — Web MVP
 
 - [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage.
-      Next run: start with a slice (P1.1a core `businesses` state + switching + save migration; P1.1b city map screen with
-      the scrapyard and a locked Repair Garage; P1.1c the Repair Garage loop), one slice per run, each fully green.
-- [ ] P1.1x Art follow-ups found in run 9: muscle and sports cars still overlap a lot in silhouette (0.83), as do hatch and
-      SUV (0.86); give each pair one distinct feature (e.g. muscle hood scoop, hatch's short rear overhang). Redraw the
-      backdrop when the buyer strip changes the insets (horizon is fixed at the first layout).
+  - [x] P1.1a Core (run 10): `state.businesses` (active + opened), `src/core/businesses.ts` (status locked/soon/forSale/open,
+        unlock progress, open, switch), save v2 with the first real migration (v1 -> v2) and repair of impossible blocks.
+        Garage goal: $200K lifetime earnings (active bot 12m12s avg over 12 seeds), open cost $150K (tune in P1.1c).
+  - [x] P1.1b City map (run 10): 🗺 button after 30 sales (red dot until first visit, "CITY MAP!" banner), Rust Valley
+        drawn as inline SVG (scrapyard with "you are here" pin, Repair Garage with a padlock progress ring, Used Car Lot and
+        Paint & Tuning greyed out), a list with the open businesses and the next goal, live progress while open.
+  - [ ] P1.1c Repair Garage loop: customer cars arrive with a fault, you fix them for a fee (no buying/selling), garage
+        upgrades + a garage manager, its own scene/backdrop. Then set `ready: true` for the garage, make "Go" switch the
+        Phaser scene (scrapyard keeps ticking in the background, already true in core), tune the open cost with
+        `npm run sim` (add the garage to the bots), and add it to the e2e. Scrapyard parts should cut garage repair costs (plan).
+  - [ ] P1.1d Map polish: the map's visual tiers per business (plan: three tiers per station visible on the map), a
+        drive-between transition, the barn note "Restore it when you open the Garage" (plan story beat) if it still fits.
+- [x] P1.1x Art follow-ups (run 10): muscle car redrawn boxy with a hood scoop (overlap with sports 0.83 -> 0.69), hatch
+      lower and rounder with a steep hatch (overlap with SUV 0.86 -> 0.64); every family pair now under 0.82. The yard lays
+      out again (backdrop, slots, bay) when the HUD changes height, e.g. when the customer strip appears.
+- [ ] P1.1y Van and SUV are now the closest pair (0.81); give the SUV a distinct feature (taller ground clearance,
+      spare wheel on the tailgate) and bring every pair under 0.75.
 - [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

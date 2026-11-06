@@ -107,6 +107,20 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Next find | 5 min after a sale (runs offline) |
 | Share of income | sim limit < 25% of first-15-minute earnings (active 21%; relaxed bot reaches stage 3) |
 
+## Businesses (city map)
+
+| Business | Unlock goal (lifetime earnings) | Open cost | Status |
+| --- | --- | --- | --- |
+| Scrapyard | - | - | open from the start |
+| Repair Garage | $200K | $150K | goal shown on the map; opens with P1.1c |
+| Used Car Lot | $5M | $2.5M | later (P1.2) |
+| Paint & Tuning | $50M | $25M | later (P1.2) |
+
+The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
+the garage goal at 12m35s (seed 12345), 12m12s on average over 12 seeds (worst 13m49s), matching the plan's "second
+business within 15 minutes"; the relaxed bot reaches it in its second session. $250K was tried first (13m41s, too close
+to 15 min). The open cost is a placeholder until the garage earns money in P1.1c.
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -119,6 +133,8 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Barn find opens | after contracts | 5m 15s | 7m 40s |
 | Salesperson hired (full automation) | < 15 min for active players | 8m 7s | 12m 18s |
 | First barn classic sold | < 15 min for active players | 12m 12s | next session |
+| City map opens | between crusher and contracts | 2m 39s | 4m 0s |
+| Repair Garage goal ($200K earned) | < 15 min for active players | 12m 35s | next session |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.

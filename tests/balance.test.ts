@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { ECON, type ManagerKind, type UpgradeKind } from '../src/core/config';
 import { slotCost, upgradeCost } from '../src/core/formulas';
+import { mapUnlocked } from '../src/core/businesses';
 import { formatCash, formatDuration } from '../src/core/format';
 import {
   buySlot,
@@ -137,6 +138,8 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (contractsUnlocked(s) && marks.contracts === undefined) marks.contracts = t;
     if (barnUnlocked(s) && marks.barn === undefined) marks.barn = t;
     if (s.barn.restored > 0 && marks.barnSold === undefined) marks.barnSold = t;
+    if (mapUnlocked(s) && marks.map === undefined) marks.map = t;
+    if (s.lifetimeEarnings >= ECON.businesses.list.garage.unlockLifetime && marks.garage === undefined) marks.garage = t;
   }
   return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes };
 }
@@ -147,7 +150,7 @@ describe('opening pacing', () => {
       const { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes } = run(profile, 15 * 60);
       const line = (k: string) => `${k.padEnd(10)} ${marks[k] === undefined ? 'never' : formatDuration(marks[k]!)}`;
       console.log(
-        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'scrapper', 'barnSold', 'slot2'].map(line),
+        [`--- ${profile.name} bot, 15 minutes ---`, ...['firstSale', 'mechanic', 'crusher', 'contracts', 'barn', 'washer', 'seller', 'scrapper', 'barnSold', 'slot2', 'map', 'garage'].map(line),
           `crushed by the Scrapper ${scrapperCrushes}`,
           `cash ${formatCash(s.cash)}, sold ${s.carsSold}, levels ${JSON.stringify(s.levels)}, slots ${s.slots}`,
           `contracts claimed ${contractsClaimed} for ${formatCash(contractCash)} (${((contractCash / Math.max(1, s.lifetimeEarnings)) * 100).toFixed(0)}% of earnings), crushed ${s.stats.carsCrushed}, parts left ${s.parts}`,
@@ -172,6 +175,12 @@ describe('opening pacing', () => {
       expect(marks.barn).toBeGreaterThan(marks.contracts!);
       expect(barnCash / s.lifetimeEarnings).toBeLessThan(0.25);
       if (profile === ACTIVE) expect(marks.barnSold).toBeLessThan(15 * 60);
+      // City map (P1.1): the map opens between the crusher and contracts; an active player reaches the Repair
+      // Garage's goal inside the first session (plan: second business within 15 minutes), a relaxed one later.
+      expect(marks.map).toBeGreaterThan(marks.crusher!);
+      expect(marks.map).toBeLessThan(marks.contracts!);
+      if (profile === ACTIVE) expect(marks.garage).toBeGreaterThan(8 * 60);
+      if (profile === ACTIVE) expect(marks.garage).toBeLessThan(15 * 60);
       // Full automation inside the first session for an active player.
       if (profile === ACTIVE) expect(marks.seller).toBeLessThan(15 * 60);
     });
@@ -201,16 +210,22 @@ describe('many seeds', () => {
   it('active player: full crew and barn share hold on average over 12 seeds', () => {
     const sellers: number[] = [];
     const shares: number[] = [];
+    const garages: number[] = [];
     for (let seed = 1; seed <= 12; seed++) {
       const r = run(ACTIVE, 15 * 60, seed);
       sellers.push(r.marks.seller ?? 15 * 60);
+      garages.push(r.marks.garage ?? 15 * 60);
       shares.push(r.barnCash / r.s.lifetimeEarnings);
     }
     const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
     console.log(
       `--- active bot, 12 seeds ---\nSalesperson avg ${formatDuration(avg(sellers))} (worst ${formatDuration(Math.max(...sellers))}), ` +
-        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%)`,
+        `barn share avg ${(avg(shares) * 100).toFixed(0)}% (max ${(Math.max(...shares) * 100).toFixed(0)}%), ` +
+        `Repair Garage goal avg ${formatDuration(avg(garages))} (worst ${formatDuration(Math.max(...garages))})`,
     );
+    // Plan: the second business within 15 minutes (the garage's open cost lands in P1.1c and is tuned then).
+    expect(avg(garages)).toBeLessThan(13 * 60);
+    expect(Math.max(...garages)).toBeLessThan(15 * 60);
     expect(avg(sellers)).toBeLessThan(12 * 60);
     expect(avg(shares)).toBeLessThan(0.22);
     expect(Math.max(...shares)).toBeLessThan(0.3);

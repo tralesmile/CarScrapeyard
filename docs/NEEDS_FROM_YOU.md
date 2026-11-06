@@ -26,6 +26,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       fixed), the hypercar has its own shape (fin, big wing, bubble canopy), and the yard backdrop is repainted
       (clouds, layered hills, junk piles). Does it look good enough now, or what still looks cheap? The first sale of each
       car type now shows a Collection toast.
+      New since run 10 (your city map request): a 🗺 button after 30 sales opens the Rust Valley map with your scrapyard
+      and the Repair Garage's goal ($200K earned in total); the garage itself opens in the next update. Is the map what
+      you had in mind (a plan view of the town with buildings), or would you rather have a side-scrolling street?
+      Muscle cars (hood scoop) and hatchbacks (rounder) were redrawn to look less alike.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

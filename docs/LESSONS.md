@@ -147,3 +147,20 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the press is mid-slam failed once the backdrop got heavier. Assert time-sensitive state first, screenshot after.
 - **Long `npm run check` runs exceed the 2-minute tool timeout.** Run it in the background with an exit-code marker
   (`(npm run check > log 2>&1; echo EXIT $? >> log) &`) and poll the log, instead of re-running it under `timeout`.
+
+## 2026-11-06 (run 10)
+
+- **Check that a modal fits before styling it.** The first map sheet listed all four businesses and was taller than the
+  phone; the Back button's `focus()` then scrolled the sheet and hid the title, which only the screenshot showed. The e2e
+  now asserts the title and the Back button sit inside the sheet's box, and the list shows only the open businesses plus
+  the next goal. Use `focus({ preventScroll: true })` on buttons at the bottom of tall sheets.
+- **A selector by class can silently retarget when a new element shares the class.** The sound check used
+  `.hud .icon-btn`; the new map button (also `icon-btn`, placed earlier) would have become the match. Give each control
+  its own class (`.sound-btn`) and use that in tests.
+- **Layout that reads DOM sizes once goes stale when the DOM changes without a resize.** The yard used the HUD height
+  from its first layout; the customer strip later made the HUD taller. Watching the insets (twice a second, cheap) fixed
+  it, and flipping the watcher off made the new e2e check fail (mutation-tested as in run 8).
+- **Pick unlock goals from the sim, then sweep seeds.** $250K landed at 13m41s on one seed, too close to the 15-minute
+  target; $200K gives 12m12s average and 13m49s worst over 12 seeds, now asserted in the many-seeds test.
+- **Ship a feature in slices with a `ready` flag.** The map and core business rules shipped before the garage loop;
+  `ready: false` in config keeps the garage unbuyable ("SOON") so a half-built business can't sink the player's cash.

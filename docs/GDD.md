@@ -76,9 +76,17 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
   the OS asks for it), number format (short 1.5M or scientific 1.5e6), reset progress (two-step confirm),
   credits with the version.
+- **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
+  earned in total, then $150K to open; its loop arrives in P1.1c), Used Car Lot ($5M goal) and Paint & Tuning ($50M
+  goal). Locked plots are grey with a padlock whose ring shows progress; the list shows open businesses and the next
+  goal. The scrapyard keeps running while another business is on screen.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
+
+- Businesses unlock by lifetime earnings (one number the player already watches), then cost cash to open, so the
+  goal is visible long before it can be bought. The map lists only the open businesses and the next goal; later ones
+  are visible on the map but not spelled out, to keep the screen short on a phone.
 
 - Barn timers run offline (unlike contracts): a restoration is a "come back later" hook, and only one stage can
   finish while away, so it never skips the fun of starting the next one.

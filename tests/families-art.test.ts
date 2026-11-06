@@ -7,7 +7,7 @@ import { contractFamilies, generateContract } from '../src/core/contracts';
 import { generateCar, sellCar, tick, type GameEvent } from '../src/core/sim';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, type Contract } from '../src/core/state';
-import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts } from '../src/game/carArt';
+import { SHAPES, WHEEL_Y, carTextureSize, mudSpots, pointInBody, pointInPolygon, scaled, seeded, shade, silhouetteOverlap, spoilerParts, SCOOP } from '../src/game/carArt';
 import { HAPTIC_PATTERNS, Haptics } from '../src/platform/haptics';
 
 const T0 = 1_800_000_000_000;
@@ -217,5 +217,27 @@ describe('hypercar silhouette (P0.14h)', () => {
     }
     expect(carTextureSize(430).w).toBe(512);
     expect(carTextureSize(1290).w).toBe(1024);
+  });
+});
+
+describe('family silhouettes (P1.1x)', () => {
+  it('muscle vs sports and hatch vs SUV read apart (were 0.83 and 0.86)', () => {
+    expect(silhouetteOverlap('muscle', 'sports')).toBeLessThan(0.72);
+    expect(silhouetteOverlap('hatch', 'suv')).toBeLessThan(0.72);
+  });
+
+  it('no two families share more than 82% of their outline above the shoulder line', () => {
+    for (let i = 0; i < FAMILIES.length; i++)
+      for (let j = i + 1; j < FAMILIES.length; j++) {
+        const a = FAMILIES[i]!;
+        const b = FAMILIES[j]!;
+        expect(silhouetteOverlap(a, b), `${a}/${b}`).toBeLessThan(0.82);
+      }
+  });
+
+  it('the muscle car has a hood scoop on its bonnet, ahead of the windscreen', () => {
+    expect(SHAPES.muscle.scoop).toBe(true);
+    const screenFoot = Math.max(...SHAPES.muscle.windows[0]!.map((p) => p[0]));
+    for (const [x] of SCOOP) expect(x).toBeGreaterThan(screenFoot + 0.05);
   });
 });

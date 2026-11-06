@@ -172,6 +172,13 @@ async function waitForServer(url, ms = 15000) {
     });
     await page.waitForSelector('.sell.match:not(.hidden)');
     assert((await page.textContent('.buyer')).includes('Speed Freak'), 'buyer strip names the customer');
+    await page.waitForTimeout(600);
+    const lay = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('yard');
+      const ins = sc.bridge.insets();
+      return { used: sc.layoutInsets, now: `${Math.round(ins.top)},${Math.round(ins.bottom)}`, stripBottom: document.querySelector('.buyer').getBoundingClientRect().bottom, slotTop: sc.focusArea().slotY };
+    });
+    assert(lay.used === lay.now && lay.slotTop >= lay.stripBottom, `the yard lays out again below the customer strip (${lay.used}; slots at ${Math.round(lay.slotTop)} >= strip ${Math.round(lay.stripBottom)})`);
     assert(await page.$eval('.buyer', (e) => e.classList.contains('match')), 'buyer strip lights up for a matching car');
     await page.waitForTimeout(1300); // walk-in
     const figure = await page.evaluate(() => {
@@ -330,6 +337,44 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.cards .contract.ready .buy');
     const claimed = await page.evaluate(() => ({ cash: window.__jye.state.cash, status: window.__jye.state.contracts[0].status }));
     assert(claimed.cash >= claim.cash + claim.reward && claimed.status === 'empty', `claiming pays ${claim.reward}`);
+
+    console.log('city map');
+    await page.waitForSelector('.map-btn:not(.hidden)');
+    assert(await page.isVisible('.map-btn .dot.on'), 'map button appears after 30 sales with a red dot');
+    const lifeBefore = await page.evaluate(() => window.__jye.state.lifetimeEarnings);
+    await page.evaluate(() => (window.__jye.state.lifetimeEarnings = Math.max(window.__jye.state.lifetimeEarnings, 80000)));
+    await page.waitForTimeout(3200); // let the unlock banners pass
+    await page.click('.map-btn');
+    await page.waitForSelector('.modal.city-map .city-svg');
+    const mapInfo = await page.evaluate(() => ({
+      plots: [...document.querySelectorAll('.city-svg .plot')].map((g) => g.getAttribute('data-biz') + ':' + g.getAttribute('class')),
+      rows: [...document.querySelectorAll('.map-row')].map((r) => r.dataset.biz + ':' + r.querySelector('.map-line').textContent),
+      bar: document.querySelector('.map-row[data-biz="garage"] .bar > i')?.style.width,
+      pins: document.querySelectorAll('.city-svg .pin').length,
+      seen: window.__jye.state.tutorial.mapSeen,
+      svgBox: document.querySelector('.city-svg').getBoundingClientRect().toJSON(),
+      modalBox: document.querySelector('.modal.city-map').getBoundingClientRect().toJSON(),
+      titleTop: document.querySelector('.modal.city-map h2').getBoundingClientRect().top,
+      backBottom: document.querySelector('.modal.city-map > .buy').getBoundingClientRect().bottom,
+    }));
+    assert(mapInfo.plots.length === 4 && mapInfo.plots[0] === 'scrapyard:plot open', `map draws four businesses (${mapInfo.plots.join(', ')})`);
+    assert(mapInfo.rows[0] === 'scrapyard:You are here' && mapInfo.pins === 1, 'the scrapyard is marked "You are here" with one pin');
+    assert(mapInfo.rows[1].startsWith('garage:Earn $200K') && mapInfo.bar === '40%', `the Repair Garage is locked with its goal and progress (${mapInfo.rows[1]}, ${mapInfo.bar})`);
+    assert(mapInfo.seen, 'opening the map marks it seen');
+    assert(mapInfo.svgBox.width > 300 && mapInfo.svgBox.right <= 390 && mapInfo.modalBox.bottom <= 844 && mapInfo.titleTop >= mapInfo.modalBox.top && mapInfo.backBottom <= mapInfo.modalBox.bottom, `map, title and Back button fit the phone screen (${Math.round(mapInfo.svgBox.width)}px wide)`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-16-city-map.png') });
+    await page.evaluate(() => (window.__jye.state.lifetimeEarnings = Math.max(window.__jye.state.lifetimeEarnings, 200000)));
+    await page.waitForFunction(() => document.querySelector('.map-row[data-biz="garage"]')?.classList.contains('soon'), null, { timeout: 2000 });
+    const soon = await page.evaluate(() => ({
+      line: document.querySelector('.map-row[data-biz="garage"] .map-line').textContent,
+      btn: !!document.querySelector('.map-row[data-biz="garage"] button'),
+      sign: document.querySelector('.city-svg .plot[data-biz="garage"]').textContent,
+    }));
+    assert(soon.line.includes('next update') && !soon.btn && soon.sign.includes('SOON'), 'reaching the goal shows the garage as coming soon (no buy button yet)');
+    await page.click('.modal.city-map > .buy');
+    await page.waitForSelector('.modal.city-map', { state: 'detached' });
+    assert(!(await page.isVisible('.map-btn .dot.on')), 'the map dot clears after the first visit');
+    await page.evaluate((v) => (window.__jye.state.lifetimeEarnings = Math.max(v, window.__jye.state.cash)), lifeBefore);
 
     console.log('barn find');
     await page.click('.tab:nth-child(3)');
@@ -533,7 +578,7 @@ async function waitForServer(url, ms = 15000) {
     assert(true, `scientific numbers in the top bar (${await page.textContent('.hud .cash')})`);
     await page.click('.seg-btn[data-fmt="short"]');
     await page.click('.toggle[aria-label="Sound effects"]');
-    assert((await page.textContent('.hud .icon-btn')).includes('🔇'), 'sound toggle mutes the game');
+    assert((await page.textContent('.hud .sound-btn')).includes('🔇'), 'sound toggle mutes the game');
     await page.click('.toggle[aria-label="Sound effects"]');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate(() => window.__jye.state.settings.vibration === false), 'vibration switches off');

@@ -198,8 +198,28 @@ export class YardScene extends Phaser.Scene {
     this.layout();
   }
 
+  /** Insets the last layout used ("top,bottom"), and seconds until the next check (P1.1x). */
+  private layoutInsets = '';
+  private insetCheck = 0;
+
+  /**
+   * The HUD can change height without a resize (the customer strip appears after ~10 sales), which moves the
+   * horizon and the slot row. Check twice a second and lay out again when the insets moved.
+   */
+  private watchInsets(dt: number) {
+    this.insetCheck -= dt;
+    if (this.insetCheck > 0) return;
+    this.insetCheck = 0.5;
+    const { top, bottom } = this.bridge.insets();
+    const key = `${Math.round(top)},${Math.round(bottom)}`;
+    if (key !== this.layoutInsets) this.layout();
+  }
+
   /** Re-place everything after a resize or orientation change. */
   layout() {
+    const ins = this.bridge.insets();
+    this.layoutInsets = `${Math.round(ins.top)},${Math.round(ins.bottom)}`;
+    this.insetCheck = 0.5;
     this.drawBackground();
     if (this.buyerSprite) {
       const spot = this.buyerSpot();
@@ -223,6 +243,7 @@ export class YardScene extends Phaser.Scene {
     this.barnActivity(deltaMs);
     this.syncBuyer();
     this.syncStation();
+    this.watchInsets(dt);
 
     // Smoke from damaged engines.
     const car = this.focused();

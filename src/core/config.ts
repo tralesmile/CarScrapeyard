@@ -5,6 +5,8 @@ export type UpgradeKind = 'wash' | 'repair' | 'quality' | 'press';
 export type ManagerKind = 'mechanic' | 'washer' | 'seller' | 'scrapper';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
+/** Businesses on the city map, in unlock order (P1.1). */
+export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
 
 export const ECON = {
@@ -183,6 +185,22 @@ export const ECON = {
   },
 
   /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */
+  /**
+   * Businesses on the Rust Valley city map (P1.1). The scrapyard is always open. A business unlocks (shows its price on
+   * the map) once lifetime earnings reach `unlockLifetime`, then opens for `openCost` cash. `ready: false` means its
+   * loop is not built yet: the map shows it as "coming soon" and it cannot be opened.
+   */
+  businesses: {
+    /** The map button appears after this many cars sold. */
+    mapUnlockCarsSold: 30,
+    list: {
+      scrapyard: { name: 'Scrapyard', icon: '🚗', unlockLifetime: 0, openCost: 0, ready: true },
+      garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 150_000, ready: false },
+      carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: false },
+      paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
+    } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
+  },
+
   barn: {
     /** Unlocks after this many cars sold (after contracts). */
     unlockCarsSold: 60,

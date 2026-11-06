@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.10.0 - 2026-11-06 (run 10)
+
+- **City map (first slice of P1.1):** after 30 sales a 🗺 button appears in the top bar (with a red dot and a
+  "CITY MAP!" banner until you open it). The map shows Rust Valley: your scrapyard with a "you are here" pin, the
+  Repair Garage with a padlock whose ring fills as you earn, and the Used Car Lot and Paint & Tuning shop greyed out
+  further up the road. The list under the map shows the goal ("Earn $200K in total to unlock") and a live progress bar.
+  The garage itself opens in the next slice (P1.1c); until then it shows "SOON" once its goal is reached.
+- **Businesses in the save:** the save format is now version 2 (`businesses`: which are open, which is on screen);
+  older saves upgrade automatically through the first real save migration, and impossible values are repaired.
+- **Car art:** the muscle car is boxier with a flat high hood, a set-back cabin and a hood scoop; the hatchback is lower
+  and rounder with a steep hatch. Neither looks like the sports car or SUV any more (outline overlap 0.83 -> 0.69 and
+  0.86 -> 0.64).
+- Fix: the yard did not re-lay itself out when the customer strip appeared under the top bar (the horizon, slot row
+  and bay kept their first positions). It now checks twice a second and lays out again when the HUD changes height.
+- 17 new unit tests (149 total): business rules, the v1 -> v2 migration, map SVG and rows, family silhouettes. The
+  balance sim prints when the map opens and when the garage goal is reached (12 seeds). E2e covers the map button,
+  dot, map contents, progress, the "soon" state, fitting the phone screen, and the re-layout under the customer strip.
+
 ## 0.9.0 - 2026-11-06 (run 9)
 
 - **Sharper cars everywhere:** the stair-steps on car outlines are gone. Root cause: Phaser switches on pixel-art mode

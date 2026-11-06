@@ -1,8 +1,9 @@
-import type { BuyerKind, CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
-export const SAVE_VERSION = 1;
+/** v2 (run 10): `businesses` (city map, P1.1). */
+export const SAVE_VERSION = 2;
 
 export interface Car {
   id: number;
@@ -85,6 +86,11 @@ export interface GameState {
   nextContractId: number;
   cars: Car[];
   barn: Barn;
+  /** City map (P1.1): which businesses are open and which one is on screen. The scrapyard keeps running in the background. */
+  businesses: {
+    active: BusinessId;
+    opened: Record<BusinessId, boolean>;
+  };
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -102,6 +108,8 @@ export interface GameState {
     crusherSeen: boolean;
     contractsSeen: boolean;
     barnSeen: boolean;
+    /** The city map was opened at least once (its button shows a dot until then). */
+    mapSeen: boolean;
   };
   settings: {
     sound: boolean;
@@ -137,6 +145,12 @@ export function emptyFamilyCounts(): Record<CarFamily, number> {
   return out;
 }
 
+export function newBusinesses(): GameState['businesses'] {
+  const opened = {} as Record<BusinessId, boolean>;
+  for (const id of Object.keys(ECON.businesses.list) as BusinessId[]) opened[id] = id === 'scrapyard';
+  return { active: 'scrapyard', opened };
+}
+
 export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   return {
     version: SAVE_VERSION,
@@ -155,6 +169,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     nextContractId: 1,
     cars: [],
     barn: { status: 'locked', stage: 0, timeLeft: 0, family: 'muscle', model: '', paint: 0, value: 0, restored: 0 },
+    businesses: newBusinesses(),
     buyer: null,
     buyerTimer: 0,
     focusedId: null,
@@ -163,7 +178,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },

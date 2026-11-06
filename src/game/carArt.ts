@@ -21,6 +21,8 @@ export interface FamilyShape {
   /** x of the door seam, if the car has one. */
   door?: number;
   roofRack?: boolean;
+  /** Raised hood scoop over the engine (muscle). */
+  scoop?: boolean;
   /** Side air intake behind the door (sports and hyper). */
   intake?: boolean;
   /** Shark fin along the engine deck, from the canopy back towards the wing (hyper). */
@@ -59,14 +61,15 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
     lightY: 0.53,
   },
   hatch: {
-    body: [[0.05, 0.62], [0.06, 0.3], [0.18, 0.2], [0.58, 0.2], [0.75, 0.42], [0.95, 0.48], [0.97, 0.64], [0.93, 0.76], [0.07, 0.76]],
+    // Small and round: a lower roof than the SUV, a steep hatch right behind the rear wheel, a short bonnet (P1.1x).
+    body: [[0.07, 0.64], [0.08, 0.37], [0.19, 0.26], [0.53, 0.26], [0.71, 0.44], [0.92, 0.49], [0.94, 0.65], [0.9, 0.76], [0.09, 0.76]],
     windows: [
-      [[0.12, 0.27], [0.32, 0.27], [0.32, 0.42], [0.1, 0.42]],
-      [[0.35, 0.27], [0.56, 0.27], [0.7, 0.42], [0.35, 0.42]],
+      [[0.15, 0.32], [0.32, 0.32], [0.32, 0.44], [0.12, 0.44]],
+      [[0.35, 0.32], [0.52, 0.32], [0.66, 0.44], [0.35, 0.44]],
     ],
-    wheels: [0.22, 0.77],
+    wheels: [0.23, 0.76],
     wheelR: 0.14,
-    round: 0.08,
+    round: 0.1,
     door: 0.335,
     lightY: 0.54,
   },
@@ -80,13 +83,15 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
     lightY: 0.52,
   },
   muscle: {
-    body: [[0.02, 0.56], [0.04, 0.45], [0.3, 0.42], [0.42, 0.27], [0.63, 0.27], [0.75, 0.43], [0.98, 0.47], [0.99, 0.63], [0.95, 0.73], [0.04, 0.73]],
-    windows: [[[0.44, 0.31], [0.61, 0.31], [0.7, 0.43], [0.38, 0.43]]],
+    // Boxy and tall-shouldered: flat high deck and hood, a cabin set back with a steep rear window, hood scoop (P1.1x).
+    body: [[0.02, 0.56], [0.03, 0.41], [0.26, 0.39], [0.36, 0.25], [0.58, 0.25], [0.69, 0.4], [0.98, 0.43], [0.99, 0.62], [0.95, 0.73], [0.04, 0.73]],
+    windows: [[[0.38, 0.29], [0.56, 0.29], [0.64, 0.4], [0.32, 0.4]]],
     wheels: [0.2, 0.8],
     wheelR: 0.16,
     round: 0.04,
     spoiler: 'small',
-    door: 0.55,
+    scoop: true,
+    door: 0.5,
     lightY: 0.53,
   },
   van: {
@@ -147,6 +152,9 @@ export const SHAPES: Record<CarFamily, FamilyShape> = {
 /** Shark fin outline (fractions), used by families with `fin`. */
 export const FIN: Pt[] = [[0.54, 0.37], [0.32, 0.385], [0.2, 0.4], [0.17, 0.5], [0.5, 0.5]];
 
+/** Hood scoop outline (fractions), used by families with `scoop`: a raised box on the hood, open at the front. */
+export const SCOOP: Pt[] = [[0.78, 0.425], [0.8, 0.35], [0.89, 0.35], [0.91, 0.43]];
+
 /** Wing blade and stalk (x, y, w, h fractions) for a spoiler size. */
 export function spoilerParts(size: 'small' | 'big'): { wing: Pt[]; stalk: [number, number, number, number] } {
   const big = size === 'big';
@@ -163,6 +171,7 @@ export function silhouette(family: CarFamily): Pt[][] {
   const shape = SHAPES[family];
   const polys: Pt[][] = [shape.body];
   if (shape.fin) polys.push(FIN);
+  if (shape.scoop) polys.push(SCOOP);
   if (shape.spoiler) {
     const { wing, stalk } = spoilerParts(shape.spoiler);
     const [x, y, sw, sh] = stalk;
@@ -399,6 +408,20 @@ export function paintCar(ctx: CanvasRenderingContext2D, look: CarLook, w: number
     ctx.fill();
   }
   ctx.restore();
+
+  // Hood scoop: painted box on the bonnet with a dark mouth facing forward.
+  if (shape.scoop) {
+    const pts = scaled(SCOOP, w, h);
+    roundedPath(ctx, pts, h * 0.02);
+    ctx.fillStyle = shade(look.paint, 0.12);
+    ctx.fill();
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = line * 0.8;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(15,18,25,0.85)';
+    roundedPath(ctx, scaled([[0.865, 0.37], [0.89, 0.37], [0.902, 0.415], [0.87, 0.415]], w, h), h * 0.01);
+    ctx.fill();
+  }
 
   // Windows: glass gradient and a reflection streak.
   for (const win of shape.windows) {
