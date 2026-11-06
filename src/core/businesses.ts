@@ -68,3 +68,31 @@ export function sanitizeBusinesses(b: GameState['businesses']): void {
   for (const id of BUSINESS_IDS) b.opened[id] = b.opened[id] === true;
   if (!BUSINESS_IDS.includes(b.active) || !b.opened[b.active]) b.active = 'scrapyard';
 }
+
+/** Highest map tier (P1.1d). */
+export const MAX_TIER = 3;
+
+/** What a business's size is measured in for its map tier, and how big it is now. */
+function tierSize(state: GameState, id: BusinessId): number {
+  if (id === 'scrapyard') return state.slots;
+  if (id === 'garage') return state.garage.bays;
+  return 0;
+}
+
+/** The business's map tier 1..3, or 0 when it is not open. Grows with lot slots (yard) or repair bays (garage). */
+export function businessTier(state: GameState, id: BusinessId): number {
+  if (!state.businesses.opened[id]) return 0;
+  const at = (ECON.businesses.tiers as Partial<Record<BusinessId, readonly [number, number]>>)[id];
+  if (!at) return 1;
+  const size = tierSize(state, id);
+  return 1 + at.filter((n) => size >= n).length;
+}
+
+/** What the next tier needs, e.g. "3 lot slots", or null at the top tier (or for a business without tiers). */
+export function nextTierGoal(state: GameState, id: BusinessId): string | null {
+  const tier = businessTier(state, id);
+  const at = (ECON.businesses.tiers as Partial<Record<BusinessId, readonly [number, number]>>)[id];
+  if (!at || tier < 1 || tier >= MAX_TIER) return null;
+  const n = at[tier - 1]!;
+  return id === 'scrapyard' ? `${n} lot slots` : `${n} repair bays`;
+}

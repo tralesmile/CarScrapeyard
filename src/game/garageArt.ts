@@ -2,7 +2,7 @@
 // showing the street, a pegboard with tools, hanging lamps, a concrete floor with hazard stripes and the two-post lift
 // the customer's car stands on, its cross beam lettered as the garage sign (P1.1e). Pure apart from the canvas context; layout helpers are unit-tested.
 
-import type { BuyerKind } from '../core/config';
+import type { BuyerKind, GarageFault } from '../core/config';
 
 export interface GarageLayout {
   /** Canvas size in px. */
@@ -38,6 +38,77 @@ export function liftBeam(L: GarageLayout): { y: number; h: number; sign: boolean
 
 /** How far the lift raises a customer's car while it is worked on, CSS px. */
 export const LIFT_RISE = 10;
+
+/**
+ * The bay thumbnail row under the HUD (P1.1f: slimmer than the yard's so short phones keep the door and the sign
+ * readable). CSS px; `y` is the row's centre below the HUD's bottom edge.
+ */
+export const BAY_ROW = { w: 96, h: 60, gap: 10, y: 40, alpha: 0.78 } as const;
+/** Lowest point of the bay row below the HUD, plus a small gap: the lift's sign hangs below it (CSS px). */
+export const BAY_ROW_BOTTOM = BAY_ROW.y + BAY_ROW.h / 2 + 4;
+/** Top of the area the car on the lift is laid out in, below the HUD (CSS px). */
+export const GARAGE_AREA_TOP = BAY_ROW_BOTTOM + 10;
+
+/** What the customer says about their car when they step out (P1.1f). Short, so one line fits a phone. */
+export const CUSTOMER_LINES: Record<GarageFault, readonly string[]> = {
+  tyre: ['My tyre went flat!', 'Ran over a nail!', 'It pulls to one side!'],
+  battery: ["It won't start!", 'Battery died again!', 'Needed a jump start!'],
+  brakes: ['The brakes squeal!', 'It takes ages to stop!', 'Grinding noise!'],
+  exhaust: ["It's sooo loud now!", 'Something rattles!', 'Smells like fumes!'],
+  engine: ['Smoke from the bonnet!', 'The engine coughs!', 'Warning light on!'],
+};
+
+/** The customer's line for a job: stable for a job (by id) so a re-shown car repeats the same words. */
+export function customerLine(job: { id: number; fault: GarageFault }): string {
+  const lines = CUSTOMER_LINES[job.fault];
+  return lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!;
+}
+
+/** How long the customer's speech bubble stays up, seconds (the fault bubble waits for it). */
+export const SPEECH_TIME = 1.8;
+
+/** A fresh tyre on a shiny rim (the flat-tyre swap), centred in a square of side 2r. */
+export function paintTyre(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.save();
+  ctx.translate(r, r);
+  ctx.fillStyle = '#1f2228';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.98, 0, Math.PI * 2);
+  ctx.fill();
+  // Tread blocks around the edge.
+  ctx.strokeStyle = '#34383f';
+  ctx.lineWidth = r * 0.08;
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r * 0.8, Math.sin(a) * r * 0.8);
+    ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95);
+    ctx.stroke();
+  }
+  const rim = ctx.createRadialGradient(-r * 0.15, -r * 0.15, r * 0.05, 0, 0, r * 0.6);
+  rim.addColorStop(0, '#ffffff');
+  rim.addColorStop(1, '#a9b2bd');
+  ctx.fillStyle = rim;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.58, 0, Math.PI * 2);
+  ctx.fill();
+  // Five spokes so the roll-in reads as turning.
+  ctx.strokeStyle = '#6b7480';
+  ctx.lineWidth = r * 0.1;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r * 0.12, Math.sin(a) * r * 0.12);
+    ctx.lineTo(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#e8762b';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
 
 /** Rust on customer cars: they are daily drivers with a fault, not scrapyard wrecks. */
 export const CUSTOMER_RUST = { patches: 5, dents: 1 } as const;

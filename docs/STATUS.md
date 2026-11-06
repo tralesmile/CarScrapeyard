@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 12; next run is run 13). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 13; next run is run 14). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -44,7 +44,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 
 ## Phase 1 — Web MVP
 
-- [ ] P1.1 Business framework: multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage.
+- [x] P1.1 Business framework (done in run 13; a garage mini-game waits on owner feedback, see P1.1f): multiple businesses per city with a city map (owner asked for a map after the playtest); Business 2 Repair Garage.
   - [x] P1.1a Core (run 10): `state.businesses` (active + opened), `src/core/businesses.ts` (status locked/soon/forSale/open,
         unlock progress, open, switch), save v2 with the first real migration (v1 -> v2) and repair of impossible blocks.
         Garage goal: $200K lifetime earnings (active bot 12m12s avg over 12 seeds), open cost $150K (tune in P1.1c).
@@ -61,11 +61,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         cross beam as the "REPAIR GARAGE" sign (clear of the HUD, bay row and raised car; unit-tested on 4 phone sizes),
         the lift raises the car 10 px while it is worked on, fault animation (flat tyre tilt + bulge, battery sparks,
         brake glow), light rust on customer cars.
-  - [ ] P1.1f Garage feel (found in run 12): the customer could say what's wrong in a speech bubble when they arrive;
-        the bay thumbnails sit over the door and pegboard on short phones (consider a slimmer row); a tyre/wheel change
-        swap animation for flat tyres; owner feedback on a garage mini-game (NEEDS_FROM_YOU) may replace tapping.
-  - [ ] P1.1d Map polish: the map's visual tiers per business (plan: three tiers per station visible on the map), a
-        drive-between transition, the barn note "Restore it when you open the Garage" (plan story beat) if it still fits.
+  - [x] P1.1f Garage feel (run 13): the customer says what's wrong in a speech bubble as they step out (3 lines per
+        fault, once per job), then the fault bubble pops up; a flat-tyre fix rolls a new tyre onto the front wheel;
+        slimmer, more solid bay row (96x60) so the door and sign read on short phones; yard-only announcements (LEGENDARY!
+        banner, buyer bell) stay quiet in the garage. Still open: owner feedback on a garage mini-game (NEEDS_FROM_YOU)
+        may replace tapping; that becomes its own task if the owner wants it.
+  - [x] P1.1d Map polish (run 13): three tiers per business (stars on the plot and the list, more art per tier; yard by
+        lot slots 3/4, garage by bays 2/3), a road-wipe transition on "Go". The barn note story beat was dropped: the
+        barn restores in the yard already, so "Restore it when you open the Garage" no longer fits.
 - [x] P1.1x Art follow-ups (run 10): muscle car redrawn boxy with a hood scoop (overlap with sports 0.83 -> 0.69), hatch
       lower and rounder with a steep hatch (overlap with SUV 0.86 -> 0.64); every family pair now under 0.82. The yard lays
       out again (backdrop, slots, bay) when the HUD changes height, e.g. when the customer strip appears.

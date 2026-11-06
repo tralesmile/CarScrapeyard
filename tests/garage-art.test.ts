@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { SHAPES } from '../src/game/carArt';
-import { LIFT_RISE, customerKind, doorRect, liftBeam, liftPosts, pegboardRect, type GarageLayout } from '../src/game/garageArt';
+import { ECON } from '../src/core/config';
+import { announceHere } from '../src/ui/announce';
+import {
+  BAY_ROW,
+  BAY_ROW_BOTTOM,
+  CUSTOMER_LINES,
+  GARAGE_AREA_TOP,
+  LIFT_RISE,
+  customerKind,
+  customerLine,
+  doorRect,
+  liftBeam,
+  liftPosts,
+  paintTyre,
+  pegboardRect,
+  type GarageLayout,
+} from '../src/game/garageArt';
 
 const ROOF = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.map((p) => p[1]))));
 
@@ -8,7 +24,7 @@ const ROOF = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.m
 function layout(w: number, h: number, s: number, hudTop = 62): GarageLayout {
   const cssW = w / s;
   const cssH = h / s;
-  const top = hudTop + 96;
+  const top = hudTop + GARAGE_AREA_TOP;
   const bottom = cssH - 264;
   const carWc = Math.min(cssW * 0.8, 400);
   const cy = top + (bottom - top) * 0.55;
@@ -19,7 +35,7 @@ function layout(w: number, h: number, s: number, hudTop = 62): GarageLayout {
     s,
     lift: { cx: w / 2, groundY: s * (cy + carWc * 0.13), carW: carWc * s },
     sign: 'REPAIR GARAGE',
-    reservedTop: s * (hudTop + 86),
+    reservedTop: s * (hudTop + BAY_ROW_BOTTOM),
     roofY: s * (cy - carWc / 4 + ROOF * (carWc / 2) - LIFT_RISE),
   };
 }
@@ -79,6 +95,48 @@ describe('garage backdrop layout', () => {
     expect(kinds.size).toBe(6);
     expect(customerKind(7)).toBe(customerKind(7));
     expect(customerKind(-1)).toBeTruthy();
+  });
+});
+
+describe('garage feel (P1.1f)', () => {
+  it('the bay row is slimmer than the yard row and the car area starts below it', () => {
+    expect(BAY_ROW.h).toBeLessThan(76);
+    expect(BAY_ROW_BOTTOM).toBeGreaterThanOrEqual(BAY_ROW.y + BAY_ROW.h / 2);
+    expect(GARAGE_AREA_TOP).toBeGreaterThan(BAY_ROW_BOTTOM);
+    // Three bays fit a 320 px phone.
+    expect(3 * BAY_ROW.w + 2 * BAY_ROW.gap).toBeLessThanOrEqual(320 - 8);
+  });
+
+  it('every fault has short customer lines and a job keeps its line', () => {
+    for (const f of Object.keys(ECON.garage.faults) as (keyof typeof CUSTOMER_LINES)[]) {
+      const lines = CUSTOMER_LINES[f];
+      expect(lines.length).toBeGreaterThan(0);
+      for (const l of lines) expect(l.length).toBeLessThanOrEqual(24);
+      const seen = new Set(Array.from({ length: 9 }, (_, id) => customerLine({ id, fault: f })));
+      expect(seen.size).toBe(lines.length);
+      expect(customerLine({ id: 5, fault: f })).toBe(customerLine({ id: 5, fault: f }));
+      expect(lines).toContain(customerLine({ id: -4, fault: f }));
+    }
+  });
+
+  it('paints a tyre without throwing', () => {
+    const calls: string[] = [];
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (_t, key) => (key === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => calls.push(String(key))),
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    paintTyre(ctx, 32);
+    expect(calls.filter((c) => c === 'arc').length).toBeGreaterThanOrEqual(3);
+    expect(calls[0]).toBe('save');
+    expect(calls[calls.length - 1]).toBe('restore');
+  });
+
+  it('yard-only announcements stay quiet while the garage is on screen', () => {
+    expect(announceHere('legendary', 'scrapyard')).toBe(true);
+    expect(announceHere('legendary', 'garage')).toBe(false);
+    expect(announceHere('buyerArrived', 'garage')).toBe(false);
+    expect(announceHere('familyUnlocked', 'garage')).toBe(true);
+    expect(announceHere('contractDone', 'garage')).toBe(true);
   });
 });
 

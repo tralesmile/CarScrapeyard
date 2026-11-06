@@ -201,3 +201,26 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   transition flags (`carLeaving`, `arriving`) and the focused id, then hold the state (more work left) for the capture.
 - **Kill the dev server's process group, not just npx.** `server.kill()` stopped `npx` and left `vite preview` running
   on the e2e port for the rest of the session; the e2e now spawns it `detached` and kills `-pid`.
+
+## 2026-11-06 (run 13)
+
+- **Look at every screenshot, even of a feature you didn't touch.** The garage screenshot showed the yard's
+  "LEGENDARY!" banner covering the workshop: an event from the business in the background. Events from a business
+  that is not on screen need a rule (`src/ui/announce.ts`) instead of always announcing.
+- **Hold short-lived states for screenshots.** The speech bubble lasts 1.8 s; the assertion saw it, but the 3x
+  screenshot came after it ended. Freeze the state for the capture (`speechUntil = clock + 99`, or
+  `tweens.pauseAll()` for the tyre roll), screenshot, then release it.
+- **Render SVG art in isolation before wiring it in.** A throwaway vitest that writes the map SVG for tiers 1-3 into
+  an HTML page, plus one Playwright screenshot, showed in a minute that the tier cars hid behind the plot labels.
+  That loop is much faster than a full e2e run per tweak.
+- **Share layout constants between the scene and its tests.** The garage test copied 86/96 px from the scene; making
+  the bay row slimmer would have silently broken that mirror. `BAY_ROW`, `BAY_ROW_BOTTOM` and `GARAGE_AREA_TOP` now
+  live in `garageArt.ts` and both use them.
+
+- **Gate a UI element on a time window, not on another element's visibility.** "Hide the fault bubble while the speech
+  bubble is visible" left a 380 ms gap before the speech appeared (the fault bubble flashed, then hid), and the e2e
+  caught both bubbles up together on a slower run. One `speechUntil` deadline, set when the customer arrives and
+  reset when the car changes, covers the whole sequence.
+- **Never find a short animation with a fixed wait.** Adding the 0.46 s road wipe in front of the garage shifted the
+  timeline, and the e2e's "wait 1300 ms, then look for the speech bubble" missed the 1.8 s window on a slower run.
+  The predicate that finds the state now also holds it (`speechUntil = clock + 99`, polling every frame).

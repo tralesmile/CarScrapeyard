@@ -80,6 +80,11 @@ to automate it, open new car businesses, then sell your empire and start again i
   earned in total, then $100K to open), Used Car Lot ($5M goal) and Paint & Tuning ($50M goal). Locked plots are grey
   with a padlock whose ring shows progress; the list shows open businesses and the next goal. "Go" puts that business
   on screen; the others keep running in the background.
+  Map tiers (P1.1d): each open business has three tiers, shown as stars on its plot and in the list with what the next
+  one needs ("Next ★ with 3 repair bays"). Scrapyard: tier 2 at 3 lot slots (second car, crusher block), tier 3 at 4
+  (site office, gold flag on the crane). Garage: tier 2 at 2 bays (a door rolled up with a car inside), tier 3 at 3
+  bays (both doors, lit roof strip). Thresholds in `ECON.businesses.tiers`. "Go" drives there behind a road wipe with
+  the destination's sign (skipped with reduce motion).
 - **Repair Garage** (business 2): a teal workshop with a roller door, pegboard, tool chest and a two-post lift.
   Customers drive in with one fault (flat tyre, dead battery, worn brakes, rusty exhaust, engine trouble) shown in a
   bubble with a progress bar; tap the car to fix it, the customer pays and drives off. Fixes use the scrapyard's spare
@@ -91,6 +96,10 @@ to automate it, open new car businesses, then sell your empire and start again i
   out to wait on the right; the Foreman (navy overalls, red cap, clipboard) stands on the left and bobs while he works.
   Faults show on the car: a flat tyre tilts it and bulges, a dead battery sparks blue at the front, hot brakes glow
   through the rear wheel, engine and exhaust smoke. Customer cars carry light rust (5 patches, 1 dent), not wreck rust.
+  Garage feel (P1.1f): as the customer steps out they say what's wrong in a speech bubble (three short lines per
+  fault, stable per job, said once per job; 1.8 s), then the fault bubble pops up. A flat-tyre fix rolls a new tyre in
+  from the right onto the front wheel, and it leaves with the car. The bay row is slimmer (96x60 CSS px, more opaque)
+  so the door and the sign read on short phones; the car area starts 12 px higher.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
@@ -98,6 +107,8 @@ to automate it, open new car businesses, then sell your empire and start again i
 - Only the business on screen runs a Phaser scene; the core tick inside it advances every business, so the yard keeps
   selling while the garage is shown (and the yard redraws from the state when you come back).
 - The garage has no buying or selling (plan: "fix customer cars for fees"); it ties into the yard through spare parts.
+- Yard-only announcements (the LEGENDARY! banner for a new yard car, the buyer's bell) stay quiet while another
+  business is on screen; the car and the buyer are still in the yard when the player goes back (`src/ui/announce.ts`).
 
 - Businesses unlock by lifetime earnings (one number the player already watches), then cost cash to open, so the
   goal is visible long before it can be bought. The map lists only the open businesses and the next goal; later ones

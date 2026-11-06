@@ -17,6 +17,7 @@ import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
+import { announceHere } from './ui/announce';
 
 const platform = createWebPlatform();
 const saves = new SaveManager(platform.storage);
@@ -67,7 +68,7 @@ function onEvents(events: GameEvent[]) {
       ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
       sfx.repaired();
     }
-    if (e.type === 'legendary') ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
+    if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
       ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
       sfx.repaired();
@@ -81,7 +82,7 @@ function onEvents(events: GameEvent[]) {
       ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
       sfx.repaired();
     }
-    if (e.type === 'buyerArrived') sfx.bell();
+    if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
     if (e.type.startsWith('garage')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
