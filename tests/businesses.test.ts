@@ -58,12 +58,14 @@ describe('businesses (city map)', () => {
 
   it('a business whose loop is not built yet shows "soon" and cannot be opened', () => {
     const s = newGame(T0, 1);
-    s.lifetimeEarnings = garage.unlockLifetime;
-    s.cash = garage.openCost * 2;
-    expect(garage.ready).toBe(false); // flips in P1.1c with the Repair Garage loop
-    expect(businessStatus(s, 'garage')).toBe('soon');
-    expect(openBusiness(s, 'garage')).toBe(false);
-    expect(s.cash).toBe(garage.openCost * 2);
+    const lot = ECON.businesses.list.carlot;
+    s.lifetimeEarnings = lot.unlockLifetime;
+    s.cash = lot.openCost * 2;
+    expect(lot.ready).toBe(false); // flips in P1.2 with the Used Car Lot loop
+    expect(garage.ready).toBe(true); // the Repair Garage loop arrived in P1.1c
+    expect(businessStatus(s, 'carlot')).toBe('soon');
+    expect(openBusiness(s, 'carlot')).toBe(false);
+    expect(s.cash).toBe(lot.openCost * 2);
   });
 
   it('opening costs cash, needs the unlock goal, and does not switch on its own', () =>

@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, GarageFault, GarageUpgradeKind, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -19,6 +19,33 @@ export interface Car {
   damage: number;
   /** Seconds the salesperson has spent on this car. */
   sellProgress: number;
+}
+
+/** A customer car in the Repair Garage (P1.1c). */
+export interface GarageJob {
+  id: number;
+  family: CarFamily;
+  model: string;
+  paint: number;
+  fault: GarageFault;
+  /** Work units left (the fault's `work` when it arrives, 0 = fixed). */
+  work: number;
+  /** Full fee, fixed when the car arrives. */
+  fee: number;
+}
+
+export interface Garage {
+  bays: number;
+  levels: Record<GarageUpgradeKind, number>;
+  foreman: boolean;
+  /** Cars in the bays, oldest first. */
+  jobs: GarageJob[];
+  arrivalTimer: number;
+  nextJobId: number;
+  focusedId: number | null;
+  jobsDone: number;
+  /** Cash the garage has earned in total (for the map and stats). */
+  earned: number;
 }
 
 export type ContractKind = 'sellAny' | 'sellFamily' | 'sellRare' | 'crush';
@@ -91,6 +118,8 @@ export interface GameState {
     active: BusinessId;
     opened: Record<BusinessId, boolean>;
   };
+  /** Repair Garage (business 2). Ticks only once opened. */
+  garage: Garage;
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -151,6 +180,21 @@ export function newBusinesses(): GameState['businesses'] {
   return { active: 'scrapyard', opened };
 }
 
+export function newGarage(): Garage {
+  return {
+    bays: ECON.garage.bays.start,
+    levels: { tools: 1, rep: 1 },
+    foreman: false,
+    jobs: [],
+    // The first customer drives in soon after opening.
+    arrivalTimer: ECON.garage.arrivalInterval - 0.5,
+    nextJobId: 1,
+    focusedId: null,
+    jobsDone: 0,
+    earned: 0,
+  };
+}
+
 export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   return {
     version: SAVE_VERSION,
@@ -170,6 +214,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     cars: [],
     barn: { status: 'locked', stage: 0, timeLeft: 0, family: 'muscle', model: '', paint: 0, value: 0, restored: 0 },
     businesses: newBusinesses(),
+    garage: newGarage(),
     buyer: null,
     buyerTimer: 0,
     focusedId: null,

@@ -169,7 +169,7 @@ describe('Scrapper while away', () => {
 
   it('gives nothing when the clock goes backwards', () => {
     const s = crewYard();
-    expect(applyElapsed(s, T0 - 3600_000)).toEqual({ seconds: 0, earned: 0, parts: 0 });
+    expect(applyElapsed(s, T0 - 3600_000)).toEqual({ seconds: 0, earned: 0, parts: 0, garage: 0 });
     expect(s.parts).toBe(0);
   });
 });

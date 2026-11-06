@@ -27,9 +27,23 @@ import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
+import {
+  buyGarageBay,
+  buyGarageUpgrade,
+  findJob,
+  foremanRate,
+  garageBayCost,
+  garageUpgradeCost,
+  garageWorkPerTap,
+  hireForeman,
+  repMultiplier,
+} from '../core/garage';
+import type { GarageUpgradeKind } from '../core/config';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
-type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs';
+/** Yard tabs, then the Repair Garage's own tabs (shown while the garage is on screen). */
+type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew';
+const YARD_TABS: Tab[] = ['upgrades', 'crew', 'yard', 'jobs'];
 type BuyMode = 1 | 10 | 'max';
 
 export interface UiDeps {
@@ -41,6 +55,8 @@ export interface UiDeps {
   barnReveal: (shown: () => void) => () => void;
   /** Delete every save and start over (after the player confirmed). */
   resetProgress: () => void;
+  /** The business on screen changed (city map "Go"): swap the Phaser scene. */
+  onSwitchBusiness: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -83,6 +99,8 @@ export class Ui {
   private banner!: HTMLElement;
   private cards: CardView[] = [];
   private tab: Tab = 'upgrades';
+  /** Business the panel was last built for; the tab set swaps when it changes. */
+  private shownBiz: string = 'scrapyard';
   private mode: BuyMode = 1;
   private lastCash = -1;
   private modalOpen = false;
@@ -181,6 +199,8 @@ export class Ui {
       ['crew', 'Crew'],
       ['yard', 'Yard'],
       ['jobs', 'Jobs'],
+      ['gupgrades', 'Garage'],
+      ['gcrew', 'Crew'],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -488,6 +508,82 @@ export class Ui {
     return { root, lvl: title, desc, btn, update: () => {} };
   }
 
+  // ---- Repair Garage cards -------------------------------------------------
+
+  private simpleCard(cls: string, name: string, blurb: string, onBuy: (s: GameState) => boolean, okSound: () => void) {
+    const root = el('div', `card ${cls}`);
+    const title = el('div', 'title display');
+    const lvl = el('span', 'lvl');
+    title.append(document.createTextNode(name), lvl);
+    const desc = el('div', 'desc', blurb);
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, desc, btn);
+    btn.onclick = () => {
+      if (onBuy(this.deps.state())) {
+        okSound();
+        this.deps.onChange();
+        this.render();
+      } else sfx.denied();
+    };
+    return { root, lvl, desc, btn };
+  }
+
+  private garageUpgradeCard(kind: GarageUpgradeKind): CardView {
+    const info = ECON.garage.upgrades[kind];
+    const v = this.simpleCard(`garage-${kind}`, info.name, '', (s) => buyGarageUpgrade(s, kind), () => sfx.buy());
+    const update = (s: GameState) => {
+      const level = s.garage.levels[kind];
+      setText(v.lvl, `Lv ${level}`);
+      if (kind === 'tools') {
+        const ms = nextMilestone(level);
+        setText(v.desc, `${garageWorkPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
+      } else setText(v.desc, `Fees x${repMultiplier(level).toFixed(2)} for new customers`);
+      const cost = garageUpgradeCost(kind, level);
+      setText(v.btn, formatCash(cost));
+      v.btn.disabled = s.cash < cost;
+      v.root.classList.toggle('ready', s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private garageBayCard(): CardView {
+    const v = this.simpleCard('garage-bay', 'Repair Bay', 'Room for one more customer car', (s) => buyGarageBay(s), () => sfx.buy());
+    const update = (s: GameState) => {
+      const cost = garageBayCost(s.garage.bays);
+      setText(v.lvl, `${s.garage.bays} / ${ECON.garage.bays.start + ECON.garage.bays.costs.length}`);
+      v.btn.classList.toggle('done', cost === null);
+      setText(v.btn, cost === null ? 'Full' : formatCash(cost));
+      v.btn.disabled = cost === null || s.cash < cost;
+      v.root.classList.toggle('ready', cost !== null && s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private foremanCard(): CardView {
+    const f = ECON.garage.foreman;
+    const v = this.simpleCard('garage-foreman', f.name, 'Fixes customer cars for you, even offline', (s) => hireForeman(s), () => sfx.fanfare());
+    const update = (s: GameState) => {
+      const hired = s.garage.foreman;
+      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.desc, hired ? `Fixing ${foremanRate(s).toFixed(1)} work/s, even offline` : 'Fixes customer cars for you, even offline');
+      v.btn.classList.toggle('done', hired);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(f.cost)}`);
+      v.btn.disabled = hired || s.cash < f.cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= f.cost);
+    };
+    return { ...v, update };
+  }
+
+  /** Swap the panel's tab set when the business on screen changed. */
+  private syncBusinessTabs(s: GameState) {
+    if (s.businesses.active === this.shownBiz) return;
+    this.shownBiz = s.businesses.active;
+    const inGarage = this.shownBiz === 'garage';
+    this.root.classList.toggle('in-garage', inGarage);
+    this.tab = inGarage ? 'gupgrades' : 'upgrades';
+    this.buildCards();
+  }
+
   private buildCards() {
     this.cardsBox.innerHTML = '';
     if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality', 'press'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
@@ -499,6 +595,8 @@ export class Ui {
       const rest = [this.slotCard(), this.crusherCard()];
       this.cards = barnFirst ? [barn, ...rest, this.teaserCard()] : [...rest, barn, this.teaserCard()];
     }
+    else if (this.tab === 'gupgrades') this.cards = [this.garageUpgradeCard('tools'), this.garageUpgradeCard('rep'), this.garageBayCard()];
+    else if (this.tab === 'gcrew') this.cards = [this.foremanCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -688,7 +786,10 @@ export class Ui {
     setText(this.soundBtn, s.settings.sound ? '🔊' : '🔇');
     this.root.classList.toggle('reduce-motion', s.settings.reduceMotion);
 
-    const car = findCar(s, s.focusedId);
+    this.syncBusinessTabs(s);
+    const inGarage = s.businesses.active === 'garage';
+    // In the garage the yard's car controls stay hidden (the yard keeps running behind it).
+    const car = inGarage ? undefined : findCar(s, s.focusedId);
     const ready = car && carStage(car) === 'ready';
     this.sell.classList.toggle('hidden', !ready || this.haggling !== null);
     if (ready && car) {
@@ -699,7 +800,8 @@ export class Ui {
       if (this.sell.innerHTML !== html) this.sell.innerHTML = html;
       this.sell.classList.toggle('match', !!who);
     }
-    this.renderBuyer(s, car);
+    if (inGarage) this.buyerEl.classList.add('hidden');
+    else this.renderBuyer(s, car);
 
     const crusherOn = crusherUnlocked(s);
     this.partsEl.classList.toggle('hidden', !crusherOn);
@@ -721,7 +823,10 @@ export class Ui {
       this.deps.onChange();
     }
     const jobsOn = contractsUnlocked(s);
-    this.tabButtons.get('jobs')!.style.display = jobsOn ? '' : 'none';
+    for (const [t, b] of this.tabButtons) {
+      const yardTab = YARD_TABS.includes(t);
+      b.style.display = (inGarage ? !yardTab : yardTab && (t !== 'jobs' || jobsOn)) ? '' : 'none';
+    }
     if (jobsOn && !s.tutorial.contractsSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.contractsSeen = true;
       setTimeout(() => this.showBanner('CONTRACTS!', 'New orders on the Jobs board'), 2700);
@@ -842,6 +947,7 @@ export class Ui {
               } else if (switchBusiness(cur, r.id)) {
                 sfx.tap();
                 close();
+                this.deps.onSwitchBusiness();
               }
               this.deps.onChange();
               paint();
@@ -858,7 +964,7 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const done = el('button', 'buy', 'Back to the yard') as HTMLButtonElement;
+    const done = el('button', 'buy', s.businesses.active === 'garage' ? 'Back to the garage' : 'Back to the yard') as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
       close();
@@ -882,6 +988,7 @@ export class Ui {
       return (c !== null && s.cash >= c) || this.barnHasAction(s);
     }
     if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
+    if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= ECON.garage.foreman.cost;
     return false;
   }
 
@@ -893,8 +1000,12 @@ export class Ui {
     let text = '';
     const car = findCar(s, s.focusedId);
     const learning = s.carsSold < 3;
+    const job = findJob(s, s.garage.focusedId);
     if (this.modalOpen || this.haggling !== null) text = '';
-    else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
+    else if (s.businesses.active === 'garage') {
+      if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
+      else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
+    } else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
     else if (car && learning) {
       const stage = carStage(car);
       text = stage === 'dirty' ? '👆 Swipe to wash it!' : stage === 'damaged' ? '👆 Tap to fix it!' : '';
@@ -1102,11 +1213,12 @@ export class Ui {
     done.focus();
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void) {
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
+    const shop = garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '';
     this.modal({
       title: 'Welcome back!',
-      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}`,
+      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}${shop}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,

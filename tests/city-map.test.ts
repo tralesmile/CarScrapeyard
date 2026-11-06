@@ -59,7 +59,7 @@ describe('city map', () => {
     expect(Number(dash[1]) / Number(dash[2])).toBeCloseTo(0.5, 2);
   });
 
-  it('rows: scrapyard is "You are here", the garage shows its goal, then "soon" once earned', () => {
+  it('rows: scrapyard is "You are here", the garage shows its goal, then its price; the car lot shows "soon"', () => {
     const s = newGame(T0, 1);
     let rows = mapRows(s);
     expect(rows.map((r) => r.id)).toEqual(['scrapyard', 'garage', 'carlot', 'paint']);
@@ -68,8 +68,14 @@ describe('city map', () => {
     expect(rows[1]!.line).toBe('Earn $200K in total to unlock');
     s.lifetimeEarnings = ECON.businesses.list.garage.unlockLifetime;
     rows = mapRows(s);
-    expect(rows[1]).toMatchObject({ status: 'soon', action: null });
-    const svg = cityMapSvg(s);
-    expect(svg.slice(svg.indexOf('data-biz="garage"'), svg.indexOf('data-biz="carlot"'))).toContain('SOON');
+    expect(rows[1]).toMatchObject({ status: 'forSale', action: 'Open $100K', line: 'Ready to open' });
+    let svg = cityMapSvg(s);
+    expect(svg.slice(svg.indexOf('data-biz="garage"'), svg.indexOf('data-biz="carlot"'))).toContain('FOR SALE');
+    // A business whose loop is not built yet (the Used Car Lot) shows "soon" once its goal is reached.
+    s.lifetimeEarnings = ECON.businesses.list.carlot.unlockLifetime;
+    rows = mapRows(s);
+    expect(rows[2]).toMatchObject({ status: 'soon', action: null });
+    svg = cityMapSvg(s);
+    expect(svg.slice(svg.indexOf('data-biz="carlot"'), svg.indexOf('data-biz="paint"'))).toContain('SOON');
   });
 });

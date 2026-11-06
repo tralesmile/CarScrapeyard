@@ -77,12 +77,22 @@ to automate it, open new car businesses, then sell your empire and start again i
   the OS asks for it), number format (short 1.5M or scientific 1.5e6), reset progress (two-step confirm),
   credits with the version.
 - **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
-  earned in total, then $150K to open; its loop arrives in P1.1c), Used Car Lot ($5M goal) and Paint & Tuning ($50M
-  goal). Locked plots are grey with a padlock whose ring shows progress; the list shows open businesses and the next
-  goal. The scrapyard keeps running while another business is on screen.
+  earned in total, then $100K to open), Used Car Lot ($5M goal) and Paint & Tuning ($50M goal). Locked plots are grey
+  with a padlock whose ring shows progress; the list shows open businesses and the next goal. "Go" puts that business
+  on screen; the others keep running in the background.
+- **Repair Garage** (business 2): a teal workshop with a roller door, pegboard, tool chest and a two-post lift.
+  Customers drive in with one fault (flat tyre, dead battery, worn brakes, rusty exhaust, engine trouble) shown in a
+  bubble with a progress bar; tap the car to fix it, the customer pays and drives off. Fixes use the scrapyard's spare
+  parts ("Yard parts −2 ⚙"), otherwise a parts bill comes off the fee, so the two businesses feed each other. Garage
+  tab: Tool Wall (repair speed), Reputation (fees), Repair Bay (up to 3 cars, shown as thumbnails above the lift);
+  Crew tab: the Foreman fixes cars on his own, also while you're away (shown in the welcome-back popup).
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
+
+- Only the business on screen runs a Phaser scene; the core tick inside it advances every business, so the yard keeps
+  selling while the garage is shown (and the yard redraws from the state when you come back).
+- The garage has no buying or selling (plan: "fix customer cars for fees"); it ties into the yard through spare parts.
 
 - Businesses unlock by lifetime earnings (one number the player already watches), then cost cash to open, so the
   goal is visible long before it can be bought. The map lists only the open businesses and the next goal; later ones

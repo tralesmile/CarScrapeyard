@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.11.0 - 2026-11-06 (run 11)
+
+- **The Repair Garage opens (P1.1c):** once you have earned $200K in total, the city map offers the garage for $100K.
+  "Go" drives you there: a teal workshop with a roller door, a pegboard of tools and a two-post lift. Customers drive
+  in with one fault (flat tyre, dead battery, worn brakes, rusty exhaust or engine trouble) shown in a bubble with a
+  progress bar; tap the car to fix it and the customer pays and drives off. Engine and exhaust jobs smoke.
+- **Yard parts help the garage:** a fix uses the scrapyard's spare parts when there are any; without them the garage
+  buys parts and a 30% parts bill comes off the fee.
+- **Garage upgrades and crew:** Tool Wall (faster repairs, x2 at the usual milestones), Reputation (+12% fees per
+  level), Repair Bays 2 and 3 (more customers waiting, shown as thumbnails above the lift) and the Foreman, who fixes
+  cars on his own, also while you're away (the welcome-back popup shows what he earned).
+- The scrapyard keeps running while you are in the garage; the map takes you back ("Back to the garage" closes it).
+  The game remembers which business you were in.
+- 22 new unit tests (171 total): garage rules, fees, parts, upgrades, Foreman, idle/offline income vs the real
+  simulation, save repair, backdrop layout. The balance sim plays the garage (opens at 14m24s, 35% of earnings at
+  40 min). E2e: open and enter the garage, tap a car to fix it (with and without yard parts), the yard selling in the
+  background, upgrades, a second bay, the Foreman, reload into the garage, back to the yard, offline garage earnings.
+
 ## 0.10.0 - 2026-11-06 (run 10)
 
 - **City map (first slice of P1.1):** after 30 sales a 🗺 button appears in the top bar (with a red dot and a

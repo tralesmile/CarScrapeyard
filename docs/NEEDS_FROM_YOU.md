@@ -30,6 +30,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       and the Repair Garage's goal ($200K earned in total); the garage itself opens in the next update. Is the map what
       you had in mind (a plan view of the town with buildings), or would you rather have a side-scrolling street?
       Muscle cars (hood scoop) and hatchbacks (rounder) were redrawn to look less alike.
+      New since run 11: **the Repair Garage is open for business.** Earn $200K in total, open it on the map for $100K and
+      tap "Go": customers bring cars with a fault (flat tyre, battery, brakes, exhaust, engine); tap the car to fix it
+      and they pay. Spare parts from the scrapyard save you the parts bill. Upgrades: Tool Wall, Reputation, two more
+      bays, and a Foreman who works while you're away. Is tapping fun here, or should the garage have its own
+      mini-game (e.g. hold to tighten, pick the right tool)? Is $100K and ~14 minutes the right moment?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

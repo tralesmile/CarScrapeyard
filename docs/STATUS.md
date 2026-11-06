@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 10; next run is run 11). Runs now start every 3 hours.
+Last updated: 2026-11-06 (run 11; next run is run 12). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -51,10 +51,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.1b City map (run 10): 🗺 button after 30 sales (red dot until first visit, "CITY MAP!" banner), Rust Valley
         drawn as inline SVG (scrapyard with "you are here" pin, Repair Garage with a padlock progress ring, Used Car Lot and
         Paint & Tuning greyed out), a list with the open businesses and the next goal, live progress while open.
-  - [ ] P1.1c Repair Garage loop: customer cars arrive with a fault, you fix them for a fee (no buying/selling), garage
-        upgrades + a garage manager, its own scene/backdrop. Then set `ready: true` for the garage, make "Go" switch the
-        Phaser scene (scrapyard keeps ticking in the background, already true in core), tune the open cost with
-        `npm run sim` (add the garage to the bots), and add it to the e2e. Scrapyard parts should cut garage repair costs (plan).
+  - [x] P1.1c Repair Garage loop (run 11): `src/core/garage.ts` (customers with one of five faults, tap or Foreman
+        work, fee on arrival, yard parts used or a 30% parts bill, Tool Wall / Reputation / bays 2-3 / Foreman, idle and
+        offline income, save repair), `GarageScene` with a Canvas 2D workshop (roller door, pegboard, lift), fault bubble
+        with progress, bay thumbnails, drive in/out, coins; DOM panel swaps to Garage/Crew tabs; map "Go" swaps scenes
+        (only the shown scene runs; its tick advances every business). Open cost tuned to $100K (opens 14m24s, 35% of
+        earnings at 40 min). `ready: true`.
+  - [ ] P1.1e Garage art follow-ups: draw the waiting customer and the Foreman as characters in the garage (reuse
+        `person()` from buyerArt), a garage sign that does not clash with the HUD or bay row, a lift that rises a little
+        while a car is worked on, and fault-specific animation (tyre squashed flat, battery sparks at the front), and lighter rust on customer cars (they are not wrecks).
   - [ ] P1.1d Map polish: the map's visual tiers per business (plan: three tiers per station visible on the map), a
         drive-between transition, the barn note "Restore it when you open the Garage" (plan story beat) if it still fits.
 - [x] P1.1x Art follow-ups (run 10): muscle car redrawn boxy with a hood scoop (overlap with sports 0.83 -> 0.69), hatch

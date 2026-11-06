@@ -16,4 +16,6 @@ export interface Bridge {
   onInput(): void;
   /** The covered car at the back of the yard was tapped. */
   onBarnTap(): void;
+  /** The yard scene finished creating (shared textures exist): show the business that should be on screen. */
+  onYardReady(): void;
 }

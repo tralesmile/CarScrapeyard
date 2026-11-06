@@ -7,6 +7,8 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
 /** Businesses on the city map, in unlock order (P1.1). */
 export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
+export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
+export type GarageUpgradeKind = 'tools' | 'rep';
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
 
 export const ECON = {
@@ -195,10 +197,49 @@ export const ECON = {
     mapUnlockCarsSold: 30,
     list: {
       scrapyard: { name: 'Scrapyard', icon: '🚗', unlockLifetime: 0, openCost: 0, ready: true },
-      garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 150_000, ready: false },
+      garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 100_000, ready: true },
       carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: false },
       paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
     } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
+  },
+
+  /**
+   * Repair Garage (business 2, P1.1c): customers bring cars with one fault each; tap the car (or let the Foreman work)
+   * until it is fixed, and the customer pays the fee and drives off. No buying or selling. Fixing uses spare parts from
+   * the scrapyard when there are any; without them the garage buys parts and a parts bill comes off the fee.
+   */
+  garage: {
+    /** Seconds until the next customer drives in while a bay is free. */
+    arrivalInterval: 3,
+    bays: {
+      start: 1,
+      /** Cost of bay 2 and 3. */
+      costs: [60_000, 600_000] as const,
+    },
+    /** Fee = baseFee x fault feeMult x (family base value / feeFamilyRef) x Reputation multiplier. */
+    baseFee: 2_000,
+    feeFamilyRef: 600,
+    /** Fraction of the fee paid for bought parts when the scrapyard has none to give. */
+    partsBill: 0.3,
+    /** Work removed per tap at Tool Wall level 1 (a fault needs `work` units). */
+    workPerTap: 1,
+    faults: {
+      tyre: { name: 'Flat tyre', icon: '🛞', work: 3, feeMult: 1, parts: 1, weight: 3 },
+      battery: { name: 'Dead battery', icon: '🔋', work: 4, feeMult: 1.4, parts: 1, weight: 3 },
+      brakes: { name: 'Worn brakes', icon: '🛑', work: 5, feeMult: 1.6, parts: 2, weight: 2.5 },
+      exhaust: { name: 'Rusty exhaust', icon: '💨', work: 6, feeMult: 2, parts: 2, weight: 2 },
+      engine: { name: 'Engine trouble', icon: '🔥', work: 10, feeMult: 3.5, parts: 4, weight: 1 },
+    } satisfies Record<GarageFault, { name: string; icon: string; work: number; feeMult: number; parts: number; weight: number }>,
+    upgrades: {
+      /** Faster repairs (taps and the Foreman), doubled at the station milestones like the yard. */
+      tools: { name: 'Tool Wall', baseCost: 15_000, growth: 1.15 },
+      /** Higher fees. */
+      rep: { name: 'Reputation', baseCost: 40_000, growth: 1.3 },
+    } satisfies Record<GarageUpgradeKind, { name: string; baseCost: number; growth: number }>,
+    /** Each Reputation level multiplies fees by this. */
+    repFeeGrowth: 1.12,
+    /** The Foreman fixes cars on its own (work units per second at Tool Wall level 1), also offline. */
+    foreman: { name: 'Foreman', cost: 200_000, workPerSec: 0.8 },
   },
 
   barn: {

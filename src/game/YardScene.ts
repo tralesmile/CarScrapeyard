@@ -194,8 +194,23 @@ export class YardScene extends Phaser.Scene {
     this.input.on('pointerup', () => (this.lastPointer = null));
     this.input.on('pointerupoutside', () => (this.lastPointer = null));
 
-    this.scale.on('resize', () => this.layout());
+    this.scale.on('resize', () => {
+      if (this.sys.isActive()) this.layout();
+    });
+    // Back from the garage: cars may have been sold or crushed while the yard slept, so start fresh.
+    this.events.on(Phaser.Scenes.Events.WAKE, () => this.onWake());
     this.layout();
+    this.bridge.onYardReady();
+  }
+
+  private onWake() {
+    if (!this.carLeaving) this.hideBigCar();
+    this.layout();
+    const live = new Set(this.bridge.state.cars.map((c) => c.id));
+    for (const key of this.textures.getTextureKeys()) {
+      const m = /^(car|rust)-(\d+)$/.exec(key);
+      if (m && !live.has(Number(m[2]))) this.textures.remove(key);
+    }
   }
 
   /** Insets the last layout used ("top,bottom"), and seconds until the next check (P1.1x). */

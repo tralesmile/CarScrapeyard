@@ -164,3 +164,19 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   target; $200K gives 12m12s average and 13m49s worst over 12 seeds, now asserted in the many-seeds test.
 - **Ship a feature in slices with a `ready` flag.** The map and core business rules shipped before the garage loop;
   `ready: false` in config keeps the garage unbuyable ("SOON") so a half-built business can't sink the player's cash.
+
+## 2026-11-06 (run 11)
+
+- **A Phaser scene cannot be put to sleep from inside its own `create()`.** The SceneManager marks the scene RUNNING
+  after `create()` returns, which undid `sleep('yard')` called from the yard's ready hook, so a reload into the garage
+  ran both scenes. Defer scene switches out of `create()` (`setTimeout(…, 0)`); the e2e reload check caught it.
+- **Playwright's `isVisible` treats `opacity: 0` as visible.** The Sell and Crush buttons hide with opacity (so they
+  can fade), which made "yard controls are hidden" fail although nothing showed. Assert on the class that hides them
+  (`.hidden`), and print which element failed in the message so one run tells you why.
+- **When a new business competes for the same cash, rerun every old pacing check.** Saving up for the garage made the
+  bot skip the barn and broke "first classic sold < 15 min". Finishing a restoration already under way first is both
+  what a player does and what kept the old target; the change was in the bot, not the economy.
+- **Background jobs started with `&` die with the 2-minute tool timeout.** Start long e2e runs with
+  `setsid nohup bash -c '…; echo EXIT $? >> log' &` and poll the log in separate calls.
+- **Make new numbers pass the existing curve.** Reusing `stationPower` (milestones x2) for the Tool Wall and the yard's
+  offline cap/efficiency for the Foreman kept the garage consistent and testable with the same idle-vs-real check.

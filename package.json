@@ -1,7 +1,7 @@
 {
   "name": "junkyard-empire",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Junkyard to Supercar Empire - an idle car tycoon game for web, iOS and Android",
   "type": "module",
   "scripts": {
