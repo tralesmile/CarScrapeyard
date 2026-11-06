@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, GarageFault, GarageUpgradeKind, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -45,6 +45,54 @@ export interface Garage {
   focusedId: number | null;
   jobsDone: number;
   /** Cash the garage has earned in total (for the map and stats). */
+  earned: number;
+}
+
+/** A car on the Used Car Lot's auction board (P1.2a). Everything about it is shown before you buy. */
+export interface AuctionLot {
+  id: number;
+  family: CarFamily;
+  model: string;
+  paint: number;
+  condition: Condition;
+  /** Auction price, fixed when the lot appears. */
+  price: number;
+  /** Seconds left before someone else wins it. */
+  timeLeft: number;
+}
+
+/** A car the player owns on the forecourt: refurbished (work 0), then sold. */
+export interface LotCar {
+  id: number;
+  family: CarFamily;
+  model: string;
+  paint: number;
+  condition: Condition;
+  /** What it cost at the auction (for the profit shown on sale). */
+  paid: number;
+  /** Refurbish work units left (0 = ready to sell). */
+  work: number;
+}
+
+export interface CarLot {
+  spots: number;
+  levels: Record<CarLotUpgradeKind, number>;
+  crew: Record<CarLotCrewKind, boolean>;
+  /** The auction board; `null` is an empty slot waiting for `refill[i]` seconds. */
+  board: (AuctionLot | null)[];
+  refill: number[];
+  /** Owned cars, oldest first. */
+  cars: LotCar[];
+  /** Seconds a buyer has been on the way (runs while a refurbished car waits). */
+  buyerTimer: number;
+  nextId: number;
+  focusedId: number | null;
+  /** Car being haggled over: walk-up buyers leave it alone until the slider stops. */
+  holdId: number | null;
+  sold: number;
+  /** Profit the lot has made in total (sale price minus auction price). */
+  profit: number;
+  /** Cash the lot has taken in from sales in total. */
   earned: number;
 }
 
@@ -120,6 +168,8 @@ export interface GameState {
   };
   /** Repair Garage (business 2). Ticks only once opened. */
   garage: Garage;
+  /** Used Car Lot (business 3). Ticks only once opened. */
+  carlot: CarLot;
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -195,6 +245,26 @@ export function newGarage(): Garage {
   };
 }
 
+export function newCarLot(): CarLot {
+  const n = ECON.carlot.auctionLots;
+  return {
+    spots: ECON.carlot.spots.start,
+    levels: { valet: 1, showroom: 1 },
+    crew: { detailer: false, agent: false },
+    board: Array.from({ length: n }, () => null),
+    // The board fills one lot after another when the lot opens.
+    refill: Array.from({ length: n }, (_, i) => 0.3 + i * 0.4),
+    cars: [],
+    buyerTimer: 0,
+    nextId: 1,
+    focusedId: null,
+    holdId: null,
+    sold: 0,
+    profit: 0,
+    earned: 0,
+  };
+}
+
 export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   return {
     version: SAVE_VERSION,
@@ -215,6 +285,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     barn: { status: 'locked', stage: 0, timeLeft: 0, family: 'muscle', model: '', paint: 0, value: 0, restored: 0 },
     businesses: newBusinesses(),
     garage: newGarage(),
+    carlot: newCarLot(),
     buyer: null,
     buyerTimer: 0,
     focusedId: null,

@@ -159,7 +159,7 @@ function garageArt(p: { x: number; y: number; w: number; h: number }, lit: boole
   return o.join('');
 }
 
-function carLotArt(p: { x: number; y: number; w: number; h: number }, lit: boolean): string {
+function carLotArt(p: { x: number; y: number; w: number; h: number }, lit: boolean, tier = 0): string {
   const { x, y, w, h } = p;
   const o: string[] = [];
   o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${lit ? '#6a717d' : '#a5aab0'}"/>`);
@@ -171,13 +171,21 @@ function carLotArt(p: { x: number; y: number; w: number; h: number }, lit: boole
     const fy = y + 15 + Math.sin((i / 8) * Math.PI) * 9;
     o.push(`<path d="M${fx - 4} ${fy} l 8 0 l -4 8 z" fill="${flags[i % flags.length]}"/>`);
   }
-  // Rows of parked cars.
+  // Rows of parked cars: one row at tier 1, the second row from tier 2 (the locked plot shows both, greyed).
   const paints = lit ? ['#e5484d', '#f2f4f7', '#1f9e9a', '#f5b700', '#8b5cf6', '#2b2f36'] : [C.lockedDark];
-  for (let r = 0; r < 2; r++)
+  const rows = lit && tier < 2 ? 1 : 2;
+  // Tier 3: a gold balloon over the lot and price tags on the front row.
+  if (lit && tier >= 3)
+    o.push(
+      `<path class="t3" d="M${x + w - 18} ${y + 22} q 3 8 -2 16" stroke="${C.ink}" stroke-width="1" fill="none"/>` +
+        `<circle cx="${x + w - 18}" cy="${y + 14}" r="8" fill="${C.line}" stroke="${C.cream}" stroke-width="1.5"/>`,
+    );
+  for (let r = 0; r < rows; r++)
     for (let c = 0; c < 3; c++) {
       const cx = x + 16 + c * 42;
       const cy = y + 38 + r * 30;
       o.push(`<rect x="${cx}" y="${cy}" width="28" height="16" rx="5" fill="${paints[(r * 3 + c) % paints.length]}"/><rect x="${cx + 6}" y="${cy + 3}" width="16" height="6" rx="2" fill="#bfe3f2" opacity="${lit ? 1 : 0.4}"/>`);
+      if (lit && tier >= 3 && r === 0) o.push(`<rect x="${cx + 20}" y="${cy - 5}" width="9" height="7" rx="1.5" fill="${C.line}" stroke="${C.ink}" stroke-width="0.8"/>`);
     }
   return o.join('');
 }
@@ -251,7 +259,7 @@ export function cityMapSvg(state: GameState): string {
     let art = '';
     if (id === 'scrapyard') art = scrapyardArt(p, tier);
     else if (id === 'garage') art = garageArt(p, lit, tier);
-    else if (id === 'carlot') art = carLotArt(p, lit);
+    else if (id === 'carlot') art = carLotArt(p, lit, tier);
     else art = paintShopArt(p, lit);
     const name = businessInfo(id).name;
     parts.push(

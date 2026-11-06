@@ -43,6 +43,12 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       rolled on, and the city map shows your businesses growing (three stars each: more lot slots / repair bays add cars,
       a crusher, an office, open garage doors). "Go" drives there with a road wipe. Do the map stars make you want to buy
       the next slot or bay? Still open: tapping vs a garage mini-game (hold to tighten, pick the right tool).
+      New since run 14: **the Used Car Lot is open for business** (third business, after $5M earned in total; $2.5M to
+      open). Buy cars at the auction board (you see the condition stars, price and profit before you bid), tap the car
+      to refurbish it, then sell with the haggle slider or let a walk-up buyer take it. Hire the Detailer and the Auction
+      Agent and it runs on its own. Is choosing between rough (cheap, lots of tapping) and mint (quick flip) cars an
+      interesting choice? Should the auction be a real bidding mini-game (rival bidders, raise or pass) instead of a
+      fixed price? The sim puts the lot opening at about 45 minutes for an active player.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

@@ -981,3 +981,22 @@ body {
   padding: 8px 18px;
   margin-top: 0;
 }
+
+/* "Open $2.50M" is wider than "Go": a little more compact so the row's text keeps its room (run 14). */
+.modal .map-row.forSale .buy {
+  font-size: 15px;
+  padding: 8px 12px;
+}
+
+/* Used Car Lot auction cards: condition stars, the filled ones gold (run 14). */
+.auction-lot .stars {
+  letter-spacing: 1px;
+  color: #6b7280;
+}
+.auction-lot .stars b {
+  color: var(--gold, #f5b700);
+  font-weight: inherit;
+}
+.auction-lot.empty {
+  opacity: 0.7;
+}

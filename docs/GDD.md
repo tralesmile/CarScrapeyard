@@ -100,6 +100,20 @@ to automate it, open new car businesses, then sell your empire and start again i
   fault, stable per job, said once per job; 1.8 s), then the fault bubble pops up. A flat-tyre fix rolls a new tyre in
   from the right onto the front wheel, and it leaves with the car. The bay row is slimmer (96x60 CSS px, more opaque)
   so the door and the sign read on short phones; the car area starts 12 px higher.
+- **Used Car Lot** (business 3, P1.2a/b): goal $5M earned in total, then $2.5M to open. A sunny forecourt with a glass
+  showroom (its orange roof band is the "USED CAR LOT" sign), pennant bunting and a round display platform.
+  Auction tab: three lots, each showing the car, its condition (1-5 stars: Rough, Tired, Fair, Good, Mint), price, list
+  price and profit before you bid, so it is never a blind box; a lot stays 45 s, then someone else wins it, and an
+  emptied slot refills after 4 s. Rough cars are cheap and need lots of refurbishing; mint ones cost more and are quick
+  flips. The bought car drives onto the platform as rusty as its grade; tap it to refurbish (suds, the rust fades, a
+  progress bar under the name) until a swinging "FOR SALE" tag shows the list price. Sell: the Sell button always
+  haggles (0.9x-1.3x, "Skip haggling" sells at the list price) and holds the car while the needle runs; otherwise a
+  walk-up buyer comes every 6 s and pays the list price. Only the profit counts towards lifetime earnings (the price
+  was your own cash). Lot tab: Valet Bay (refurbish speed, x2 at milestones), Showroom (+8% sale price per level),
+  Forecourt Spot (2 -> 4 cars, shown as thumbnails above the platform with 🧽 / 🏷️). Crew tab: the Detailer (green polo,
+  backwards cap, spray bottle) refurbishes on his own; the Auction Agent bids on the best-value lot when cash covers 2x
+  its price. With both, the lot earns while you're away. Map tiers: 3 / 4 forecourt spots (a second row of cars, then a
+  gold balloon and price tags).
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
