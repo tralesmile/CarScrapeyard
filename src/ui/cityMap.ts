@@ -2,7 +2,7 @@
 // Pure string building (no DOM) so the art can be unit-tested and stays crisp at any size.
 
 import type { BusinessId } from '../core/config';
-import { BUSINESS_IDS, businessInfo, businessStatus, unlockProgress, type BusinessStatus } from '../core/businesses';
+import { BUSINESS_IDS, MAX_TIER, businessInfo, businessStatus, businessTier, nextTierGoal, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -75,7 +75,28 @@ function ground(): string {
   return parts.join('');
 }
 
-function scrapyardArt(p: { x: number; y: number; w: number; h: number }): string {
+function mapCar(x: number, y: number, body: string, roof: string): string {
+  return `<rect x="${x}" y="${y}" width="24" height="9" rx="4" fill="${body}"/><rect x="${x + 5}" y="${y - 5}" width="12" height="6" rx="2.5" fill="${roof}"/><circle cx="${x + 5}" cy="${y + 9}" r="2.8" fill="${C.ink}"/><circle cx="${x + 19}" cy="${y + 9}" r="2.8" fill="${C.ink}"/>`;
+}
+
+/** Three little stars in the plot's top-left corner, filled up to the tier (P1.1d). */
+function tierStars(p: { x: number; y: number }, tier: number): string {
+  const o: string[] = [`<g class="tier" data-tier="${tier}"><rect x="${p.x + 4}" y="${p.y + 4}" width="40" height="14" rx="7" fill="${C.ink}" opacity=".6"/>`];
+  for (let i = 0; i < MAX_TIER; i++) {
+    const cx = p.x + 12 + i * 12;
+    const cy = p.y + 11;
+    const pts = Array.from({ length: 10 }, (_, k) => {
+      const a = (k / 10) * Math.PI * 2 - Math.PI / 2;
+      const r = k % 2 === 0 ? 5 : 2.2;
+      return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`;
+    }).join(' ');
+    o.push(`<polygon class="${i < tier ? 'star on' : 'star'}" points="${pts}" fill="${i < tier ? C.line : '#ffffff40'}"/>`);
+  }
+  o.push('</g>');
+  return o.join('');
+}
+
+function scrapyardArt(p: { x: number; y: number; w: number; h: number }, tier: number): string {
   const { x, y, w, h } = p;
   const o: string[] = [];
   o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${C.dirt}"/>`);
@@ -86,19 +107,27 @@ function scrapyardArt(p: { x: number; y: number; w: number; h: number }): string
   // Crane.
   o.push(`<rect x="${x + 62}" y="${y + 22}" width="5" height="52" fill="${C.rustDark}"/><rect x="${x + 50}" y="${y + 20}" width="44" height="5" fill="${C.rust}"/>`);
   o.push(`<line x1="${x + 88}" y1="${y + 25}" x2="${x + 88}" y2="${y + 40}" stroke="${C.ink}" stroke-width="1.5"/><rect x="${x + 82}" y="${y + 40}" width="12" height="6" fill="${C.steel}"/>`);
-  // Little car in the yard.
-  const cx = x + w - 30;
-  const cy = y + 76;
-  o.push(`<rect x="${cx}" y="${cy}" width="24" height="9" rx="4" fill="#e5484d"/><rect x="${cx + 5}" y="${cy - 5}" width="12" height="6" rx="2.5" fill="#c23a3f"/><circle cx="${cx + 5}" cy="${cy + 9}" r="2.8" fill="${C.ink}"/><circle cx="${cx + 19}" cy="${cy + 9}" r="2.8" fill="${C.ink}"/>`);
+  // Little cars in the yard: one more per tier.
+  o.push(mapCar(x + w - 30, y + 76, '#e5484d', '#c23a3f'));
+  if (tier >= 2) {
+    o.push(mapCar(x + 98, y + 42, '#3b82f6', '#2b5fb3'));
+    // The crusher block by the junk pile.
+    o.push(`<rect class="t2" x="${x + 70}" y="${y + 50}" width="20" height="18" rx="2" fill="${C.steelDark}"/><rect x="${x + 70}" y="${y + 50}" width="20" height="5" fill="#e5484d"/>`);
+  }
+  if (tier >= 3) {
+    // Site office with a gold flag on the crane.
+    o.push(`<rect class="t3" x="${x + 6}" y="${y + 74}" width="24" height="16" rx="2" fill="${C.cream}"/><rect x="${x + 4}" y="${y + 71}" width="28" height="5" rx="2" fill="${C.rust}"/><rect x="${x + 11}" y="${y + 79}" width="8" height="6" fill="#bfe3f2"/>`);
+    o.push(`<rect x="${x + 50}" y="${y + 6}" width="2" height="15" fill="${C.ink}"/><path d="M${x + 52} ${y + 6} l 12 4 l -12 4 z" fill="${C.line}"/>`);
+  }
   // Stacked tyres and a crushed cube by the gate.
-  o.push(`<circle cx="${x + 16}" cy="${y + 20}" r="6" fill="#2b2f36"/><circle cx="${x + 16}" cy="${y + 20}" r="2.5" fill="${C.steel}"/><circle cx="${x + 28}" cy="${y + 20}" r="6" fill="#2b2f36"/><circle cx="${x + 28}" cy="${y + 20}" r="2.5" fill="${C.steel}"/>`);
-  o.push(`<rect x="${x + 40}" y="${y + 14}" width="14" height="12" rx="2" fill="#3b82f6"/><rect x="${x + 40}" y="${y + 18}" width="14" height="2" fill="#2b5fb3"/>`);
+  o.push(`<circle cx="${x + 16}" cy="${y + 28}" r="6" fill="#2b2f36"/><circle cx="${x + 16}" cy="${y + 28}" r="2.5" fill="${C.steel}"/><circle cx="${x + 28}" cy="${y + 28}" r="6" fill="#2b2f36"/><circle cx="${x + 28}" cy="${y + 28}" r="2.5" fill="${C.steel}"/>`);
+  o.push(`<rect x="${x + 36}" y="${y + 30}" width="14" height="12" rx="2" fill="#3b82f6"/><rect x="${x + 36}" y="${y + 34}" width="14" height="2" fill="#2b5fb3"/>`);
   // Fence.
   o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="none" stroke="${C.steelDark}" stroke-width="3" stroke-dasharray="4 3"/>`);
   return o.join('');
 }
 
-function garageArt(p: { x: number; y: number; w: number; h: number }, lit: boolean): string {
+function garageArt(p: { x: number; y: number; w: number; h: number }, lit: boolean, tier: number): string {
   const { x, y, w, h } = p;
   const wall = lit ? '#d9dee6' : C.locked;
   const roof = lit ? '#3b82f6' : C.lockedDark;
@@ -108,15 +137,25 @@ function garageArt(p: { x: number; y: number; w: number; h: number }, lit: boole
   // Building with a flat roof and two roll-up doors.
   o.push(`<rect x="${x + 16}" y="${y + 22}" width="${w - 32}" height="58" rx="4" fill="${wall}"/>`);
   o.push(`<rect x="${x + 12}" y="${y + 14}" width="${w - 24}" height="12" rx="4" fill="${roof}"/>`);
-  for (const dx of [26, w / 2 + 6]) {
-    o.push(`<rect x="${x + dx}" y="${y + 40}" width="${w / 2 - 32}" height="40" fill="${door}"/>`);
-    for (let i = 0; i < 5; i++) o.push(`<rect x="${x + dx}" y="${y + 44 + i * 8}" width="${w / 2 - 32}" height="1.5" fill="${lit ? '#c3cad4' : '#9ea3aa'}"/>`);
-  }
+  const dw = w / 2 - 32;
+  [26, w / 2 + 6].forEach((dx, i) => {
+    // Tier 2 rolls the first door up with a customer's car inside, tier 3 both (P1.1d).
+    if (i < tier - 1) {
+      o.push(`<rect class="t${i + 2}" x="${x + dx}" y="${y + 40}" width="${dw}" height="40" fill="#3a3f49"/>`);
+      o.push(`<rect x="${x + dx}" y="${y + 40}" width="${dw}" height="8" fill="${door}"/>`);
+      o.push(mapCar(x + dx + (dw - 24) / 2, y + 66, i === 0 ? '#f5b700' : '#1f9e9a', i === 0 ? '#c99600' : '#16706d'));
+      return;
+    }
+    o.push(`<rect x="${x + dx}" y="${y + 40}" width="${dw}" height="40" fill="${door}"/>`);
+    for (let k = 0; k < 5; k++) o.push(`<rect x="${x + dx}" y="${y + 44 + k * 8}" width="${dw}" height="1.5" fill="${lit ? '#c3cad4' : '#9ea3aa'}"/>`);
+  });
   // Wrench sign on the roof.
   o.push(`<circle cx="${x + w / 2}" cy="${y + 10}" r="10" fill="${lit ? C.rust : C.lockedDark}" stroke="${C.cream}" stroke-width="2"/>`);
   o.push(`<path d="M${x + w / 2 - 4} ${y + 14} l 7 -7 m -1 -2 a 3 3 0 1 0 3 3" stroke="${C.cream}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
   // Driveway to the road.
   o.push(`<rect x="${x + 26}" y="${y + 80}" width="${w - 52}" height="${h - 80}" fill="${lit ? '#9aa3ae' : '#999ea4'}"/>`);
+  // Tier 3: a lit strip along the roof.
+  if (tier >= 3) o.push(`<rect class="t3" x="${x + 14}" y="${y + 24}" width="${w - 28}" height="3" rx="1.5" fill="${C.line}"/>`);
   return o.join('');
 }
 
@@ -208,14 +247,15 @@ export function cityMapSvg(state: GameState): string {
     const p = PLOTS[id];
     const status = businessStatus(state, id);
     const lit = status === 'open';
+    const tier = businessTier(state, id);
     let art = '';
-    if (id === 'scrapyard') art = scrapyardArt(p);
-    else if (id === 'garage') art = garageArt(p, lit);
+    if (id === 'scrapyard') art = scrapyardArt(p, tier);
+    else if (id === 'garage') art = garageArt(p, lit, tier);
     else if (id === 'carlot') art = carLotArt(p, lit);
     else art = paintShopArt(p, lit);
     const name = businessInfo(id).name;
     parts.push(
-      `<g class="plot ${status}" data-biz="${id}" role="img" aria-label="${esc(name)}">${art}${badge(p, status, unlockProgress(state, id))}${label(p, name, lit || status !== 'locked')}` +
+      `<g class="plot ${status}" data-biz="${id}" role="img" aria-label="${esc(name)}">${art}${badge(p, status, unlockProgress(state, id))}${label(p, name, lit || status !== 'locked')}${lit ? tierStars(p, tier) : ''}` +
         `${state.businesses.active === id ? youAreHere(p) : ''}</g>`,
     );
   }
@@ -234,6 +274,9 @@ export interface MapRow {
   progress: number;
   /** Button text, or null for no button. */
   action: string | null;
+  /** Map tier 1..3 when open (0 otherwise) and what the next tier needs (P1.1d). */
+  tier: number;
+  nextTier: string | null;
 }
 
 export function mapRows(state: GameState): MapRow[] {
@@ -254,6 +297,6 @@ export function mapRows(state: GameState): MapRow[] {
       line = `Ready to open`;
       action = `Open ${formatCash(info.openCost)}`;
     }
-    return { id, icon: info.icon, name: info.name, status, active, line, progress: unlockProgress(state, id), action };
+    return { id, icon: info.icon, name: info.name, status, active, line, progress: unlockProgress(state, id), action, tier: businessTier(state, id), nextTier: nextTierGoal(state, id) };
   });
 }

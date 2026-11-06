@@ -170,3 +170,9 @@ parts, and save up for the next barn stage once the crew is hired.
 Bot tapping is deterministic (no `Math.random`), so the same code always prints the same timeline.
 
 Bots are faster than first-time humans (no reading, perfect swipes), so bot times sit at the low end on purpose.
+
+## Map tiers (P1.1d, run 13)
+
+Cosmetic only (no income effect): `ECON.businesses.tiers` gives the size for tier 2 and 3. Scrapyard: lot slots 3 / 4
+(slot 3 costs $150K, slot 4 $900K, so tier 2 lands around the garage opening and tier 3 later in the first hour).
+Garage: repair bays 2 / 3. Shown as stars on the map so buying slots and bays has a visible reward on the map too.

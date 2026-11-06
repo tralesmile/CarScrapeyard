@@ -546,6 +546,10 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.state.businesses.opened.garage);
     assert((await page.textContent('.map-row[data-biz="garage"] button')) === 'Go', 'opening the garage costs cash and offers "Go"');
     await page.click('.map-row[data-biz="garage"] button');
+    // P1.1d: the drive between businesses is a road wipe showing where we're going.
+    const wipe = await page.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+    assert(wipe && wipe.includes('Repair Garage'), `"Go" drives to the garage behind a road wipe (${wipe})`);
+    await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
     await page.waitForSelector('.modal.city-map', { state: 'detached' });
     await page.waitForFunction(() => window.__jye.game.scene.isActive('garage') && window.__jye.game.scene.isSleeping('yard'));
     assert(true, '"Go" puts the garage scene on screen and the yard to sleep');
@@ -554,9 +558,39 @@ async function waitForServer(url, ms = 15000) {
     const yardCtl = await page.evaluate(() => ['.sell', '.crush', '.buyer', '.haggle'].filter((q) => !document.querySelector(q).classList.contains('hidden')));
     assert(yardCtl.length === 0, `the yard controls are hidden in the garage (${yardCtl.join(', ') || 'none shown'})`);
     await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
-    await page.waitForTimeout(1300); // drive-in, lift up, customer steps out
+    // P1.1f: the customer says what's wrong in a speech bubble; the fault bubble pops up after it.
+    // Catch the speech bubble and hold it (it lasts 1.8 s; the checks and the screenshot take longer).
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      if (sc.speech.visible) sc.speechUntil = sc.clock + 99;
+      return sc.speech.visible;
+    }, null, { timeout: 6000, polling: 'raf' }).catch(async (e) => {
+      const d = await page.evaluate(() => { const sc = window.__jye.game.scene.getScene('garage'); return { clock: sc.clock, until: sc.speechUntil, spoken: [...sc.spoken], big: sc.bigJobId, arriving: sc.arriving, cust: sc.customer.visible, focused: window.__jye.state.garage.focusedId }; });
+      throw new Error(`speech bubble never showed ${JSON.stringify(d)}: ${e.message}`);
+    });
+    const talk = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const b = sc.speech.getBounds();
+      return { text: sc.speechText.text, fault: sc.bubble.visible, inside: b.left >= 0 && b.right <= sc.scale.width, aboveHead: b.bottom <= sc.customer.y - sc.customer.displayHeight + 2 };
+    });
+    assert(talk.text.length > 5 && !talk.fault, `the customer says what's wrong ("${talk.text}") before the fault bubble shows`);
+    assert(talk.inside && talk.aboveHead, `the speech bubble sits on screen above the customer's head (${JSON.stringify(talk)})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-17a-garage-customer-talks.png') });
+    await page.evaluate(() => { const sc = window.__jye.game.scene.getScene('garage'); sc.speechUntil = sc.clock; });
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return !sc.speech.visible && sc.bubble.visible && sc.bubble.scale === 1;
+    }, null, { timeout: 4000 }).catch(async (e) => {
+      const d = await page.evaluate(() => { const sc = window.__jye.game.scene.getScene('garage'); return { clock: sc.clock, until: sc.speechUntil, speech: sc.speech.visible, bubble: sc.bubble.visible, scale: sc.bubble.scale, big: sc.bigJobId, focused: window.__jye.state.garage.focusedId, leaving: sc.carLeaving }; });
+      throw new Error(`fault bubble did not come back ${JSON.stringify(d)}: ${e.message}`);
+    });
+    assert(true, 'the speech bubble gives way to the fault bubble');
     const hint = await page.textContent('.hint');
     assert(/Tap the car to fix the/.test(hint), `garage hint (${hint})`);
+    // A yard "LEGENDARY!" banner would cover the garage: yard-only announcements stay quiet here.
+    await page.evaluate(() => window.__jye.game.scene.getScene('garage').handleEvents([{ type: 'legendary', car: { model: 'Testmobile' } }]));
+    await page.waitForTimeout(100);
+    assert(!(await page.innerHTML('.banner')).includes('Testmobile'), 'no yard Legendary banner while the garage is on screen');
     const garageCar = async () =>
       page.evaluate(() => {
         const sc = window.__jye.game.scene.getScene('garage');
@@ -600,6 +634,8 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(faultFx.tilt > 0.5 && faultFx.tyreFx > 0 && faultFx.tiltBrakes === 0, `a flat tyre tilts the car and bulges (${faultFx.tilt.toFixed(2)} deg)`);
     assert(faultFx.brakeFx > 0 && faultFx.zap > 0, `hot brakes glow and a dead battery sparks (${faultFx.zap} sparks)`);
+    // Make the first job a flat tyre so the fix shows the tyre swap (P1.1f).
+    await page.evaluate(() => (window.__jye.state.garage.jobs.find((j) => j.id === window.__jye.state.garage.focusedId).fault = 'tyre'));
     const g0 = await page.evaluate(() => ({ cash: window.__jye.state.cash, fee: window.__jye.state.garage.jobs[0].fee, sold: window.__jye.state.carsSold }));
     for (let i = 0; i < 20; i++) {
       if (await page.evaluate(() => window.__jye.state.garage.jobsDone > 0)) break;
@@ -608,6 +644,22 @@ async function waitForServer(url, ms = 15000) {
     }
     const g1 = await page.evaluate(() => ({ cash: window.__jye.state.cash, done: window.__jye.state.garage.jobsDone, earned: window.__jye.state.garage.earned }));
     assert(g1.done === 1, 'tapping the car fixes it');
+    const swap0 = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      return { shown: sc.tyre.visible, fit: sc.tyreFit !== null };
+    });
+    await page.waitForTimeout(420);
+    const swap1 = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('garage');
+      const t = sc.tyreFit;
+      return t ? { v: t.roll.v, onWheel: Math.abs(sc.tyre.x - (sc.bigCar.x + t.dx)) < 2, visible: sc.tyre.visible } : null;
+    });
+    assert(swap0.shown && swap0.fit && swap1 && swap1.v === 1 && swap1.onWheel, `a flat-tyre fix rolls a new tyre onto the front wheel (${JSON.stringify(swap1)})`);
+    await page.evaluate(() => window.__jye.game.scene.getScene('garage').tweens.pauseAll());
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-17b-garage-tyre-swap.png') });
+    await page.evaluate(() => window.__jye.game.scene.getScene('garage').tweens.resumeAll());
+    await page.waitForFunction(() => !window.__jye.game.scene.getScene('garage').tyre.visible, null, { timeout: 4000 });
+    assert(true, 'the new tyre leaves with the car');
     assert(g1.earned === Math.round(g0.fee * 0.7), `without yard parts a parts bill comes off the fee (${g1.earned} of ${g0.fee})`);
     await page.waitForTimeout(600);
     const yardRan = await page.evaluate((n) => window.__jye.state.carsSold > n, g0.sold);
@@ -671,6 +723,19 @@ async function waitForServer(url, ms = 15000) {
     if (await page.isVisible('.modal-back .modal .buy')) await page.click('.modal-back .modal .buy');
     await page.click('.map-btn');
     assert((await page.textContent('.modal.city-map > .buy')) === 'Back to the garage', 'the map\'s back button names the garage');
+    // P1.1d: the garage grew to tier 2 with its second bay: stars on the map and in the list, an open door on the plot.
+    const tiers = await page.evaluate(() => ({
+      garage: document.querySelector('.map-row[data-biz="garage"] .map-stars')?.textContent,
+      next: document.querySelector('.map-row[data-biz="garage"] .map-next')?.textContent,
+      plot: document.querySelector('.city-svg .plot[data-biz="garage"] .tier')?.getAttribute('data-tier'),
+      door: !!document.querySelector('.city-svg .plot[data-biz="garage"] .t2'),
+      yard: document.querySelector('.map-row[data-biz="scrapyard"] .map-stars')?.textContent,
+      textW: Math.min(...[...document.querySelectorAll('.map-row .map-text')].map((t) => t.getBoundingClientRect().width)),
+    }));
+    assert(tiers.textW > 150, `the map rows' text is not squeezed by the Go button (${Math.round(tiers.textW)}px)`);
+    assert(tiers.garage === '★★☆' && tiers.plot === '2' && tiers.door && tiers.next === 'Next ★ with 3 repair bays', `the map shows the garage at tier 2 (${JSON.stringify(tiers)})`);
+    assert(typeof tiers.yard === 'string' && tiers.yard.length === 3, `the scrapyard shows its tier too (${tiers.yard})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-16b-city-map-tiers.png') });
     await page.click('.map-row[data-biz="scrapyard"] button');
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('garage'));
     const yardTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').length);

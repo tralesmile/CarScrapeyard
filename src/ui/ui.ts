@@ -25,7 +25,7 @@ import {
 import type { Car, GameState } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
-import { mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
+import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
 import {
   buyGarageBay,
@@ -911,7 +911,7 @@ export class Ui {
       const next = nextBusiness(st);
       const rows = mapRows(st).filter((r) => r.status === 'open' || r.id === next);
       // Rebuild only when something visible changed (progress is shown to the whole percent).
-      const key = JSON.stringify(rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id)]));
+      const key = JSON.stringify(rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id), r.tier]));
       if (key === lastKey) return;
       lastKey = key;
       art.innerHTML = cityMapSvg(st);
@@ -923,9 +923,17 @@ export class Ui {
           const text = el('div', 'map-text');
           const name = el('div', 'map-name display');
           name.textContent = r.name;
+          if (r.tier > 0) {
+            // Map tier (P1.1d): the business grows on the map with lot slots / repair bays.
+            const stars = el('span', 'map-stars');
+            stars.textContent = '★'.repeat(r.tier) + '☆'.repeat(Math.max(0, MAX_TIER - r.tier));
+            stars.setAttribute('aria-label', `Tier ${r.tier} of ${MAX_TIER}`);
+            name.append(' ', stars);
+          }
           const line = el('div', 'map-line');
           line.textContent = r.line;
           text.append(name, line);
+          if (r.nextTier) text.append(el('div', 'map-next', `Next ★ with ${r.nextTier}`));
           if (r.status === 'locked') {
             const bar = el('div', 'bar');
             const fill = el('i');
@@ -947,7 +955,7 @@ export class Ui {
               } else if (switchBusiness(cur, r.id)) {
                 sfx.tap();
                 close();
-                this.deps.onSwitchBusiness();
+                this.driveTo(`${r.icon} ${r.name}`, () => this.deps.onSwitchBusiness());
               }
               this.deps.onChange();
               paint();
@@ -1045,6 +1053,31 @@ export class Ui {
         if (next) this.showBanner(next[0], next[1]);
       }, 300);
     }, 2600);
+  }
+
+  /**
+   * The drive between businesses (P1.1d): a road wipe with the destination's sign crosses the screen; the scene swaps
+   * while it covers the game. Reduce motion swaps at once.
+   */
+  driveTo(label: string, swap: () => void) {
+    const calm = this.deps.state().settings.reduceMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    if (calm) {
+      swap();
+      return;
+    }
+    this.root.querySelector('.drive-wipe')?.remove();
+    const wipe = el('div', 'drive-wipe');
+    const sign = el('div', 'drive-sign display');
+    sign.textContent = label;
+    wipe.append(el('div', 'drive-road'), sign);
+    this.root.append(wipe);
+    sfx.engine();
+    requestAnimationFrame(() => wipe.classList.add('in'));
+    setTimeout(() => {
+      swap();
+      wipe.classList.add('out');
+      setTimeout(() => wipe.remove(), 420);
+    }, 460);
   }
 
   toast(message: string, ms = 4000) {

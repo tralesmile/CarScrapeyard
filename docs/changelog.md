@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.13.0 - 2026-11-06 (run 13)
+
+- **Garage feel (P1.1f):** customers now say what's wrong when they step out ("Ran over a nail!", "It won't start!",
+  "Smoke from the bonnet!"; three lines per fault) in a speech bubble above their head; the fault bubble pops up
+  after it. Fixing a flat tyre rolls a fresh tyre onto the front wheel, and the car drives off on it.
+- **Slimmer bay row:** the garage's bay thumbnails are shorter and more solid, with the fault icon in the corner, so the
+  roller door and the sign read better on short phones and the car sits 12 px higher.
+- **Map tiers (P1.1d):** your businesses grow on the Rust Valley map. Each has three stars: the scrapyard gets a second
+  car and the crusher at 3 lot slots, then a site office and a gold flag at 4; the garage rolls up a door with a car
+  inside at 2 bays and lights its roof at 3. The map list shows the stars and what the next one needs.
+- **Drive between businesses:** "Go" on the map now sweeps a road across the screen with the destination's sign while
+  the scene changes (instant with Reduce motion).
+- Fix: the yard's "LEGENDARY!" banner (and the buyer's bell) no longer pop up over the garage; they belonged to a car
+  in the yard you couldn't see.
+- Fix: the map list's Go / Open buttons were full width and squeezed the row's text into one word per line; they
+  keep their own size now. Fix: the fault bubble no longer flashes for a moment before the customer speaks.
+- Tests: 6 new unit tests (bay row size, customer lines, tyre painting, yard-only announcements, map tiers, tier art on
+  the map). E2e: the road wipe on "Go", the garage at tier 2 on the map with stars and the next goal, the customer
+  talks before the fault bubble, the speech bubble stays on screen above the head, no Legendary banner in the garage,
+  the tyre swap fits the new tyre on the front wheel and it leaves with the car.
+
 ## 0.12.0 - 2026-11-06 (run 12)
 
 - **Garage art pass (P1.1e):** the lift's cross beam now carries a "REPAIR GARAGE" sign that stays clear of the top

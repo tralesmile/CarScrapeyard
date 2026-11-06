@@ -201,6 +201,11 @@ export const ECON = {
       carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: false },
       paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
     } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
+    /**
+     * Map tiers (P1.1d): each open business grows on the map in three tiers. The number is the size needed for tier 2
+     * and tier 3: lot slots for the scrapyard, repair bays for the garage. Businesses without an entry stay tier 1.
+     */
+    tiers: { scrapyard: [3, 4], garage: [2, 3] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
   },
 
   /**

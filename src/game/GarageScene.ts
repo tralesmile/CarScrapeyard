@@ -13,7 +13,19 @@ import type { Bridge } from './bridge';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import { SHAPES, WHEEL_Y, carTextureSize, paintCar, paintRust } from './carArt';
 import { SCRAPPER_H, SCRAPPER_W, paintForeman } from './crewArt';
-import { CUSTOMER_RUST, LIFT_RISE, customerKind, liftPosts, paintGarageBackdrop } from './garageArt';
+import {
+  BAY_ROW,
+  BAY_ROW_BOTTOM,
+  CUSTOMER_RUST,
+  GARAGE_AREA_TOP,
+  LIFT_RISE,
+  SPEECH_TIME,
+  customerKind,
+  customerLine,
+  liftPosts,
+  paintGarageBackdrop,
+  paintTyre,
+} from './garageArt';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 /** Where the fault bubble points on the car, as a fraction of the car's width/height from its centre. */
@@ -74,6 +86,14 @@ export class GarageScene extends Phaser.Scene {
   private customer!: Phaser.GameObjects.Image;
   private foreman!: Phaser.GameObjects.Image;
   private clock = 0;
+  /** The customer's speech bubble (P1.1f): what's wrong, said once per job as they step out. */
+  private speech!: Phaser.GameObjects.Container;
+  private speechText!: Phaser.GameObjects.Text;
+  private speechUntil = 0;
+  private spoken = new Set<number>();
+  /** A new tyre rolling in and fitted on the front wheel after a flat-tyre fix (P1.1f). */
+  private tyre!: Phaser.GameObjects.Image;
+  private tyreFit: { roll: { v: number }; fromX: number; dx: number; dy: number; r: number } | null = null;
 
   constructor() {
     super('garage');
@@ -102,10 +122,10 @@ export class GarageScene extends Phaser.Scene {
   /** Same geometry as the yard: a row of bay thumbnails under the HUD, the big car in the middle. */
   private focusArea() {
     const { top, bottom } = this.bridge.insets();
-    const areaTop = top + 96;
+    const areaTop = top + GARAGE_AREA_TOP;
     const areaBottom = this.cssH - bottom;
     const carW = Math.min(this.cssW * 0.8, 400);
-    return { cx: this.cssW / 2, cy: areaTop + (areaBottom - areaTop) * 0.55, carW, top: areaTop, bottom: areaBottom, rowY: top + 8 };
+    return { cx: this.cssW / 2, cy: areaTop + (areaBottom - areaTop) * 0.55, carW, top: areaTop, bottom: areaBottom, rowY: top + BAY_ROW.y };
   }
 
   create() {
@@ -131,6 +151,14 @@ export class GarageScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.bubble = this.add.container(0, 0, [bubbleBg, this.bubbleText]).setDepth(5).setVisible(false);
     this.barG = this.add.graphics().setDepth(5);
+    this.speechText = this.add
+      .text(0, 0, '', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(13)}px`, color: '#1e2430' })
+      .setOrigin(0.5);
+    this.speech = this.add.container(0, 0, [this.add.graphics(), this.speechText]).setDepth(7).setVisible(false);
+    this.tyre = this.add
+      .image(0, 0, this.paintedTexture('garage-tyre', 64, 64, (ctx) => paintTyre(ctx, 32)))
+      .setDepth(1)
+      .setVisible(false);
     this.label = this.add
       .text(0, 0, '', {
         fontFamily: '"Lilita One", sans-serif',
@@ -221,8 +249,8 @@ export class GarageScene extends Phaser.Scene {
       s: this.dpr,
       lift: { cx: W / 2, groundY, carW: this.px(a.carW) },
       sign: ECON.businesses.list.garage.name.toUpperCase(),
-      // The bay row ends 82 CSS px under the HUD; keep the sign clear of it even before a 2nd bay is bought.
-      reservedTop: this.px(this.bridge.insets().top + 86),
+      // Keep the sign clear of the bay row even before a 2nd bay is bought.
+      reservedTop: this.px(this.bridge.insets().top + BAY_ROW_BOTTOM),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2) - LIFT_RISE),
     });
     tex.refresh();
@@ -314,6 +342,8 @@ export class GarageScene extends Phaser.Scene {
     }
     if (job.id !== this.bigJobId) {
       this.bigJobId = job.id;
+      this.speechUntil = 0;
+      this.speech.setVisible(false);
       this.bigCar.setTexture(this.ensureTextures(job)).setVisible(true);
       this.bigRust.setTexture(`grust-${job.id}`).setVisible(true);
       this.placeBigCar();
@@ -339,6 +369,20 @@ export class GarageScene extends Phaser.Scene {
     const max = ECON.garage.faults[job.fault].work;
     const left = Phaser.Math.Clamp(job.work / max, 0, 1);
     this.bigRust.setAlpha(0.08 + 0.42 * left);
+    this.label.setText(`${job.model} · ${formatCash(job.fee)}`);
+    // The customer is about to say or still says what's wrong: the fault bubble pops up after.
+    if (this.clock < this.speechUntil) {
+      this.bubble.setVisible(false);
+      this.barG.clear();
+      return;
+    }
+    if (this.speech.visible) {
+      this.speech.setVisible(false);
+      if (!this.calm) {
+        this.bubble.setScale(0.6);
+        this.tweens.add({ targets: this.bubble, scale: 1, duration: 220, ease: 'Back.easeOut' });
+      }
+    }
     const [fx, fy] = FAULT_SPOT[job.fault];
     // Keep the bubble on screen (the fault spot can be near the car's edge on a narrow phone).
     const half = this.bubbleW / 2 + this.px(6);
@@ -353,7 +397,6 @@ export class GarageScene extends Phaser.Scene {
     this.barG.clear();
     this.barG.fillStyle(0x1e2430, 0.25).fillRoundedRect(x, y, w, h, h / 2);
     this.barG.fillStyle(0x3bc45a, 1).fillRoundedRect(x, y, Math.max(h, w * (1 - left)), h, h / 2);
-    this.label.setText(`${job.model} · ${formatCash(job.fee)}`);
   }
 
   private carArrived(id: number) {
@@ -372,6 +415,48 @@ export class GarageScene extends Phaser.Scene {
       .setAlpha(0)
       .setVisible(true);
     this.tweens.add({ targets: this.customer, x: spot.x, alpha: 1, duration: this.calm ? 1 : 450, ease: 'Sine.easeOut' });
+    if (!this.spoken.has(job.id)) {
+      this.spoken.add(job.id);
+      if (this.spoken.size > 50) this.spoken = new Set([...this.spoken].slice(-10));
+      const delay = this.calm ? 0.001 : 0.38;
+      // Keep the fault bubble back until the customer has spoken (say() sets the real end time).
+      this.speechUntil = this.clock + delay + 0.5;
+      this.time.delayedCall(delay * 1000, () => this.say(job.id));
+    }
+  }
+
+  /** The customer's speech bubble above their head, pointing down at them. */
+  private say(id: number) {
+    const job = this.focused();
+    if (!job || job.id !== id || this.bigJobId !== id || this.carLeaving || !this.customer.visible) {
+      this.speechUntil = 0;
+      return;
+    }
+    this.speechText.setText(customerLine(job));
+    const w = this.speechText.width + this.px(22);
+    const h = this.px(32);
+    const spot = this.customerSpot();
+    const headY = spot.y - this.px(PERSON_H) - this.px(4);
+    const half = w / 2 + this.px(4);
+    const cx = Phaser.Math.Clamp(spot.x - w * 0.25, half, this.scale.width - half);
+    const cy = headY - this.px(10) - h / 2;
+    const tail = Phaser.Math.Clamp(spot.x - cx, -w / 2 + h / 2, w / 2 - h / 2);
+    const g = this.speech.list[0] as Phaser.GameObjects.Graphics;
+    g.clear();
+    g.fillStyle(0x000000, 0.18).fillRoundedRect(-w / 2 + this.px(2), -h / 2 + this.px(3), w, h, h / 2);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.fillTriangle(tail - this.px(6), h / 2 - this.px(1), tail + this.px(6), h / 2 - this.px(1), tail + this.px(2), h / 2 + this.px(10));
+    g.lineStyle(this.px(2), 0x1e2430, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.lineBetween(tail - this.px(6), h / 2, tail + this.px(2), h / 2 + this.px(10));
+    g.lineBetween(tail + this.px(6), h / 2, tail + this.px(2), h / 2 + this.px(10));
+    this.speech.setPosition(cx, cy).setVisible(true).setAlpha(1);
+    this.speechUntil = this.clock + SPEECH_TIME;
+    this.tweens.killTweensOf(this.speech);
+    if (!this.calm) {
+      this.speech.setScale(0.5);
+      this.tweens.add({ targets: this.speech, scale: 1, duration: 200, ease: 'Back.easeOut' });
+    }
+    sfx.tap();
   }
 
   /** Feet of the waiting customer (right of the car) and the Foreman (left of it), device px. */
@@ -427,6 +512,7 @@ export class GarageScene extends Phaser.Scene {
     const armY = car.visible ? y + dh * 0.22 : baseY + dh * 0.22;
     this.liftG.fillStyle(0x2b2f36, 1);
     for (const x of [l, r]) this.liftG.fillRoundedRect(x - this.px(9), armY - this.px(8), this.px(18), this.px(16), this.px(3));
+    this.poseTyre(y, dh);
     if (!car.visible) return;
     const parked = Math.abs(car.x - this.px(a.cx)) < this.px(4);
     if (parked) {
@@ -453,6 +539,28 @@ export class GarageScene extends Phaser.Scene {
       this.faultG.fillStyle(0xff5a1f, (0.25 + 0.3 * pulse) * left);
       this.faultG.fillCircle(wx, wy, wr * 0.62);
     }
+  }
+
+  /** The new tyre: rolls in from the right, then rides on the front wheel as the car drives off. */
+  private poseTyre(carY: number, dh: number) {
+    const t = this.tyreFit;
+    if (!t) return;
+    const v = t.roll.v;
+    const x = t.fromX + (this.bigCar.x + t.dx - t.fromX) * v;
+    const y = carY + t.dy * dh;
+    this.tyre.setPosition(x, v < 1 ? y + (1 - v) * this.px(LIFT_RISE) : y).setAngle(-(1 - v) * 720);
+  }
+
+  /** Start the tyre change for a car fixed on the lift. */
+  private fitTyre(job: GarageJob) {
+    const a = this.focusArea();
+    const shape = SHAPES[job.family];
+    const dw = this.px(a.carW);
+    const dh = (dw * this.texH) / this.texW;
+    const r = shape.wheelR * dh;
+    this.tyreFit = { roll: { v: this.calm ? 1 : 0 }, fromX: this.scale.width + r * 1.5, dx: (shape.wheels[1] - 0.5) * dw, dy: WHEEL_Y - 0.5, r };
+    this.tyre.setDisplaySize(r * 2.04, r * 2.04).setVisible(true).setAlpha(1);
+    if (!this.calm) this.tweens.add({ targets: this.tyreFit.roll, v: 1, duration: 340, ease: 'Quad.easeOut', onComplete: () => sfx.wrench() });
   }
 
   /** The waiting customer and the Foreman (who bobs while he works on the car on the lift). */
@@ -514,30 +622,29 @@ export class GarageScene extends Phaser.Scene {
       this.bays = [];
       if (g.bays > 1) {
         const a = this.focusArea();
-        const w = 100;
-        const gap = 10;
+        const { w, h, gap } = BAY_ROW;
         const total = g.bays * w + (g.bays - 1) * gap;
         for (let i = 0; i < g.bays; i++) {
           const job = g.jobs[i];
           const x = this.px(a.cx - total / 2 + i * (w + gap) + w / 2);
-          const y = this.px(a.rowY + 38);
+          const y = this.px(a.rowY);
           const frame = this.add.graphics();
           const focused = job && job.id === g.focusedId;
-          frame.fillStyle(0x1e2430, 0.55).fillRoundedRect(-this.px(w / 2), -this.px(36), this.px(w), this.px(72), this.px(10));
+          frame.fillStyle(0x1e2430, BAY_ROW.alpha).fillRoundedRect(-this.px(w / 2), -this.px(h / 2), this.px(w), this.px(h), this.px(10));
           frame.lineStyle(this.px(focused ? 3 : 1.5), focused ? 0xf5b700 : 0xfbf3e4, focused ? 1 : 0.4);
-          frame.strokeRoundedRect(-this.px(w / 2), -this.px(36), this.px(w), this.px(72), this.px(10));
+          frame.strokeRoundedRect(-this.px(w / 2), -this.px(h / 2), this.px(w), this.px(h), this.px(10));
           const bar = this.add.graphics();
           const items: Phaser.GameObjects.GameObject[] = [frame, bar];
           if (job) {
-            const img = this.add.image(0, -this.px(6), this.ensureTextures(job));
-            img.setScale(this.px(w - 14) / this.texW);
-            const icon = this.add.text(0, this.px(18), ECON.garage.faults[job.fault].icon, { fontSize: `${this.px(14)}px` }).setOrigin(0.5);
+            const img = this.add.image(-this.px(6), -this.px(4), this.ensureTextures(job));
+            img.setScale(this.px(w - 24) / this.texW);
+            const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), ECON.garage.faults[job.fault].icon, { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
             items.push(img, icon);
           } else {
             items.push(this.add.text(0, 0, 'Free bay', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
           }
           const container = this.add.container(x, y, items).setDepth(4);
-          container.setSize(this.px(w), this.px(72));
+          container.setSize(this.px(w), this.px(h));
           this.bays.push({ jobId: job?.id ?? -1, container, frame, bar });
         }
       }
@@ -547,8 +654,10 @@ export class GarageScene extends Phaser.Scene {
       b.bar.clear();
       if (!job) continue;
       const left = Phaser.Math.Clamp(job.work / ECON.garage.faults[job.fault].work, 0, 1);
-      b.bar.fillStyle(0x1e2430, 0.8).fillRect(-this.px(40), this.px(28), this.px(80), this.px(4));
-      b.bar.fillStyle(0x3bc45a, 1).fillRect(-this.px(40), this.px(28), this.px(80) * (1 - left), this.px(4));
+      const bw = BAY_ROW.w - 20;
+      const by = BAY_ROW.h / 2 - 9;
+      b.bar.fillStyle(0x0b0e13, 0.8).fillRoundedRect(-this.px(bw / 2), this.px(by), this.px(bw), this.px(4), this.px(2));
+      if (left < 0.95) b.bar.fillStyle(0x3bc45a, 1).fillRoundedRect(-this.px(bw / 2), this.px(by), this.px(bw) * (1 - left), this.px(4), this.px(2));
     }
   }
 
@@ -591,31 +700,34 @@ export class GarageScene extends Phaser.Scene {
 
   private onFixed(job: GarageJob, amount: number, parts: number) {
     const big = job.id === this.bigJobId;
-    const from = big ? { x: this.bigCar.x, y: this.bigCar.y } : { x: this.scale.width / 2, y: this.px(this.focusArea().rowY + 38) };
+    const from = big ? { x: this.bigCar.x, y: this.bigCar.y } : { x: this.scale.width / 2, y: this.px(this.focusArea().rowY) };
     if (big) {
       sfx.repaired();
       this.glitter.explode(18, this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.2);
       this.bubble.setVisible(false);
+      this.speech.setVisible(false);
       this.barG.clear();
-      this.driveOff(job.id);
+      if (job.fault === 'tyre') this.fitTyre(job);
+      this.driveOff(job.id, job.fault === 'tyre' && !this.calm ? 380 : 0);
       const note = parts > 0 ? `Yard parts −${parts} ⚙` : `Parts bill −${Math.round(ECON.garage.partsBill * 100)}%`;
       this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, note, parts > 0 ? '#f5b700' : '#c9d1d9', 18);
     } else this.time.delayedCall(800, () => this.releaseTextures(job.id));
     this.coinBurst(from.x, from.y, amount);
   }
 
-  private driveOff(id: number) {
+  private driveOff(id: number, wait = 0) {
     this.carLeaving = true;
     this.arriving = false;
     this.bigJobId = null;
     this.customerLeaves();
     this.tweens.killTweensOf(this.lift);
+    this.speech.setVisible(false);
     // Lower the lift, then drive out to the right.
     this.tweens.add({ targets: this.lift, v: 0, duration: this.calm ? 1 : 220, ease: 'Sine.easeIn' });
     this.tweens.add({
       targets: [this.bigCar, this.bigRust],
       x: this.scale.width + this.bigCar.displayWidth,
-      delay: this.calm ? 0 : 240,
+      delay: this.calm ? 0 : 240 + wait,
       onStart: () => sfx.engine(),
       duration: this.calm ? 1 : 520,
       ease: 'Cubic.easeIn',
@@ -624,6 +736,8 @@ export class GarageScene extends Phaser.Scene {
         // Point the images at a stock texture before freeing the car's: poseCar() reads their size every frame.
         this.bigCar.setTexture('__WHITE').setVisible(false);
         this.bigRust.setTexture('__WHITE').setVisible(false);
+        this.tyre.setVisible(false);
+        this.tyreFit = null;
         this.label.setText('');
         this.placeBigCar();
         this.releaseTextures(id);

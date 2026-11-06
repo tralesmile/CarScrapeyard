@@ -39,6 +39,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       the workshop, the lift raises the car, a flat tyre makes the car lean, a dead battery sparks, and the lift's beam
       is the "REPAIR GARAGE" sign. The SUV has a spare wheel on the back and sits higher, so it no longer looks like the
       van. Does the garage read clearly on your phone?
+      New since run 13: customers say what's wrong when they step out ("Ran over a nail!"), a flat tyre gets a new tyre
+      rolled on, and the city map shows your businesses growing (three stars each: more lot slots / repair bays add cars,
+      a crusher, an office, open garage doors). "Go" drives there with a road wipe. Do the map stars make you want to buy
+      the next slot or bay? Still open: tapping vs a garage mini-game (hold to tighten, pick the right tool).
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 
