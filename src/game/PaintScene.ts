@@ -14,10 +14,13 @@ import type { PaintJob } from '../core/state';
 import type { Bridge } from './bridge';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import { SHAPES, WHEEL_Y, carTextureSize, paintCar } from './carArt';
-import { customerKind } from './garageArt';
+import { customerKind, SPEECH_TIME } from './garageArt';
 import {
-  BOOTH_AREA_TOP,
   BOOTH_ROW,
+  BOOTH_ROW_BOTTOM,
+  boothSign,
+  boothStage,
+  customerFeet,
   exhaustSpot,
   paintBoothBackdrop,
   paintPainter,
@@ -26,15 +29,17 @@ import {
   paintWrapStripes,
   serviceReveal,
   stepProgress,
+  paintLine,
+  speechBox,
   TICKET,
-  ticketTop,
   ticketWidth,
   type ServiceReveal,
+  type SpeechBox,
 } from './paintArt';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 const PERSON_H = 82;
-const ROOF_FRAC = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.map((p) => p[1]))));
+const PERSON_W = (PERSON_H * BUYER_W) / BUYER_H;
 
 interface BoothView {
   jobId: number;
@@ -79,6 +84,15 @@ export class PaintScene extends Phaser.Scene {
   private bump = { v: 0 };
   private clock = 0;
   private shown: ServiceReveal = { colour: 0, stripes: 0, rims: 0, tune: 0 };
+  /** The customer's speech bubble (P1.2g): what they want, said once per order as they step out, beside the ticket. */
+  private speech!: Phaser.GameObjects.Container;
+  private speechText!: Phaser.GameObjects.Text;
+  private speechUntil = 0;
+  private speechFor: number | null = null;
+  private speechBoxCss: SpeechBox | null = null;
+  private spoken = new Set<number>();
+  /** The backdrop's sign band has room for its lettering (P1.2g: on every phone size). */
+  private signLettered = false;
 
   constructor() {
     super('paint');
@@ -107,10 +121,8 @@ export class PaintScene extends Phaser.Scene {
   /** Same geometry as the garage and the lot: booth thumbnails under the HUD, the car in the middle. */
   private focusArea() {
     const { top, bottom } = this.bridge.insets();
-    const areaTop = top + BOOTH_AREA_TOP;
-    const areaBottom = this.cssH - bottom;
-    const carW = Math.min(this.cssW * 0.8, 400);
-    return { cx: this.cssW / 2, cy: areaTop + (areaBottom - areaTop) * 0.55, carW, top: areaTop, bottom: areaBottom, rowY: top + BOOTH_ROW.y, hudTop: top };
+    const st = boothStage(this.cssW, top, this.cssH - bottom);
+    return { ...st, rowY: top + BOOTH_ROW.y, hudTop: top };
   }
 
   create() {
@@ -145,6 +157,10 @@ export class PaintScene extends Phaser.Scene {
       .text(0, 0, '', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(11)}px`, color: '#1e2430', align: 'center', lineSpacing: -this.px(2) })
       .setOrigin(0.5);
     this.ticket = this.add.container(0, 0, [this.ticketG, this.ticketTip]).setDepth(6).setVisible(false);
+    this.speechText = this.add
+      .text(0, 0, '', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(13)}px`, color: '#1e2430' })
+      .setOrigin(0.5);
+    this.speech = this.add.container(0, 0, [this.add.graphics(), this.speechText]).setDepth(7).setVisible(false);
 
     this.mist = this.add.particles(0, 0, 'puff', {
       speedX: { min: -40, max: 40 },
@@ -201,6 +217,7 @@ export class PaintScene extends Phaser.Scene {
       const spot = this.customerSpot();
       this.customer.setPosition(spot.x, spot.y);
     }
+    if (this.speech.visible) this.placeSpeech();
   }
 
   private watchInsets(dt: number) {
@@ -211,10 +228,6 @@ export class PaintScene extends Phaser.Scene {
     if (`${Math.round(top)},${Math.round(bottom)}` !== this.layoutInsets) this.layout();
   }
 
-  private roofY(): number {
-    const a = this.focusArea();
-    return a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2);
-  }
 
   private drawBackground() {
     const W = Math.round(this.scale.width);
@@ -223,7 +236,7 @@ export class PaintScene extends Phaser.Scene {
     if (this.textures.exists('paint-backdrop')) this.textures.remove('paint-backdrop');
     const tex = this.textures.createCanvas('paint-backdrop', W, H);
     if (!tex) return;
-    paintBoothBackdrop(tex.getContext(), {
+    const L = {
       w: W,
       h: H,
       floorY: this.px(a.top + (a.cy - a.top) * 0.62),
@@ -232,8 +245,10 @@ export class PaintScene extends Phaser.Scene {
       sign: ECON.businesses.list.paint.name.toUpperCase(),
       reservedTop: this.px(a.hudTop + BOOTH_ROW.y + BOOTH_ROW.h / 2 + 4),
       // The sign hangs above the order ticket, which sits on the car's roof.
-      roofY: this.px(ticketTop(this.roofY()) - 4),
-    });
+      roofY: this.px(a.ticketY - 4),
+    };
+    paintBoothBackdrop(tex.getContext(), L);
+    this.signLettered = boothSign(L).sign;
     tex.refresh();
     this.bg.setTexture('paint-backdrop').setPosition(0, 0).setVisible(true);
     this.children.sendToBack(this.bg);
@@ -245,6 +260,7 @@ export class PaintScene extends Phaser.Scene {
     if (events.length) this.handleEvents(events);
     this.clock += dt;
     this.syncBigCar();
+    if (this.speech.visible && (this.clock >= this.speechUntil || this.bigId !== this.speechFor || this.carLeaving)) this.hideSpeech();
     this.poseCar();
     this.syncPainter();
     this.syncBooths();
@@ -380,13 +396,88 @@ export class PaintScene extends Phaser.Scene {
       .setAlpha(0)
       .setVisible(true);
     this.tweens.add({ targets: this.customer, x: spot.x, alpha: 1, duration: this.calm ? 1 : 450, ease: 'Sine.easeOut' });
+    if (!this.spoken.has(job.id)) {
+      this.spoken.add(job.id);
+      if (this.spoken.size > 50) this.spoken = new Set([...this.spoken].slice(-10));
+      this.time.delayedCall(this.calm ? 1 : 380, () => this.say(job.id));
+    }
+  }
+
+  /** The customer says what they want. The ticket (and its tip clock) stays in view: the bubble is laid out beside it. */
+  private say(id: number) {
+    const job = this.focused();
+    if (!job || job.id !== id || this.bigId !== id || this.carLeaving || !this.customer.visible) return;
+    this.speechText.setText(paintLine(job));
+    this.speechFor = id;
+    this.placeSpeech();
+    this.speech.setVisible(true).setAlpha(1);
+    this.speechUntil = this.clock + SPEECH_TIME;
+    this.tweens.killTweensOf(this.speech);
+    if (!this.calm) {
+      this.speech.setScale(0.5);
+      this.tweens.add({ targets: this.speech, scale: 1, duration: 200, ease: 'Back.easeOut' });
+    }
+    sfx.tap();
+  }
+
+  private placeSpeech() {
+    const a = this.focusArea();
+    const w = this.speechText.width / this.dpr + 22;
+    const h = 30;
+    const feet = customerFeet(a, this.cssW, PERSON_W);
+    const { x: tx, y: ty } = this.ticketPos();
+    const tw = this.ticketW;
+    const twoPlus = this.bridge.state.paint.booths >= 2;
+    const b = speechBox({
+      w,
+      h,
+      head: { x: feet.x, y: feet.y - PERSON_H - 2 },
+      personW: PERSON_W,
+      ticket: { x: tx / this.dpr - tw / 2, y: ty / this.dpr - TICKET.h / 2, w: tw, h: TICKET.h },
+      screenW: this.cssW,
+      minTop: a.hudTop + (twoPlus ? BOOTH_ROW_BOTTOM : 4),
+    });
+    this.speechBoxCss = b;
+    const cx = this.px(b.x + w / 2);
+    const cy = this.px(b.y + h / 2);
+    const pw = this.px(w);
+    const ph = this.px(h);
+    const g = this.speech.list[0] as Phaser.GameObjects.Graphics;
+    g.clear();
+    g.fillStyle(0x000000, 0.18).fillRoundedRect(-pw / 2 + this.px(2), -ph / 2 + this.px(3), pw, ph, ph / 2);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-pw / 2, -ph / 2, pw, ph, ph / 2);
+    // The tail, from the bubble's edge to the customer (relative to the bubble's centre).
+    const tipX = this.px(b.tipX) - cx;
+    const tipY = this.px(b.tipY) - cy;
+    let p1: [number, number];
+    let p2: [number, number];
+    if (b.tail === 'down') {
+      const bx = Phaser.Math.Clamp(tipX, -pw / 2 + ph / 2, pw / 2 - ph / 2);
+      p1 = [bx - this.px(6), ph / 2 - this.px(1)];
+      p2 = [bx + this.px(6), ph / 2 - this.px(1)];
+    } else {
+      const by = Phaser.Math.Clamp(tipY, -ph / 2 + this.px(6), ph / 2 - this.px(6));
+      p1 = [pw / 2 - this.px(8), by - this.px(6)];
+      p2 = [pw / 2 - this.px(8), by + this.px(6)];
+    }
+    g.fillTriangle(p1[0], p1[1], p2[0], p2[1], tipX, tipY);
+    g.lineStyle(this.px(2), 0x1e2430, 1).strokeRoundedRect(-pw / 2, -ph / 2, pw, ph, ph / 2);
+    g.lineBetween(p1[0], p1[1], tipX, tipY);
+    g.lineBetween(p2[0], p2[1], tipX, tipY);
+    this.speech.setPosition(cx, cy);
+  }
+
+  private hideSpeech() {
+    this.speechUntil = 0;
+    this.speechFor = null;
+    if (!this.speech.visible) return;
+    this.tweens.killTweensOf(this.speech);
+    this.speech.setVisible(false);
   }
 
   private customerSpot() {
-    const a = this.focusArea();
-    const half = (PERSON_H * BUYER_W) / BUYER_H / 2;
-    const x = Math.min(a.cx + a.carW / 2 + 8, this.cssW - half - 2);
-    return { x: this.px(x), y: this.px(a.cy + a.carW * 0.13 + 14) };
+    const f = customerFeet(this.focusArea(), this.cssW, PERSON_W);
+    return { x: this.px(f.x), y: this.px(f.y) };
   }
 
   private painterSpot() {
@@ -454,7 +545,7 @@ export class PaintScene extends Phaser.Scene {
   /** Where the ticket hangs: over the car's roof (the sign is laid out above it), below the HUD. */
   private ticketPos() {
     const a = this.focusArea();
-    const y = Math.max(a.hudTop + TICKET.h / 2 + 4, ticketTop(this.roofY()) + TICKET.h / 2);
+    const y = Math.max(a.hudTop + TICKET.h / 2 + 4, a.ticketY + TICKET.h / 2);
     return { x: this.px(a.cx), y: this.px(y) };
   }
 
@@ -670,6 +761,7 @@ export class PaintScene extends Phaser.Scene {
   }
 
   private customerLeaves() {
+    this.hideSpeech();
     if (!this.customer.visible) return;
     this.tweens.killTweensOf(this.customer);
     const y = this.customer.y;
@@ -761,6 +853,14 @@ export class PaintScene extends Phaser.Scene {
       leaving: this.carLeaving,
       painter: this.painter.visible,
       customer: this.customer.visible,
+      speech: this.speech.visible ? { text: this.speechText.text, box: this.speechBoxCss } : null,
+      /** Ticket box (CSS px) as drawn. */
+      ticketBox: this.ticket.visible
+        ? { x: this.ticket.x / this.dpr - this.ticketW / 2, y: this.ticket.y / this.dpr - TICKET.h / 2, w: this.ticketW, h: TICKET.h }
+        : null,
+      screen: { w: this.cssW, h: this.cssH },
+      sign: this.signLettered,
+      carW: this.focusArea().carW,
       booths: this.booths.length,
       ticket: this.ticket.visible,
       ticketIcons: this.ticketIcons.map((t) => t.text).join(''),

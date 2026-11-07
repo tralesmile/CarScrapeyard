@@ -9,6 +9,7 @@ import type { PaintJob } from '../core/state';
 import { BUYER_W, OUTLINE, person } from './buyerArt';
 import { SHAPES, WHEEL_Y, roundedPath, scaled } from './carArt';
 import { signBand, type LotLayout } from './carlotArt';
+import { BAY_ROW_BOTTOM, GARAGE_AREA_TOP as BOOTH_AREA_TOP } from './garageArt';
 
 /** Same fields as the lot's layout: the car stands on the booth's floor grate instead of a platform. */
 export type BoothLayout = LotLayout;
@@ -29,9 +30,129 @@ export function ticketWidth(services: number): number {
   return TICKET.pad + services * TICKET.slot + 8 + TICKET.tipW;
 }
 
-/** Top of the ticket for a car whose tallest roof is at `roofY` (CSS px). */
-export function ticketTop(roofY: number): number {
-  return roofY - TICKET.h + TICKET.overlap;
+/** Top of the ticket for a car whose tallest roof is at `roofY` (CSS px); `overlap` grows on short phones. */
+export function ticketTop(roofY: number, overlap: number = TICKET.overlap): number {
+  return roofY - TICKET.h + overlap;
+}
+
+/** Height of the tallest roof above the car's centre, as a fraction of the car's width. */
+export const ROOF_FRAC = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.map((p) => p[1]))));
+
+/** Room the sign band needs between the booth row and the ticket (CSS px): enough for its lettering. */
+export const SIGN_ROOM = 26;
+/** The most the ticket may cover the tallest roof on a short phone (CSS px). */
+export const MAX_OVERLAP = 22;
+/** The car never shrinks below this on a short phone (CSS px). */
+export const MIN_CAR_W = 220;
+/** Distance from the car's centre down to the waiting customer's feet, as a fraction of car width plus px. */
+const FEET = { frac: 0.13, px: 14 } as const;
+
+export interface BoothStage {
+  cx: number;
+  cy: number;
+  carW: number;
+  /** Top and bottom of the area the car is laid out in. */
+  top: number;
+  bottom: number;
+  /** How much the ticket overlaps the tallest roof. */
+  overlap: number;
+  /** Tallest roof and the ticket's top edge. */
+  roofY: number;
+  ticketY: number;
+}
+
+/**
+ * Where the car, its roof and the order ticket sit (P1.2g, CSS px). The car stands at 55% down the free area; on a
+ * short phone that leaves no room for the sign between the booth row and the ticket, so the car first moves down
+ * (its customer's feet stay above the panel) and then the ticket covers a little more of the roof.
+ * `hudTop` is the HUD's bottom edge, `bottom` the panel's top edge.
+ */
+export function boothStage(cssW: number, hudTop: number, bottom: number): BoothStage {
+  const top = hudTop + BOOTH_AREA_TOP;
+  let carW = Math.min(cssW * 0.8, 400);
+  const rise = 0.25 - ROOF_FRAC / 2; // roof height above the car's centre, per px of car width
+  const roofOf = (cy: number) => cy - rise * carW;
+  const need = hudTop + BAY_ROW_BOTTOM + SIGN_ROOM; // the ticket's top should not rise above this
+  const floor = bottom - 2 - FEET.px; // the customer's feet stay above this
+  const cy0 = top + (bottom - top) * 0.55;
+  let cy = cy0;
+  let overlap: number = TICKET.overlap;
+  const gap = () => ticketTop(roofOf(cy), overlap) - need;
+  if (gap() < 0) cy = Math.max(cy0, Math.min(floor - carW * FEET.frac, cy - gap()));
+  if (gap() < 0) overlap = Math.min(MAX_OVERLAP, overlap - gap());
+  if (gap() < 0) {
+    // Still no room (a very short phone): a smaller car, standing as low as its customer allows.
+    carW = Math.max(MIN_CAR_W, Math.min(carW, (floor - TICKET.h + overlap - need) / (FEET.frac + rise)));
+    cy = Math.max(cy0, floor - carW * FEET.frac);
+  }
+  const roofY = roofOf(cy);
+  return { cx: cssW / 2, cy, carW, top, bottom, overlap, roofY, ticketY: ticketTop(roofY, overlap) };
+}
+
+/** Feet of the waiting customer (right of the car), CSS px. `personW` is the drawn customer's width. */
+export function customerFeet(st: BoothStage, cssW: number, personW: number): { x: number; y: number } {
+  const x = Math.min(st.cx + st.carW / 2 + 8, cssW - personW / 2 - 2);
+  return { x, y: st.cy + st.carW * FEET.frac + FEET.px };
+}
+
+/** What a paint customer says as they step out (P1.2g), by the first service they ordered; the full works for 3. */
+export const PAINT_LINES: Record<PaintService | 'combo', readonly string[]> = {
+  respray: ['Make it pop!', 'A bolder colour, please!', "I'm bored of this paint!"],
+  rims: ['Make the wheels shine!', 'Bling it up!', 'Shiny rims, please!'],
+  wrap: ['Stripes! Lots of stripes!', 'Wrap it, make it fast!', 'I want racing stripes!'],
+  tune: ['Make it roar!', 'More horsepower!', 'Make it go faster!'],
+  combo: ['The full works, please!', 'Do everything!', 'Make it a show car!'],
+};
+
+/** The customer's line for an order: stable by id, like the garage's. */
+export function paintLine(job: Pick<PaintJob, 'id' | 'services'>): string {
+  const key = job.services.length >= 3 ? 'combo' : (job.services[0] ?? 'respray');
+  const lines = PAINT_LINES[key];
+  return lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!;
+}
+
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export function overlaps(a: Rect, b: Rect, margin = 0): boolean {
+  return a.x < b.x + b.w + margin && b.x < a.x + a.w + margin && a.y < b.y + b.h + margin && b.y < a.y + a.h + margin;
+}
+
+/** The speech bubble's box and where its tail points: down at the head, or right at the customer's side. */
+export interface SpeechBox extends Rect {
+  tail: 'down' | 'right';
+  /** Tail tip (CSS px). */
+  tipX: number;
+  tipY: number;
+}
+
+/**
+ * Where the paint customer's speech bubble goes (P1.2g, CSS px). The tip clock runs from the car's arrival, so the
+ * bubble never covers the order ticket: above the customer's head when there is room, else shifted right of the
+ * ticket, else beside the customer below the ticket with the tail pointing right at them.
+ * `head` is the top of the customer's head, `personW` their width, `minTop` the lowest the bubble may rise to.
+ */
+export function speechBox(o: { w: number; h: number; head: { x: number; y: number }; personW: number; ticket: Rect; screenW: number; minTop: number }): SpeechBox {
+  const { w, h, head, ticket, screenW } = o;
+  const edge = 4;
+  const clampX = (x: number) => Math.max(edge, Math.min(screenW - edge - w, x));
+  const tipY = head.y - 2;
+  const y = head.y - 10 - h;
+  if (y >= o.minTop) {
+    const above = { x: clampX(head.x - w * 0.75), y, w, h };
+    if (!overlaps(above, ticket, 4)) return { ...above, tail: 'down', tipX: head.x, tipY };
+    const right = { x: ticket.x + ticket.w + 6, y, w, h };
+    if (right.x + w <= screenW - edge && !overlaps(right, ticket, 4)) return { ...right, tail: 'down', tipX: Math.max(right.x + h / 2, Math.min(right.x + w - h / 2, head.x)), tipY };
+  }
+  // Beside the customer, under the ticket: the tail points right at their face.
+  const side = head.x - o.personW / 2 - 8;
+  const by = Math.max(ticket.y + ticket.h + 6, head.y + 4);
+  const box = { x: clampX(side - w), y: by, w, h };
+  return { ...box, tail: 'right', tipX: Math.max(box.x + w, side + 6), tipY: Math.min(by + h / 2, head.y + 14) };
 }
 
 /** How much of each finished-service layer shows on the car, 0..1 (the current service grows with its work). */

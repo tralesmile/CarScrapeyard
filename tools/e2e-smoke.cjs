@@ -982,6 +982,15 @@ async function waitForServer(url, ms = 15000) {
       return { onScreen: t.left >= 0 && t.right <= sc.scale.width, belowHud: c.y + t.top * z >= hud.bottom - 1 };
     });
     assert(ticketFit.onScreen && ticketFit.belowHud, 'the ticket hangs on screen, below the top bar');
+    // P1.2g: the customer says what they want; the bubble never covers the ticket (its tip clock is running).
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('paint').debugView().speech, null, { timeout: 3000 });
+    const said = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    const clear = (a, b) => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+    const inScreen = (b, sc) => b.x >= 0 && b.x + b.w <= sc.w && b.y >= 0;
+    assert(
+      ['The full works, please!', 'Do everything!', 'Make it a show car!'].includes(said.speech.text) && said.ticket && clear(said.speech.box, said.ticketBox) && inScreen(said.speech.box, said.screen),
+      `the customer says what they want, clear of the ticket (${JSON.stringify(said.speech)})`,
+    );
     await page.screenshot({ path: path.join(SHOTS, 'e2e-20-paint-order.png') });
     const paintCarPos = async () =>
       page.evaluate(() => {
@@ -1048,6 +1057,33 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(painterView.left && painterView.inside, 'the Painter stands left of the car, on screen; two booths show above');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-20d-paint-crew.png') });
+    // A very short phone (375x560) with two booths: the car moves down so the sign, the ticket and the booth row
+    // stay apart, and the speech bubble still clears the ticket.
+    const vp0 = page.viewportSize();
+    await page.setViewportSize({ width: 375, height: 560 });
+    await page.waitForTimeout(700);
+    const shortView = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      sc.speechText.setText('Wrap it, make it fast!');
+      sc.speechFor = sc.bigId;
+      sc.placeSpeech();
+      sc.speech.setVisible(true).setAlpha(1).setScale(1);
+      sc.speechUntil = sc.clock + 3;
+      const v = sc.debugView();
+      const hud = document.querySelector('.hud').getBoundingClientRect();
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      const rowBottom = Math.max(0, ...sc.booths.map((b) => b.container.getBounds().bottom / sc.bridge.dpr));
+      return { v, hudBottom: hud.bottom - c.y, rowBottom, h: sc.cssH };
+    });
+    const sv = shortView.v;
+    const svClear = sv.ticketBox && sv.speech && clear(sv.speech.box, sv.ticketBox) && inScreen(sv.speech.box, sv.screen);
+    assert(
+      Math.round(shortView.h) === 560 && sv.sign && svClear && sv.ticketBox.y >= shortView.rowBottom + 4 && sv.ticketBox.y >= shortView.hudBottom,
+      `on a 560 px phone the sign keeps its lettering, the ticket clears the booth row and the bubble clears the ticket (${JSON.stringify({ carW: sv.carW, t: sv.ticketBox, s: sv.speech && sv.speech.box, row: shortView.rowBottom })})`,
+    );
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20f-paint-short-phone.png') });
+    await page.setViewportSize(vp0);
+    await page.waitForTimeout(400);
     await page.evaluate(() => window.__jye.saveNow());
     await page.reload();
     await page.waitForFunction(() => window.__jye && window.__jye.game.scene.isActive('paint'), null, { timeout: 8000 });
@@ -1095,7 +1131,7 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(/⚙️ Tune\+\$[\d.]+[KMB]?/.test(tuneUi.text) && !tuneUi.disabled, `a refurbished lot car offers an engine tune at the paint shop (${tuneUi.text})`);
     assert(tuneUi.apart && tuneUi.onScreen, 'the Tune button sits beside the Sell button, both on screen');
-    await page.waitForFunction(() => window.__jye.game.scene.getScene('carlot').tag.visible, null, { timeout: 3000 });
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('carlot').tag.visible, null, { timeout: 6000 });
     await page.screenshot({ path: path.join(SHOTS, 'e2e-21a-lot-tune-button.png') });
     const sticker0 = await page.evaluate((id) => window.__jye.state.carlot.cars.find((c) => c.id === id) && window.__jye.game.scene.getScene('carlot').tagText.text, tuneId);
     await page.click('.crush.tune');

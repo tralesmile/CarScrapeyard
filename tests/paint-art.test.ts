@@ -4,9 +4,16 @@ import { buyBooth, generatePaintJob, paintTap } from '../src/core/paint';
 import { newGame } from '../src/core/state';
 import { SHAPES } from '../src/game/carArt';
 import {
-  BOOTH_AREA_TOP,
   BOOTH_ROW,
+  BOOTH_ROW_BOTTOM,
   boothSign,
+  boothStage,
+  customerFeet,
+  MAX_OVERLAP,
+  MIN_CAR_W,
+  PAINT_LINES,
+  paintLine,
+  speechBox,
   exhaustSpot,
   fanSpots,
   grateRect,
@@ -14,42 +21,30 @@ import {
   serviceReveal,
   stepProgress,
   TICKET,
-  ticketTop,
   ticketWidth,
   wrapAccent,
   type BoothLayout,
 } from '../src/game/paintArt';
 import { cityMapSvg } from '../src/ui/cityMap';
 
-const ROOF = Math.min(...Object.values(SHAPES).map((sh) => Math.min(...sh.body.map((p) => p[1]))));
-
 /** Same geometry as PaintScene.focusArea/drawBackground: HUD 62 CSS px tall, panel 264 CSS px. */
+function stage(w: number, h: number, s: number, hudTop = 62) {
+  return boothStage(w / s, hudTop, h / s - 264);
+}
+
 function layout(w: number, h: number, s: number, hudTop = 62): BoothLayout {
-  const cssW = w / s;
-  const cssH = h / s;
-  const top = hudTop + BOOTH_AREA_TOP;
-  const bottom = cssH - 264;
-  const carWc = Math.min(cssW * 0.8, 400);
-  const cy = top + (bottom - top) * 0.55;
+  const st = stage(w, h, s, hudTop);
   return {
     w,
     h,
-    floorY: s * (top + (cy - top) * 0.62),
+    floorY: s * (st.top + (st.cy - st.top) * 0.62),
     s,
-    stage: { cx: w / 2, groundY: s * (cy + carWc * 0.13), carW: carWc * s },
+    stage: { cx: w / 2, groundY: s * (st.cy + st.carW * 0.13), carW: st.carW * s },
     sign: 'PAINT & TUNING',
     reservedTop: s * (hudTop + BOOTH_ROW.y + BOOTH_ROW.h / 2 + 4),
     // As in the scene: the sign is laid out above the order ticket, which sits on the roof.
-    roofY: s * (ticketTop(cy - carWc / 4 + ROOF * (carWc / 2)) - 4),
+    roofY: s * (st.ticketY - 4),
   };
-}
-
-function carRoof(w: number, h: number, s: number, hudTop = 62): number {
-  const top = hudTop + BOOTH_AREA_TOP;
-  const bottom = h / s - 264;
-  const carWc = Math.min((w / s) * 0.8, 400);
-  const cy = top + (bottom - top) * 0.55;
-  return cy - carWc / 4 + ROOF * (carWc / 2);
 }
 
 const T0 = 1_700_000_000_000;
@@ -71,16 +66,14 @@ describe('paint booth backdrop layout', () => {
       const L = layout(w, h, s);
       const b = boothSign(L);
       expect(b.y).toBeGreaterThanOrEqual(L.reservedTop);
-      // A very short phone (560 CSS px) has no room between the booth row and the ticket: the sign becomes a thin strip
-      // and the ticket may cover it. Every taller screen keeps them apart.
-      const roomy = h / s >= 600;
-      if (roomy) expect(b.y + b.h).toBeLessThanOrEqual(L.roofY);
-      if (h / s >= 640) expect(b.sign).toBe(true);
+      // Every screen, even a 560 CSS px phone (P1.2g), keeps the lettered sign between the booth row and the ticket.
+      expect(b.y + b.h).toBeLessThanOrEqual(L.roofY);
+      expect(b.sign).toBe(true);
       // The ticket stays clear of the sign, overlaps the roof only a little, and fits across the screen.
-      const roof = carRoof(w, h, s);
-      if (roomy) expect(b.y + b.h).toBeLessThanOrEqual(s * ticketTop(roof));
-      else expect(b.sign).toBe(false);
-      expect(roof - ticketTop(roof) - TICKET.h).toBeLessThanOrEqual(TICKET.overlap);
+      const st = stage(w, h, s);
+      expect(b.y + b.h).toBeLessThanOrEqual(s * st.ticketY);
+      expect(st.ticketY + TICKET.h - st.roofY).toBeLessThanOrEqual(MAX_OVERLAP);
+      if (h / s >= 640) expect(st.overlap).toBe(TICKET.overlap);
       expect(ticketWidth(3)).toBeLessThanOrEqual(w / s - 16);
       for (const f of fanSpots(L)) {
         expect(f.x - f.r).toBeGreaterThanOrEqual(0);
@@ -98,6 +91,82 @@ describe('paint booth backdrop layout', () => {
       expect(g.y + g.h).toBeGreaterThan(L.stage.groundY);
     });
   }
+});
+
+const PHONES = [
+  [390, 664],
+  [360, 640],
+  [375, 560],
+  [375, 540],
+  [320, 568],
+  [390, 844],
+  [1280, 800],
+] as const;
+
+describe('booth stage on short phones (P1.2g)', () => {
+  it('a 375x560 phone with the real panel (223 px + 64 px hint room) keeps the sign, a smaller car', () => {
+    const st = boothStage(375, 60, 560 - 287);
+    expect(st.ticketY).toBeGreaterThanOrEqual(60 + BOOTH_ROW_BOTTOM + 20);
+    expect(st.carW).toBeLessThan(300);
+    expect(st.carW).toBeGreaterThanOrEqual(MIN_CAR_W);
+    expect(customerFeet(st, 375, 30).y).toBeLessThanOrEqual(st.bottom);
+  });
+
+  for (const [w, h] of PHONES) {
+    it(`the ticket clears the booth row with room for the sign, the customer stands above the panel (${w}x${h})`, () => {
+      const st = stage(w, h, 1);
+      expect(st.ticketY).toBeGreaterThanOrEqual(62 + BOOTH_ROW_BOTTOM + 20);
+      const feet = customerFeet(st, w, 30);
+      expect(feet.y).toBeLessThanOrEqual(st.bottom);
+      expect(st.cy - st.carW / 4).toBeGreaterThan(st.top - 30);
+      expect(st.overlap).toBeLessThanOrEqual(MAX_OVERLAP);
+    });
+  }
+
+  it('tall screens keep the old layout (car at 55%, normal overlap)', () => {
+    const st = stage(390, 844, 1);
+    expect(st.cy).toBeCloseTo(st.top + (st.bottom - st.top) * 0.55, 6);
+    expect(st.overlap).toBe(TICKET.overlap);
+  });
+});
+
+describe('customer speech bubble (P1.2g)', () => {
+  const PERSON_H = 82;
+  const PERSON_W = 30;
+  const clear = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
+    a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+  for (const [w, h] of PHONES)
+    for (const services of [1, 2, 3])
+      for (const text of [90, 160]) {
+        it(`never covers the ticket and stays on screen (${w}x${h}, ${services} services, ${text} px line)`, () => {
+          const st = stage(w, h, 1);
+          const tw = ticketWidth(services);
+          const ticket = { x: st.cx - tw / 2, y: Math.max(62 + TICKET.h / 2 + 4, st.ticketY + TICKET.h / 2) - TICKET.h / 2, w: tw, h: TICKET.h };
+          const feet = customerFeet(st, w, PERSON_W);
+          const head = { x: feet.x, y: feet.y - PERSON_H - 2 };
+          for (const minTop of [66, 62 + BOOTH_ROW_BOTTOM]) {
+            const b = speechBox({ w: text, h: 30, head, personW: PERSON_W, ticket, screenW: w, minTop });
+            expect(clear(b, ticket)).toBe(true);
+            expect(b.x).toBeGreaterThanOrEqual(0);
+            expect(b.x + b.w).toBeLessThanOrEqual(w);
+            expect(b.y).toBeGreaterThanOrEqual(Math.min(minTop, ticket.y + ticket.h));
+            expect(b.y + b.h).toBeLessThanOrEqual(st.bottom);
+            // The tail tip is near the customer's head.
+            expect(Math.abs(b.tipX - head.x)).toBeLessThanOrEqual(PERSON_W / 2 + 10);
+            expect(Math.abs(b.tipY - head.y)).toBeLessThanOrEqual(16);
+          }
+        });
+      }
+
+  it('says what the order is about, stable per order, the full works for three services', () => {
+    expect(PAINT_LINES.respray).toContain(paintLine({ id: 4, services: ['respray'] }));
+    expect(PAINT_LINES.tune).toContain(paintLine({ id: 4, services: ['tune', 'rims'] }));
+    expect(PAINT_LINES.combo).toContain(paintLine({ id: 9, services: ['wrap', 'rims', 'tune'] }));
+    expect(paintLine({ id: 12, services: ['rims'] })).toBe(paintLine({ id: 12, services: ['rims'] }));
+    const seen = new Set([0, 1, 2, 3, 4, 5].map((id) => paintLine({ id, services: ['wrap'] })));
+    expect(seen.size).toBe(PAINT_LINES.wrap.length);
+    for (const lines of Object.values(PAINT_LINES)) for (const l of lines) expect(l.length).toBeLessThanOrEqual(26);
+  });
 });
 
 describe('service reveal (what the car shows while it is worked on)', () => {
