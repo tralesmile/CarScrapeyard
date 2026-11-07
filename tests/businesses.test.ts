@@ -58,15 +58,21 @@ describe('businesses (city map)', () => {
 
   it('a business whose loop is not built yet shows "soon" and cannot be opened', () => {
     const s = newGame(T0, 1);
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
     const paint = ECON.businesses.list.paint;
     s.lifetimeEarnings = paint.unlockLifetime;
     s.cash = paint.openCost * 2;
-    expect(paint.ready).toBe(false); // flips in P1.2 with the Paint & Tuning loop
-    expect(garage.ready).toBe(true); // the Repair Garage loop arrived in P1.1c
-    expect(ECON.businesses.list.carlot.ready).toBe(true); // the Used Car Lot loop arrived in P1.2b
-    expect(businessStatus(s, 'paint')).toBe('soon');
-    expect(openBusiness(s, 'paint')).toBe(false);
-    expect(s.cash).toBe(paint.openCost * 2);
+    // Every business is built since P1.2e; switch Paint & Tuning off to check the "soon" rule still holds.
+    expect(paint.ready).toBe(true);
+    list.paint!.ready = false;
+    try {
+      expect(businessStatus(s, 'paint')).toBe('soon');
+      expect(openBusiness(s, 'paint')).toBe(false);
+      expect(s.cash).toBe(paint.openCost * 2);
+    } finally {
+      list.paint!.ready = true;
+    }
+    expect(businessStatus(s, 'paint')).toBe('forSale');
     expect(businessStatus(s, 'carlot')).toBe('forSale');
   });
 

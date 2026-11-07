@@ -38,7 +38,8 @@ import {
   hireForeman,
   repMultiplier,
 } from '../core/garage';
-import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind } from '../core/config';
+import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, PaintUpgradeKind } from '../core/config';
+import { boothCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, paintUpgradeCost, paintWorkPerTap, painterRate } from '../core/paint';
 import {
   buyCarLotUpgrade,
   buyLot,
@@ -62,12 +63,12 @@ import { conditionStars } from '../game/carlotArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
-type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew';
+type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
 const BUSINESS_TABS: Record<BusinessId, Tab[]> = {
   scrapyard: ['upgrades', 'crew', 'yard', 'jobs'],
   garage: ['gupgrades', 'gcrew'],
   carlot: ['auction', 'lupgrades', 'lcrew'],
-  paint: [],
+  paint: ['pupgrades', 'pcrew'],
 };
 type BuyMode = 1 | 10 | 'max';
 
@@ -231,6 +232,8 @@ export class Ui {
       ['auction', 'Auction'],
       ['lupgrades', 'Lot'],
       ['lcrew', 'Crew'],
+      ['pupgrades', 'Shop'],
+      ['pcrew', 'Crew'],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -725,12 +728,62 @@ export class Ui {
     return { ...v, update };
   }
 
+  // ---- Paint & Tuning cards -------------------------------------------------
+
+  private paintUpgradeCard(kind: PaintUpgradeKind): CardView {
+    const info = ECON.paint.upgrades[kind];
+    const v = this.simpleCard(`paint-${kind}`, info.name, '', (s) => buyPaintUpgrade(s, kind), () => sfx.buy());
+    const update = (s: GameState) => {
+      const level = s.paint.levels[kind];
+      setText(v.lvl, `Lv ${level}`);
+      if (kind === 'booth') {
+        const ms = nextMilestone(level);
+        setText(v.desc, `${paintWorkPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
+      } else setText(v.desc, `Fees x${hypeMultiplier(level).toFixed(2)} for new customers`);
+      const cost = paintUpgradeCost(kind, level);
+      setText(v.btn, formatCash(cost));
+      v.btn.disabled = s.cash < cost;
+      v.root.classList.toggle('ready', s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private boothCard(): CardView {
+    const v = this.simpleCard('paint-booths', 'Extra Booth', 'Room for one more customer car', (s) => buyBooth(s), () => sfx.buy());
+    const update = (s: GameState) => {
+      const cost = boothCost(s.paint.booths);
+      setText(v.lvl, `${s.paint.booths} / ${ECON.paint.booths.start + ECON.paint.booths.costs.length}`);
+      v.btn.classList.toggle('done', cost === null);
+      setText(v.btn, cost === null ? 'Full' : formatCash(cost));
+      v.btn.disabled = cost === null || s.cash < cost;
+      v.root.classList.toggle('ready', cost !== null && s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private painterCard(): CardView {
+    const f = ECON.paint.painter;
+    const blurb = 'Works through the orders for you, even offline (no quick tips)';
+    const v = this.simpleCard('paint-painter', f.name, blurb, (s) => hirePainter(s), () => sfx.fanfare());
+    const update = (s: GameState) => {
+      const hired = s.paint.painter;
+      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.desc, hired ? `Working ${painterRate(s).toFixed(1)} work/s, even offline` : blurb);
+      v.btn.classList.toggle('done', hired);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(f.cost)}`);
+      v.btn.disabled = hired || s.cash < f.cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= f.cost);
+    };
+    return { ...v, update };
+  }
+
   /** Swap the panel's tab set when the business on screen changed. */
   private syncBusinessTabs(s: GameState) {
     if (s.businesses.active === this.shownBiz) return;
     this.shownBiz = s.businesses.active;
     this.root.classList.toggle('in-garage', this.shownBiz === 'garage');
     this.root.classList.toggle('in-carlot', this.shownBiz === 'carlot');
+    this.root.classList.toggle('in-paint', this.shownBiz === 'paint');
     this.tab = BUSINESS_TABS[s.businesses.active][0] ?? 'upgrades';
     this.buildCards();
   }
@@ -751,6 +804,8 @@ export class Ui {
     else if (this.tab === 'auction') this.cards = Array.from({ length: ECON.carlot.auctionLots }, (_, i) => this.auctionCard(i));
     else if (this.tab === 'lupgrades') this.cards = [this.carlotUpgradeCard('valet'), this.carlotUpgradeCard('showroom'), this.spotCard()];
     else if (this.tab === 'lcrew') this.cards = [this.lotCrewCard('detailer'), this.lotCrewCard('agent')];
+    else if (this.tab === 'pupgrades') this.cards = [this.paintUpgradeCard('booth'), this.paintUpgradeCard('hype'), this.boothCard()];
+    else if (this.tab === 'pcrew') this.cards = [this.painterCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -1156,7 +1211,7 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back' };
+    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back to the paint shop' };
     const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
@@ -1183,6 +1238,7 @@ export class Ui {
     if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
     if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= ECON.garage.foreman.cost;
     if (t === 'auction') return s.businesses.opened.carlot && s.carlot.cars.length === 0 && s.carlot.board.some((b) => !!b && canBuyLot(s, b.id));
+    if (t === 'pcrew') return s.businesses.opened.paint && !s.paint.painter && s.cash >= ECON.paint.painter.cost;
     if (t === 'lcrew') return s.businesses.opened.carlot && (['detailer', 'agent'] as const).some((k) => !s.carlot.crew[k] && s.cash >= ECON.carlot.crew[k].cost);
     return false;
   }
@@ -1204,6 +1260,11 @@ export class Ui {
         if (l.cars.length === 0) text = '👇 Buy a car at the auction';
         else if (lc && !lotCarReady(lc)) text = '👆 Tap the car to refurbish it!';
       }
+    } else if (s.businesses.active === 'paint') {
+      const pj = findPaintJob(s, s.paint.focusedId);
+      const svc = pj ? currentService(pj) : null;
+      if (!pj && s.paint.jobsDone === 0) text = 'A customer is on the way...';
+      else if (pj && svc && s.paint.jobsDone < 3) text = `👆 Tap the car: ${ECON.paint.services[svc].name.toLowerCase()}!`;
     } else if (s.businesses.active === 'garage') {
       if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
       else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
@@ -1452,11 +1513,12 @@ export class Ui {
     return this.shownBiz === 'carlot' && this.tab === 'auction';
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0) {
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0, paint = 0) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     const shop =
       (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
-      (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '');
+      (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '') +
+      (paint > 0 ? `<p class="offline-paint">🎨 The Painter finished paint and tuning orders: ${formatCash(paint)}</p>` : '');
     this.modal({
       title: 'Welcome back!',
       body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}${shop}`,

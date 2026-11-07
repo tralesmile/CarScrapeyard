@@ -16,6 +16,7 @@ import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { CarLotScene } from './game/CarLotScene';
+import { PaintScene } from './game/PaintScene';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
@@ -95,7 +96,11 @@ function onEvents(events: GameEvent[]) {
       if (ui.auctionShown()) sfx.lotLost();
     }
     if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();
-    if (e.type.startsWith('garage') || e.type.startsWith('lot')) dirty = true;
+    if (e.type === 'paintDone') {
+      sales.push({ t: performance.now(), amount: e.amount });
+      if (e.tip > 0 && state.paint.tips === 1) ui.toast(`⚡ Quick tip! Finish an order fast yourself and the customer tips +${Math.round(ECON.paint.tip * 100)}%`, 4000);
+    }
+    if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
   ui.render();
@@ -158,24 +163,25 @@ const game = new Phaser.Game({
 game.scene.add('yard', YardScene, true, { bridge });
 game.scene.add('garage', GarageScene, false, { bridge });
 game.scene.add('carlot', CarLotScene, false, { bridge });
+game.scene.add('paint', PaintScene, false, { bridge });
 
 function yardScene(): YardScene | undefined {
   return game.scene.getScene('yard') as YardScene | undefined;
 }
 
-/** Scene key per business (Paint & Tuning has no scene yet and never becomes active). */
-const SCENE_KEYS = { garage: 'garage', carlot: 'carlot' } as const;
+/** Scene key per business. */
+const SCENE_KEYS = { scrapyard: 'yard', garage: 'garage', carlot: 'carlot', paint: 'paint' } as const;
+type SceneKey = (typeof SCENE_KEYS)[keyof typeof SCENE_KEYS];
 
-function activeSceneKey(): 'yard' | 'garage' | 'carlot' {
-  const a = state.businesses.active;
-  return a === 'garage' || a === 'carlot' ? SCENE_KEYS[a] : 'yard';
+function activeSceneKey(): SceneKey {
+  return SCENE_KEYS[state.businesses.active];
 }
 
 /** The scene on screen (it runs the simulation tick and gets the player's events). */
-function scene(): YardScene | GarageScene | CarLotScene | undefined {
+function scene(): YardScene | GarageScene | CarLotScene | PaintScene | undefined {
   const key = activeSceneKey();
   if (key === 'yard') return yardScene();
-  return game.scene.getScene(key) as GarageScene | CarLotScene | undefined;
+  return game.scene.getScene(key) as GarageScene | CarLotScene | PaintScene | undefined;
 }
 
 /**
@@ -186,7 +192,7 @@ function scene(): YardScene | GarageScene | CarLotScene | undefined {
 function showBusiness() {
   const m = game.scene;
   const want = activeSceneKey();
-  for (const key of ['yard', 'garage', 'carlot'] as const) {
+  for (const key of Object.values(SCENE_KEYS)) {
     if (key === want || !m.isActive(key)) continue;
     m.sleep(key);
   }
@@ -212,7 +218,7 @@ setInterval(() => {
 }, 5000);
 
 // ---- offline earnings -----------------------------------------------------
-function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0) {
+function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint = 0) {
   if (state.pendingOffline <= 0) return;
   ui.offlineModal(
     seconds,
@@ -224,6 +230,7 @@ function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0) {
     },
     garage,
     carlot,
+    paint,
   );
 }
 
@@ -236,7 +243,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     sfx.resume();
     const r = queueOffline(state, platform.now());
-    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot);
+    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot, r.paint);
   }
 });
 window.addEventListener('pagehide', () => saveNow());
@@ -244,7 +251,7 @@ window.addEventListener('pagehide', () => saveNow());
 // ---- first launch / returning player --------------------------------------
 if (loaded) {
   const r = queueOffline(state, platform.now());
-  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage, r.carlot);
+  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage, r.carlot, r.paint);
 }
 if (!state.tutorial.introSeen) {
   ui.modal({

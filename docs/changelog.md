@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.0 - 2026-11-07 (run 17)
+
+- **Paint & Tuning is open for business (P1.2e), business 4:** earn $50M in total, open it on the map for $25M and
+  tap "Go". A spray booth with a purple sign, fans, paint cans and a floor grate. Customers drive in with an order
+  ticket on the roof: an icon per service, the current one ringed, a progress bar and a "⚡ +$30K tip · 8s" timer.
+  Tap the car: a respray or wrap sweeps the new colour across the car with coloured mist, custom rims (black and
+  gold, red calipers) fade in, an engine tune adds a flame decal and shoots fire from a chrome exhaust. "✓ Respray"
+  floats up after each service; the finished car drives off with coins and a gold "Quick tip" when you were fast.
+- Shop and Crew tabs (Spray Booth, Hype, Extra Booth; the Painter in white overalls with a spray gun, who works on his
+  own and offline), booth thumbnails for 2-3 booths, tap hints for the first orders, a first-tip toast, a welcome-back
+  line ("🎨 The Painter finished paint and tuning orders"), "Back to the paint shop" on the map, and map art that grows
+  with booths (a second door with a fresh car at 2, a neon spray can on the roof at 3).
+- Sound: a spray-gun hiss and an engine rev.
+- Tests: 10 new unit tests (booth layout on 4 screen sizes with the sign above the ticket, service reveal per layer,
+  reveal never goes backwards over a real order, wrap stripe contrast, exhaust spot on every car, map tier art), and an
+  e2e section (open and go, tabs, a three-service order tapped through with every layer checked, the tip paid,
+  upgrades, booth 2, the Painter finishing an order alone, reload, map tier, offline line).
+
 ## 0.16.0 - 2026-11-06 (run 16)
 
 - **Paint & Tuning rules (P1.2d), business 4:** customers bring an order of one to three services (Respray, Custom

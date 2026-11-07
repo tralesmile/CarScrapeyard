@@ -208,7 +208,7 @@ export const ECON = {
       scrapyard: { name: 'Scrapyard', icon: '🚗', unlockLifetime: 0, openCost: 0, ready: true },
       garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 100_000, ready: true },
       carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: true },
-      paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
+      paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: true },
     } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
     /**
      * Map tiers (P1.1d): each open business grows on the map in three tiers. The number is the size needed for tier 2

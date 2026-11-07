@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06 (run 16; next run is run 17). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 17; next run is run 18). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -91,11 +91,16 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         3 s per service; Spray Booth / Hype / booths 2-3 / Painter; idle and offline income from an exactly enumerated
         expected order; save repair; map tiers by booths). Tuned with a 180-minute bot run (baseFee $55K: opens 1h35m,
         41% of earnings at 3 h). `ready: false` until the scene ships.
-  - [ ] P1.2e Paint & Tuning scene and UI: `PaintScene` + `paintArt.ts` (spray booth backdrop, car shows each finished
-        service: new colour, rims, wrap stripes, tune flames/exhaust), order ticket with service icons and a tip timer,
-        Shop / Crew tabs, map tier art, welcome-back line (`ElapsedResult.paint`), e2e. Then set `ready: true`.
+  - [x] P1.2e Paint & Tuning scene and UI (run 17): `PaintScene` + `paintArt.ts` (spray booth backdrop with the sign laid
+        out above the order ticket, layered car: old paint, new colour cropped as it is sprayed, wrap stripes, rims and
+        tune overlays), order ticket on the roof (service slots, order progress, tip timer), spray mist / rim glints /
+        exhaust flames, Painter, booth thumbnails, Shop / Crew tabs, hints, first-tip toast, map tier art, welcome-back
+        line, e2e. `ready: true`.
   - [ ] P1.2f Lot cars through the shop (design note from P1.2d): send a refurbished Used Car Lot car to Paint & Tuning
         for one service; it comes back with a higher list price (walk-up buyers like tuned cars).
+  - [ ] P1.2g Paint shop polish (found in run 17): the customer says what they want as they step out ("Make it pop!",
+        like the garage's speech bubble); on very short phones (560 CSS px tall) the ticket covers the sign strip and
+        could touch the booth row with 2+ booths, so move the ticket beside the car there.
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements

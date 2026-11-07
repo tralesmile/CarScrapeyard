@@ -124,7 +124,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   "Bit slow for me…" when not); 2.5 s later they pay the list price plus their bonus ("Collector paid +30%") and drive
   it away. A buyer looking at a car in the spot row shows as their icon on its thumbnail. If you sell that car first,
   they pick another ready car or walk off.
-- **Paint & Tuning** (business 4, P1.2d core; scene and UI in P1.2e): goal $50M earned in total, then $25M to open.
+- **Paint & Tuning** (business 4, P1.2d core, P1.2e scene): goal $50M earned in total, then $25M to open.
   Customers drive in with an order of one to three services from the menu: Respray, Custom rims, Vinyl wrap, Engine
   tune. The booth works through them in order (tap the car, or hire the Painter) and each finished service shows on the
   car (new colour, new rims, a wrap pattern, a tune). Orders with more services pay a combo bonus (+15% per extra
@@ -132,6 +132,16 @@ to automate it, open new car businesses, then sell your empire and start again i
   play pays and the Painter (idle and offline) never tips. Upgrades: Spray Booth (speed, x2 at milestones), Hype
   (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths). Planned next (P1.2f): send a refurbished
   Used Car Lot car through the shop for a higher list price.
+  The scene (P1.2e) is a spray booth: slate wall panels, ceiling light strips, two extraction fans, a shelf of paint
+  cans, a colour-swatch fan, a floor grate with overspray and a purple "PAINT & TUNING" band with paint drips. The car
+  drives in from the left and the customer waits on the right. An order ticket sits on the car's roof: one slot per
+  service (ticked green when done, ringed orange while worked on), a progress bar for the whole order and a tip column
+  ("⚡ +$30K, tip · 8s") with a draining gold bar. Each tap shows the work: a respray or wrap sweeps the new colour
+  from the back of the car to the front with mist in the new colour, custom rims (black spokes, gold lip, red caliper)
+  fade in with glints, a tune brings a flame decal and spits fire from a new chrome exhaust tip. A finished service
+  floats "✓ Respray"; the paid order drives away with coins and a gold "⚡ Quick tip" note. The Painter (white overalls,
+  goggles, respirator, spray gun) stands left of the car and sprays the oldest order. With 2-3 booths a thumbnail row
+  shows each car and its current service. Tabs: Shop (Spray Booth, Hype, Extra Booth) and Crew (Painter).
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

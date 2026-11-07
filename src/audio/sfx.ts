@@ -158,6 +158,20 @@ class Sfx {
     this.tone(1319, 0.1, 'sine', 0.14);
     this.tone(1760, 0.3, 'sine', 0.14, undefined, 0.09);
   }
+  /** Spray gun (P1.2e): a short airy hiss, throttled on rapid taps. */
+  spray() {
+    const now = performance.now();
+    if (now - this.lastWash < 70) return;
+    this.lastWash = now;
+    haptics.play('tick');
+    this.noise(0.14, 5200 + Math.random() * 900, 0.1);
+  }
+  /** Engine tune (P1.2e): a quick rev that climbs, with a pop. */
+  rev() {
+    haptics.play('tick');
+    this.tone(90, 0.22, 'sawtooth', 0.1, 260);
+    this.noise(0.06, 700, 0.15);
+  }
   /** One wooden knock: a short low tone with a click of filtered noise. */
   private wood(delay: number, vol: number) {
     this.tone(190, 0.09, 'triangle', vol, 120, delay);

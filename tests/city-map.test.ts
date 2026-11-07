@@ -60,7 +60,7 @@ describe('city map', () => {
     expect(Number(dash[1]) / Number(dash[2])).toBeCloseTo(0.5, 2);
   });
 
-  it('rows: scrapyard is "You are here", the garage shows its goal, then its price; the lot opens, Paint & Tuning shows "soon"', () => {
+  it('rows: scrapyard is "You are here", the garage shows its goal, then its price; the lot and Paint & Tuning open', () => {
     const s = newGame(T0, 1);
     let rows = mapRows(s);
     expect(rows.map((r) => r.id)).toEqual(['scrapyard', 'garage', 'carlot', 'paint']);
@@ -76,12 +76,12 @@ describe('city map', () => {
     s.lifetimeEarnings = ECON.businesses.list.carlot.unlockLifetime;
     rows = mapRows(s);
     expect(rows[2]).toMatchObject({ status: 'forSale', action: 'Open $2.50M' });
-    // A business whose loop is not built yet (Paint & Tuning) shows "soon" once its goal is reached.
+    // Paint & Tuning is for sale once its goal is reached (P1.2e).
     s.lifetimeEarnings = ECON.businesses.list.paint.unlockLifetime;
     rows = mapRows(s);
-    expect(rows[3]).toMatchObject({ status: 'soon', action: null });
+    expect(rows[3]).toMatchObject({ status: 'forSale', action: 'Open $25.0M' });
     svg = cityMapSvg(s);
-    expect(svg.slice(svg.indexOf('data-biz="paint"'))).toContain('SOON');
+    expect(svg.slice(svg.indexOf('data-biz="paint"'))).toContain('FOR SALE');
   });
 
   it('map tiers (P1.1d): businesses grow with lot slots and repair bays; closed ones have no tier', () => {

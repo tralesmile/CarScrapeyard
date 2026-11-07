@@ -190,7 +190,7 @@ function carLotArt(p: { x: number; y: number; w: number; h: number }, lit: boole
   return o.join('');
 }
 
-function paintShopArt(p: { x: number; y: number; w: number; h: number }, lit: boolean): string {
+function paintShopArt(p: { x: number; y: number; w: number; h: number }, lit: boolean, tier = 0): string {
   const { x, y, w, h } = p;
   const o: string[] = [];
   o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${lit ? '#c7b8e8' : '#a5aab0'}"/>`);
@@ -200,6 +200,15 @@ function paintShopArt(p: { x: number; y: number; w: number; h: number }, lit: bo
   const stripes = lit ? ['#e5484d', '#f5b700', '#3b82f6'] : [C.lockedDark, '#858b93', C.lockedDark];
   stripes.forEach((col, i) => o.push(`<rect x="${x + 26}" y="${y + 40 + i * 9}" width="${w - 52}" height="5" rx="2.5" fill="${col}"/>`));
   o.push(`<rect x="${x + w / 2 - 14}" y="${y + 66}" width="28" height="18" fill="${lit ? '#d9dee6' : '#b8bdc4'}"/>`);
+  // Tier 2: a second booth door with a freshly painted car rolling out of it (booth 2).
+  if (lit && tier >= 2)
+    o.push(
+      `<rect class="t2" x="${x + 24}" y="${y + 66}" width="22" height="18" fill="#d9dee6"/>` +
+        `<rect x="${x + 21}" y="${y + 73}" width="28" height="12" rx="5" fill="#e5484d" stroke="${C.ink}" stroke-width="0.8"/><rect x="${x + 27}" y="${y + 75}" width="16" height="4" rx="2" fill="#bfe3f2"/>`,
+    );
+  // Tier 3: a neon spray-can sign on the roof (booth 3).
+  if (lit && tier >= 3)
+    o.push(`<g class="t3"><rect x="${x + w / 2 - 6}" y="${y + 2}" width="12" height="18" rx="3" fill="${C.line}" stroke="${C.cream}" stroke-width="1.5"/><rect x="${x + w / 2 - 3}" y="${y - 2}" width="6" height="4" fill="${C.cream}"/></g>`);
   return o.join('');
 }
 
@@ -260,7 +269,7 @@ export function cityMapSvg(state: GameState): string {
     if (id === 'scrapyard') art = scrapyardArt(p, tier);
     else if (id === 'garage') art = garageArt(p, lit, tier);
     else if (id === 'carlot') art = carLotArt(p, lit, tier);
-    else art = paintShopArt(p, lit);
+    else art = paintShopArt(p, lit, tier);
     const name = businessInfo(id).name;
     parts.push(
       `<g class="plot ${status}" data-biz="${id}" role="img" aria-label="${esc(name)}">${art}${badge(p, status, unlockProgress(state, id))}${label(p, name, lit || status !== 'locked')}${lit ? tierStars(p, tier) : ''}` +

@@ -743,7 +743,14 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('garage'));
     const yardTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').length);
     assert(yardTabs === 4, '"Go" on the scrapyard brings the yard and its four tabs back');
-    await page.waitForTimeout(1200);
+    // Wait for it rather than a fixed time: the Salesperson may sell a car in the meantime, and while the sold car
+    // drives off (0.5 s) the scene shows no car although the next one is already focused (flaked in run 17).
+    await page
+      .waitForFunction(() => {
+        const s = window.__jye.state;
+        return s.cars.length === 0 || window.__jye.game.scene.getScene('yard').bigCarId === s.focusedId;
+      }, null, { timeout: 4000 })
+      .catch(() => {});
     const yardCar = await page.evaluate(() => {
       const sc = window.__jye.game.scene.getScene('yard');
       const s = window.__jye.state;
@@ -762,16 +769,6 @@ async function waitForServer(url, ms = 15000) {
     assert((await page.textContent('.map-row[data-biz="carlot"] button')) === 'Open $2.50M', 'the Used Car Lot is for sale on the map');
     await page.click('.map-row[data-biz="carlot"] button');
     await page.waitForFunction(() => window.__jye.state.businesses.opened.carlot);
-    // Paint & Tuning (P1.2d): rules are in, the scene is not, so the map says "soon" and the shop never ticks.
-    const paintRow = await page.evaluate(() => ({
-      line: document.querySelector('.map-row[data-biz="paint"] .map-line')?.textContent ?? null,
-      button: !!document.querySelector('.map-row[data-biz="paint"] button'),
-      shop: window.__jye.state.paint,
-    }));
-    assert(
-      paintRow.line === 'Unlocked! Opening in the next update' && !paintRow.button && paintRow.shop.booths === 1 && paintRow.shop.jobs.length === 0,
-      `Paint & Tuning is unlocked but "opening in the next update", with an idle shop in the save (${paintRow.line})`,
-    );
     await page.click('.map-row[data-biz="carlot"] button');
     await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
     await page.waitForSelector('.modal.city-map', { state: 'detached' });
@@ -941,6 +938,131 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('carlot'), null, { timeout: 4000 });
     assert(true, 'back to the yard from the lot');
 
+    console.log('paint and tuning');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.cash += 400e6;
+      s.lifetimeEarnings += 400e6;
+    });
+    await page.click('.map-btn');
+    await page.waitForSelector('.map-row[data-biz="paint"] button:not([disabled])');
+    assert((await page.textContent('.map-row[data-biz="paint"] button')) === 'Open $25.0M', 'Paint & Tuning is for sale on the map');
+    await page.click('.map-row[data-biz="paint"] button');
+    await page.waitForFunction(() => window.__jye.state.businesses.opened.paint);
+    await page.click('.map-row[data-biz="paint"] button');
+    await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+    await page.waitForSelector('.modal.city-map', { state: 'detached' });
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('paint') && window.__jye.game.scene.isSleeping('yard'), null, { timeout: 4000 });
+    assert(true, '"Go" puts the Paint & Tuning shop on screen and the yard to sleep');
+    const paintTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').map((t) => t.textContent.replace(/\s+$/, '')));
+    assert(paintTabs.join(',') === 'Shop,Crew', `the panel shows the shop's tabs (${paintTabs.join(', ')})`);
+    await page.waitForFunction(() => window.__jye.state.paint.jobs.length > 0, null, { timeout: 6000 });
+    // Swap the first order for a known one (respray, rims, engine tune) so every layer is checked.
+    await page.evaluate(() => {
+      const p = window.__jye.state.paint;
+      const j = p.jobs[0];
+      const id = p.nextJobId++;
+      p.jobs = [{ ...j, id, services: ['respray', 'rims', 'tune'], step: 0, work: 8, age: 0 }];
+      p.focusedId = id;
+    });
+    await page.waitForFunction(() => {
+      const v = window.__jye.game.scene.getScene('paint').debugView();
+      return v.carVisible && !v.arriving && v.ticket && v.customer && v.bigId === window.__jye.state.paint.focusedId;
+    }, null, { timeout: 4000 });
+    const order = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(order.ticketIcons === '🎨🛞⚙️' && /^⚡ \+\$[\d.]+[KMB]?\ntip · \d+s$/.test(order.tipText), `the order ticket shows the three services and the tip timer (${order.ticketIcons} · ${order.tipText.replace('\n', ' ')})`);
+    assert(order.shown.colour === 0 && order.shown.rims === 0 && order.shown.tune === 0, 'the car arrives in its old colour with stock rims');
+    assert(/Tap the car: respray/.test(await page.textContent('.hint')), 'the hint says to tap the car for the respray');
+    const ticketFit = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      const t = sc.ticket.getBounds();
+      const z = window.__jye.game.scale.zoom;
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      const hud = document.querySelector('.hud').getBoundingClientRect();
+      return { onScreen: t.left >= 0 && t.right <= sc.scale.width, belowHud: c.y + t.top * z >= hud.bottom - 1 };
+    });
+    assert(ticketFit.onScreen && ticketFit.belowHud, 'the ticket hangs on screen, below the top bar');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20-paint-order.png') });
+    const paintCarPos = async () =>
+      page.evaluate(() => {
+        const sc = window.__jye.game.scene.getScene('paint');
+        const b = sc.bigCar.getBounds();
+        const z = window.__jye.game.scale.zoom;
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        return { x: c.x + b.centerX * z, y: c.y + b.centerY * z };
+      });
+    const pc = await paintCarPos();
+    const tapUntil = async (pred, max = 60) => {
+      for (let i = 0; i < max; i++) {
+        if (await page.evaluate(pred)) return true;
+        await page.mouse.click(pc.x, pc.y);
+        await page.waitForTimeout(20);
+      }
+      return page.evaluate(pred);
+    };
+    await tapUntil(() => window.__jye.state.paint.jobs[0].work <= 4);
+    await page.evaluate(() => (window.__jye.state.paint.jobs[0].age = 0));
+    await page.waitForTimeout(120);
+    const mid = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(mid.shown.colour > 0.3 && mid.shown.colour < 0.9 && mid.shown.rims === 0, `tapping sprays the new colour across the car (${Math.round(mid.shown.colour * 100)}% done)`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20b-paint-spraying.png') });
+    await tapUntil(() => window.__jye.state.paint.jobs[0].step === 2);
+    await tapUntil(() => window.__jye.state.paint.jobs[0].work <= 8);
+    await page.evaluate(() => (window.__jye.state.paint.jobs[0].age = 0));
+    await page.waitForTimeout(120);
+    const late = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(late.shown.colour === 1 && late.shown.rims === 1 && late.shown.tune > 0.3 && late.shown.tune < 0.9, `the respray and rims stay on while the tune decal comes in (tune ${Math.round(late.shown.tune * 100)}%)`);
+    assert(/^⚡ \+/.test(late.tipText) && /🛞/.test(late.ticketIcons), 'the ticket still offers the tip after two services');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20c-paint-tune.png') });
+    await tapUntil(() => window.__jye.state.paint.jobsDone === 1, 40);
+    const paid = await page.evaluate(() => ({ ...window.__jye.state.paint, jobs: undefined }));
+    assert(paid.jobsDone === 1 && paid.tips === 1 && paid.earned > 0, `a quick hand-finished order pays the fee plus the tip (${paid.earned})`);
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('paint').debugView().leaving, null, { timeout: 1000 });
+    assert(true, 'the customer drives the finished car away');
+    // Upgrades, a second booth and the Painter.
+    await page.click('.tab:has-text("Shop"):visible');
+    const booth0 = await page.textContent('.cards .card.paint-booth .desc');
+    await page.click('.cards .card.paint-booth .buy');
+    await page.click('.cards .card.paint-hype .buy');
+    await page.click('.cards .card.paint-booths .buy');
+    const pl = await page.evaluate(() => window.__jye.state.paint);
+    assert(pl.levels.booth === 2 && pl.levels.hype === 2 && pl.booths === 2 && (await page.textContent('.cards .card.paint-booth .desc')) !== booth0, 'Spray Booth, Hype and a second booth bought');
+    await page.click('.tab:has-text("Crew"):visible');
+    await page.click('.cards .card.paint-painter .buy');
+    assert(await page.evaluate(() => window.__jye.state.paint.painter), 'Painter hired');
+    const done0 = await page.evaluate(() => window.__jye.state.paint.jobsDone);
+    await page.waitForFunction((d) => window.__jye.state.paint.jobsDone > d, done0, { timeout: 30000 });
+    assert(true, 'the Painter finishes an order without input');
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      const v = sc.debugView();
+      const p = window.__jye.state.paint;
+      const ok = v.carVisible && !v.arriving && !v.leaving && v.painter && v.booths === 2 && v.ticket && p.jobs.length === 2 && v.bigId === p.jobs[0].id;
+      // Hold the orders for the screenshot.
+      if (ok) for (const j of p.jobs) j.work = Math.max(j.work, 3);
+      return ok;
+    }, null, { timeout: 20000 });
+    const painterView = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      return { left: sc.painter.x < sc.bigCar.x - sc.bigCar.displayWidth * 0.3, inside: sc.painter.x - sc.painter.displayWidth / 2 >= 0 };
+    });
+    assert(painterView.left && painterView.inside, 'the Painter stands left of the car, on screen; two booths show above');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20d-paint-crew.png') });
+    await page.evaluate(() => window.__jye.saveNow());
+    await page.reload();
+    await page.waitForFunction(() => window.__jye && window.__jye.game.scene.isActive('paint'), null, { timeout: 8000 });
+    assert(await page.evaluate(() => !window.__jye.game.scene.isActive('yard') && !window.__jye.game.scene.isActive('carlot')), 'a reload brings back the paint shop on screen');
+    await page.waitForTimeout(500);
+    if (await page.isVisible('.modal-back .modal .buy')) await page.click('.modal-back .modal .buy');
+    await page.click('.map-btn');
+    assert((await page.textContent('.modal.city-map > .buy')) === 'Back to the paint shop', "the map's back button names the paint shop");
+    const paintTier = await page.evaluate(() => document.querySelector('.map-row[data-biz="paint"] .map-stars')?.textContent);
+    assert(paintTier === '★★☆', `two booths put the shop at tier 2 on the map (${paintTier})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20e-paint-map.png') });
+    await page.click('.map-row[data-biz="scrapyard"] button');
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('paint'), null, { timeout: 4000 });
+    assert(true, 'back to the yard from the paint shop');
+
     console.log('save and reload');
     const before = await page.evaluate(() => {
       window.__jye.saveNow();
@@ -987,6 +1109,8 @@ async function waitForServer(url, ms = 15000) {
     assert(/Foreman fixed cars in the garage: \$/.test(shopLine), `the welcome-back popup shows the garage's earnings (${shopLine.trim()})`);
     const lotLine = (await page.textContent('.modal .offline-carlot').catch(() => '')) || '';
     assert(/lot crew bought, polished and sold cars: \$/.test(lotLine), `the welcome-back popup shows the lot's earnings (${lotLine.trim()})`);
+    const paintLine = (await page.textContent('.modal .offline-paint').catch(() => '')) || '';
+    assert(/Painter finished paint and tuning orders: \$/.test(paintLine), `the welcome-back popup shows the paint shop's earnings (${paintLine.trim()})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');

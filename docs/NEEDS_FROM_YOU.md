@@ -57,6 +57,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       of one to three services (respray, rims, vinyl wrap, engine tune) and tips you +25% when you finish an order fast
       yourself. Do you like a tip for speed here, or would you rather have a style mini-game (pick the colour the
       customer asked for)?
+      New since run 17: **Paint & Tuning is open for business** (fourth business: $50M earned in total, $25M to open).
+      An order ticket sits on the car's roof; tap the car and watch the new colour spray across it, gold rims fade in
+      and flames appear on the side with a tune. Finish fast for the "⚡ Quick tip". Is the tip timer (3 s per service)
+      exciting or stressful? Is the order ticket easy to read on your phone?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

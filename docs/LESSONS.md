@@ -283,3 +283,22 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Public repos get free Actions minutes.** The runner block was the private-repo minute quota; making the repo public
   fixed it at once (the re-run went green in 25 s). Keep secrets out of the repo: it is public now.
 
+
+## 2026-11-07 (run 17)
+
+- **A green e2e can still hide the business's name.** The first Paint & Tuning run passed every assertion, but the
+  screenshot showed the order ticket sitting right on top of the "PAINT & TUNING" sign. A new overlay must be part of
+  the backdrop's layout, not drawn over it: `ticketTop()` now lives in `paintArt.ts`, the scene passes it to the
+  backdrop as the lowest point the sign may reach, and a unit test checks sign bottom <= ticket top on four screens.
+- **Then check the fix on the phone the e2e uses, not just the maths.** Moving the ticket above the sign's space left
+  only 12 px on an iPhone 13, so the band dropped its lettering (the "too small" rule). A 6 px slimmer ticket that
+  overlaps the roof 4 px more gave the sign room; only the screenshot showed the lettering had gone.
+- **Layered images + `setCrop` make a cheap "spray it on" effect.** The old car, the new-colour car cropped to the
+  service's progress, and transparent overlays (stripes, rims, flames) cost three textures per car and no per-frame
+  canvas work. A pure `serviceReveal(job)` drives all layers, so the reveal is unit-tested without Phaser, and the
+  scene exposes what it last applied (`debugView().shown`) for the e2e.
+- **Flip a "coming soon" test, don't delete it.** Making the last business `ready: true` broke the only test of the
+  "soon" rule; switching the flag off inside that test (and back in `finally`) keeps the rule covered.
+- **Old fixed waits keep flaking.** "Wait 1200 ms, then the yard shows the focused car" failed once this run: the
+  Salesperson sold a car and the drive-off (0.5 s, `bigCarId = null`) overlapped the check. Replaced with a predicate
+  wait. When a check flakes, grep the e2e for other `waitForTimeout` + assert pairs on animated state.
