@@ -1277,6 +1277,108 @@ body {
   padding: 6px 12px;
 }
 
+/* City picker (P1.3d): where the next empire is built. Two side-by-side cards; the picked one is outlined in gold. */
+.sell-empire-preview .modal .city-q {
+  margin: 2px 0 4px;
+}
+
+.city-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.city-opt {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 6px 6px 7px;
+  border: 2px solid #e2d6c6;
+  border-radius: 12px;
+  background: #fbf6ef;
+  color: #3a2f25;
+  font: inherit;
+  cursor: pointer;
+}
+
+.city-opt .city-ic {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.city-opt b {
+  font-size: 14px;
+}
+
+.city-opt small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a6a58;
+  line-height: 1.2;
+}
+
+.city-opt.on {
+  border-color: var(--gold);
+  background: #fff4cc;
+  box-shadow: 0 0 0 2px #f5b70055;
+}
+
+.city-opt[data-city='motorCity'].on {
+  background: #e3edf8;
+  border-color: #4a7bb7;
+  box-shadow: 0 0 0 2px #4a7bb755;
+}
+
+/* With the picker the preview must still fit a 320x568 phone: drop the intro line, the points chip goes on one line,
+   and the keep / starts-over lists get smaller. */
+.has-cities .modal > div > p:first-child {
+  display: none;
+}
+
+.has-cities .legacy-gain {
+  flex-direction: row;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 14px;
+  margin-bottom: 4px;
+}
+
+.has-cities .legacy-gain .display {
+  font-size: 24px;
+}
+
+.has-cities .modal .legacy-mult {
+  margin-bottom: 4px;
+}
+
+.has-cities .legacy-cols {
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+.has-cities .legacy-cols > div {
+  padding: 5px 8px;
+  font-size: 11.5px;
+}
+
+.has-cities .legacy-cols ul {
+  line-height: 1.2;
+  padding-left: 13px;
+}
+
+.has-cities .modal .legacy-run {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.modal .city-teaser,
+.modal .city-next {
+  font-size: 13px;
+  font-weight: 800;
+  color: #4a7bb7;
+}
+
 /* Phones up to 430 px: four tabs and three buy modes overflowed the panel (run 20). */
 @media (max-width: 430px) {
   .panel-head {

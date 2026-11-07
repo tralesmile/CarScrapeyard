@@ -6,7 +6,8 @@ import { CLASSIC_NAMES, ECON, PAINTS } from './config';
 import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { pick } from './rng';
 import type { GameState } from './state';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityScale } from './cities';
 import { barnFindSeconds, barnStageSeconds } from './legacyTree';
 
 export type BarnEvent =
@@ -38,13 +39,13 @@ export function nextBarnStage(state: GameState) {
 export function barnStageCost(state: GameState): { cash: number; parts: number } {
   const st = nextBarnStage(state);
   if (!st) return { cash: 0, parts: 0 };
-  return { cash: roundNice(expectedCarValue(state.levels.quality, state.carsSold) * st.cashMult * growth(state)), parts: st.parts };
+  return { cash: roundNice(expectedCarValue(state.levels.quality, state.carsSold) * st.cashMult * growth(state) * cityScale(state)), parts: st.parts };
 }
 
 /** What the restored car will sell for (shown on the card as a teaser, fixed at the reveal). */
 export function barnValue(state: GameState): number {
   if (state.barn.status === 'revealed') return state.barn.value;
-  return roundNice(expectedCarValue(state.levels.quality, state.carsSold) * legacyMultiplier(state) * ECON.barn.saleMult * growth(state));
+  return roundNice(expectedCarValue(state.levels.quality, state.carsSold) * incomeMultiplier(state) * ECON.barn.saleMult * growth(state));
 }
 
 /** While the next stage needs parts the player doesn't have yet, spare parts are kept for it. */

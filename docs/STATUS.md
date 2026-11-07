@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 22; next run is run 23). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 23; next run is run 24). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -129,16 +129,24 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         welcome-back popup), a node-bought animation (pop, glow, stamp, "−3 🏛", header pulse; reduce-motion safe), and
         the welcome-back popup tells the real time worked (capped) plus a line when you were away longer than the cap.
   - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
-        Suggested split (run 22): P1.3d1 core: `state.city` + a city list in config, Motor City unlocks after the 2nd
-        empire sale (or a Legacy Points goal), choosing the city on a sale; its businesses reuse the four business rules
-        with city multipliers (bigger values, higher costs) so no new mini-games are needed at first; save v3 migration.
-        P1.3d2 map: a second SVG map (downtown blocks, a highway) with a city switcher on the map sheet. P1.3d3 art: a
-        city palette (night-time neon backdrop variants for each scene). Sim: Motor City's second run must still feel
-        faster than Rust Valley's first.
+    - [x] P1.3d1 Core + city picker (run 23): `ECON.cities` (Rust Valley x1; Motor City x5, from the 2nd sale),
+          `src/core/cities.ts`, `state.legacy.city` (kept on a sale; new field with a default and save repair, no
+          version bump needed), `sellEmpire(state, now, city)`. A city's scale multiplies every value
+          (`incomeMultiplier`) and every price (cost functions take a required `scale`; crew, open costs, unlock goals,
+          barn stages, Head Start). Sell preview "Where next?" picker (two cards, Motor City default, fits 320x568),
+          a teaser on the first sale, "Next stop" in the celebration, the map titled by city. Sim: the third empire in
+          Motor City is offered the sale at 2h28m vs never within 5 h in Rust Valley.
+    - [ ] P1.3d2 Motor City map: a second SVG map (downtown blocks, a highway, steel blue) chosen by `legacy.city`;
+          business names per city if wanted (e.g. "Downtown Garage"); the map's city name in the HUD/map button.
+    - [ ] P1.3d3 Motor City art: a city palette (steel blue by day / night-time neon backdrop variants for each scene).
+    - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
+          first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
       for `.icon-btn.hidden`); on 320 px phones the panel's tabs and buy modes overflowed and a modal's focus slid the
       whole game sideways (`overflow: clip`, `preventScroll`, compact tabs up to 430 px: four tabs + x1/x10/Max fit at 320 px, scrolling tabs
       as a fallback).
+- [x] P1.3s e2e flake (run 23): the 560 px paint-shop check failed once with no ticket, because the Painter finished the
+      held 3-unit order during the resize. The order is held again (work 20) right before the resize.
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

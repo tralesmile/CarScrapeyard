@@ -10,6 +10,7 @@ import { sanitizeGarage } from './garage';
 import { sanitizeCarLot } from './carlot';
 import { sanitizeLotShopLinks, sanitizePaint } from './paint';
 import { sanitizeLegacy } from './legacy';
+import { cityPrice } from './cities';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
@@ -106,7 +107,7 @@ const BARN_STATUS: GameState['barn']['status'][] = ['locked', 'covered', 'workin
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
   // Head Start (legacy tree) hands a new empire some cash before it has earned anything (even if respecced after).
-  const gift = state.legacy.sold > 0 ? ECON.legacy.tree.headStartCash : 0;
+  const gift = state.legacy.sold > 0 ? cityPrice(state, ECON.legacy.tree.headStartCash) : 0;
   if (state.cash > state.lifetimeEarnings + gift + 1) return false;
   if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;

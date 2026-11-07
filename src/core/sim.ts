@@ -19,6 +19,7 @@ import {
   repairPerTap,
   rarityWeights,
   slotCost,
+  managerCost,
   washPerPixel,
 } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
@@ -38,7 +39,8 @@ import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './ba
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
 import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityScale } from './cities';
 import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
 
 export type GameEvent =
@@ -89,7 +91,7 @@ export function generateCar(state: GameState): Car {
   const rolled = weighted(state, rarityWeights(rarePerk(state)));
   const rarity = state.nextCarId <= ECON.tutorialCommonCars ? 'common' : rolled;
   const spread = 1 + ECON.valueSpread * (2 * nextRandom(state) - 1);
-  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * legacyMultiplier(state)));
+  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state)));
   const car: Car = {
     id: state.nextCarId++,
     family,
@@ -333,7 +335,7 @@ export function rerollContract(state: GameState, id: number): GameEvent[] {
 }
 
 export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 'max' = 1): boolean {
-  const { levels, cost } = bulkCost(kind, state.levels[kind], count, state.cash);
+  const { levels, cost } = bulkCost(kind, state.levels[kind], count, state.cash, cityScale(state));
   if (levels === 0 || cost > state.cash) return false;
   state.cash -= cost;
   state.levels[kind] += levels;
@@ -342,7 +344,7 @@ export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 
 }
 
 export function buySlot(state: GameState): boolean {
-  const cost = slotCost(state.slots);
+  const cost = slotCost(state.slots, cityScale(state));
   if (cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.slots += 1;
@@ -350,7 +352,7 @@ export function buySlot(state: GameState): boolean {
 }
 
 export function hireManager(state: GameState, kind: ManagerKind): boolean {
-  const cost = ECON.managers[kind].cost;
+  const cost = managerCost(state, kind);
   if (state.managers[kind] || cost > state.cash) return false;
   state.cash -= cost;
   state.managers[kind] = true;
@@ -393,7 +395,7 @@ export function offlineScrapper(state: GameState, seconds: number): { crushes: n
   const need = Math.max(0, scrapperTarget(state) - state.parts);
   const crushes = Math.min(maxCrushes, Math.ceil(need / per));
   if (crushes <= 0) return none;
-  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * legacyMultiplier(state) * c.scrapFraction);
+  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * incomeMultiplier(state) * c.scrapFraction);
   return { crushes, parts: crushes * per, cash };
 }
 

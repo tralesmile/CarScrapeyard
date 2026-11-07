@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.23.0 - 2026-11-07 (run 23)
+
+- **Motor City (P1.3d1):** the second city. From your **second** Sell Empire on, the preview asks "Where next?": stay in
+  Rust Valley or move to Motor City. Motor City runs the same four businesses with every price and every payout x5 (a
+  Wash Bay level costs $750 instead of $150, the Repair Garage unlocks at $1M, a wreck sells for five times as much),
+  so a run feels the same but the bigger dollars bring Legacy Points much faster. The first sale shows
+  "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" and Grandpa Joe has a new line;
+  the city map is titled with your city. Motor City's own map and art come next (P1.3d2/3).
+- Balance: in the sim the third empire is offered the next sale at 2h28m in Motor City, against more than 5 hours in
+  Rust Valley (x10 was tried: 1h51m and 51 points waiting, too generous).
+- Fix (e2e flake): the short-phone paint shop check could lose its order ticket when the Painter finished the order
+  during the resize.
+- Tests: 8 new unit tests (`cities.test.ts`: unlock and picking rules, every price and every value x scale, Head Start
+  and the save allowance, save repair, preview texts), a Motor City balance run, and e2e: the picker on an iPhone SE,
+  picking both cities, the celebration line, the reload into Motor City, x5 prices and the map title (e2e-22a to 22c).
+
 ## 0.22.0 - 2026-11-07 (run 22)
 
 - **Legacy perks show where they act (P1.3e):** owned Legacy tree upgrades appear as small gold chips on the screens

@@ -80,6 +80,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       "👐 +25% taps" above the upgrade cards, a "🗣️ zone +30%" badge on the haggle slider, "🌙 4h cap" in the welcome-back
       popup. Buying one pops with a gold glow. The welcome-back popup now tells you when you were away longer than the
       crew works (2 hours). Are the chips helpful or clutter on your phone?
+      New since run 23: **Motor City**, the second city. From your second Sell Empire on, the preview asks "Where
+      next?": stay in Rust Valley or move to Motor City, where every price and every payout is x5. It plays at the same
+      pace but the bigger dollars give Legacy Points much faster (the next sale comes after ~2.5 h instead of 5+). Its
+      own map and art come in the next runs. Is x5 a good jump, and should Motor City feel different to play (e.g. its
+      own fifth business) rather than just bigger?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

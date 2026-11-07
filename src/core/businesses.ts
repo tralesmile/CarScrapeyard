@@ -5,6 +5,7 @@ import type { BusinessId } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
 import { franchisePerk } from './legacyTree';
+import { cityPrice, cityScale } from './cities';
 
 export const BUSINESS_IDS = Object.keys(ECON.businesses.list) as BusinessId[];
 
@@ -25,16 +26,21 @@ export function mapUnlocked(state: GameState): boolean {
   return state.carsSold >= ECON.businesses.mapUnlockCarsSold || BUSINESS_IDS.some((id) => id !== 'scrapyard' && state.businesses.opened[id]);
 }
 
+/** Lifetime earnings this empire needs before the business can be bought (scaled to the city). */
+export function unlockGoal(state: Pick<GameState, 'legacy'>, id: BusinessId): number {
+  return cityPrice(state, businessInfo(id).unlockLifetime);
+}
+
 export function businessStatus(state: GameState, id: BusinessId): BusinessStatus {
   if (state.businesses.opened[id]) return 'open';
   const info = businessInfo(id);
-  if (state.lifetimeEarnings < info.unlockLifetime) return 'locked';
+  if (state.lifetimeEarnings < unlockGoal(state, id)) return 'locked';
   return info.ready ? 'forSale' : 'soon';
 }
 
 /** 0..1 progress towards the unlock goal (1 once unlocked or open). */
 export function unlockProgress(state: GameState, id: BusinessId): number {
-  const goal = businessInfo(id).unlockLifetime;
+  const goal = unlockGoal(state, id);
   if (goal <= 0 || state.businesses.opened[id]) return 1;
   return Math.min(1, state.lifetimeEarnings / goal);
 }
@@ -44,9 +50,9 @@ export function nextBusiness(state: GameState): BusinessId | null {
   return BUSINESS_IDS.find((id) => !state.businesses.opened[id]) ?? null;
 }
 
-/** Cash it costs to open this business now (Franchise makes it cheaper). */
+/** Cash it costs to open this business now (scaled to the city; Franchise makes it cheaper). */
 export function openCost(state: Pick<GameState, 'legacy'>, id: BusinessId): number {
-  return Math.round(businessInfo(id).openCost * franchisePerk(state));
+  return Math.round(businessInfo(id).openCost * cityScale(state) * franchisePerk(state));
 }
 
 export function canOpenBusiness(state: GameState, id: BusinessId): boolean {

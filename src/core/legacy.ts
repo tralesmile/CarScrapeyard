@@ -2,9 +2,10 @@
 // come from the square root of everything ever earned (all sold empires plus this run), so each restart rewards more
 // play with diminishing returns. Each point adds 2% to all income, forever. Pure rules; the UI is P1.3b.
 
-import { ECON } from './config';
+import { ECON, type CityId } from './config';
 import { newGame, type GameState, type Legacy } from './state';
 import { hasNode, sanitizeTree } from './legacyTree';
+import { cityPrice, cityScale, citiesForNextEmpire, defaultNextCity, sanitizeCity } from './cities';
 
 export { newLegacy, type Legacy } from './state';
 
@@ -46,6 +47,14 @@ export function legacyMultiplier(state: Pick<GameState, 'legacy'>): number {
   return 1 + ECON.legacy.incomePerPoint * Math.max(0, state.legacy.points);
 }
 
+/**
+ * Multiplier on every value the rules create (car prices, fees, rewards, idle income): Legacy Points times the city's
+ * scale. Prices are scaled by the city too (`cityPrice`), so only the Legacy part makes a run faster.
+ */
+export function incomeMultiplier(state: Pick<GameState, 'legacy'>): number {
+  return legacyMultiplier(state) * cityScale(state);
+}
+
 /** The multiplier the next empire will have. */
 export function nextLegacyMultiplier(state: GameState): number {
   return legacyMultiplier({ legacy: { ...state.legacy, points: state.legacy.points + pendingLegacyPoints(state) } });
@@ -55,16 +64,20 @@ export interface SoldEmpire {
   points: number;
   earned: number;
   seconds: number;
+  /** City the new empire is built in. */
+  city: CityId;
 }
 
 /**
  * Sell the empire: bank its points and start a fresh scrapyard (cash, upgrades, crew, cars, every business and the
  * barn reset). Kept: Legacy Points, settings, tutorial flags, the collection book, lifetime stats, the clock and the
  * RNG stream. Offline cash waiting to be collected is paid in first, so it counts. Mutates `state` in place.
- * Returns null (and changes nothing) when the sale isn't allowed yet.
+ * `city` picks where the new empire is built (default: the biggest city open on this sale).
+ * Returns null (and changes nothing) when the sale isn't allowed yet or the city isn't open on this sale.
  */
-export function sellEmpire(state: GameState, now: number): SoldEmpire | null {
+export function sellEmpire(state: GameState, now: number, city: CityId = defaultNextCity(state)): SoldEmpire | null {
   if (!canSellEmpire(state)) return null;
+  if (!citiesForNextEmpire(state).includes(city)) return null;
   state.lifetimeEarnings += Math.max(0, state.pendingOffline);
   state.pendingOffline = 0;
   const points = pendingLegacyPoints(state);
@@ -86,15 +99,16 @@ export function sellEmpire(state: GameState, now: number): SoldEmpire | null {
     runSeconds: 0,
     tree: { ...state.legacy.tree },
     respecUsed: false,
+    city,
   };
   // Head Start (legacy tree): the new empire starts with some cash and the Mechanic hired.
   if (hasNode(fresh, 'headStart')) {
-    fresh.cash += ECON.legacy.tree.headStartCash;
+    fresh.cash += cityPrice(fresh, ECON.legacy.tree.headStartCash);
     fresh.managers.mechanic = true;
   }
   for (const k of Object.keys(state) as (keyof GameState)[]) delete state[k];
   Object.assign(state, fresh);
-  return { points, earned, seconds };
+  return { points, earned, seconds, city };
 }
 
 /** Save repair: whole, non-negative numbers, and never more points than the sold empires are worth. */
@@ -107,4 +121,5 @@ export function sanitizeLegacy(l: Legacy): void {
   l.bestRunSeconds = num(l.bestRunSeconds);
   l.runSeconds = num(l.runSeconds);
   sanitizeTree(l);
+  sanitizeCity(l);
 }

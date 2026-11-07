@@ -1062,6 +1062,8 @@ async function waitForServer(url, ms = 15000) {
     // A very short phone (375x560) with two booths: the car moves down so the sign, the ticket and the booth row
     // stay apart, and the speech bubble still clears the ticket.
     const vp0 = page.viewportSize();
+    // Hold the orders again: the Painter can finish a 3-unit order during the resize (run 23 flake: ticket null).
+    await page.evaluate(() => { for (const j of window.__jye.state.paint.jobs) j.work = Math.max(j.work, 20); });
     await page.setViewportSize({ width: 375, height: 560 });
     await page.waitForTimeout(700);
     const shortView = await page.evaluate(() => {
@@ -1267,6 +1269,7 @@ async function waitForServer(url, ms = 15000) {
       s.managers.seller = false;
       s.managers.scrapper = false; // its scrap cash would muddle the sale amount
       s.garage.foreman = false; // and so would the garage Foreman's fees
+      s.paint.painter = false; // and the Painter's (it still works the order held for the short-phone check)
       // ...and the Used Car Lot's walk-up sales.
       s.carlot.crew.detailer = s.carlot.crew.agent = false;
       s.carlot.cars = [];
@@ -1289,7 +1292,7 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForTimeout(200);
     const afterRare = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash }));
     const haggleHidden = await page.$eval('.haggle', (e) => e.classList.contains('hidden'));
-    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, 'skip haggling sells a Rare car at the asking price, no slider');
+    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, `skip haggling sells a Rare car at the asking price, no slider (${JSON.stringify({ rareSale, afterRare, haggleHidden })})`);
     await page.evaluate(() => {
       window.__jye.state.managers.seller = true;
       window.__jye.state.managers.scrapper = true;
@@ -1351,6 +1354,7 @@ async function waitForServer(url, ms = 15000) {
       assert(/\+12/.test(prev) && /x1\.24/.test(prev) && /You keep/.test(prev) && /Starts over/.test(prev) && /3h 25m|3h25m/.test(prev), 'the preview shows the points, the new multiplier, what is kept and the run time');
       const fits = await sp.$eval('.sell-empire-preview .modal', (e) => e.getBoundingClientRect().bottom <= window.innerHeight && e.getBoundingClientRect().top >= 0);
       assert(fits, 'the preview fits an iPhone SE screen');
+      assert(/Motor City opens on your 2nd sale/.test(prev) && !(await sp.$('.city-pick')), 'the first sale has no city picker, only the Motor City teaser');
       assert(await sp.evaluate(() => document.getElementById('app').scrollLeft === 0), 'the game never slides sideways when a modal takes focus');
       await sp.screenshot({ path: path.join(SHOTS, 'e2e-21b-sell-empire-preview.png') });
       await sp.click('.modal .secondary');
@@ -1516,6 +1520,75 @@ async function waitForServer(url, ms = 15000) {
       await sp.screenshot({ path: path.join(SHOTS, 'e2e-21j-silver-tongue.png') });
       await sp.click('.haggle');
       await se.close();
+    }
+
+    console.log('motor city (P1.3d)');
+    {
+      const mc = await browser.newContext({ ...devices['iPhone SE'] });
+      const mp = await mc.newPage();
+      mp.on('pageerror', (e) => errors.push('motor city pageerror: ' + e.message));
+      mp.on('console', (m) => m.type() === 'error' && errors.push('motor city console: ' + m.text()));
+      await mp.goto(URL);
+      await mp.waitForSelector('.modal .buy');
+      await mp.click('.modal .buy');
+      await mp.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A second empire ready to sell: 12 points from the first sale, enough earned for 10 more.
+      await mp.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        s.carsSold = 120;
+        s.cash = 0;
+        s.legacy.sold = 1;
+        s.legacy.points = 12;
+        s.legacy.allTime = 144 * 5e6;
+        s.lifetimeEarnings = (484 - 144) * 5e6;
+        s.legacy.runSeconds = 2 * 3600;
+      });
+      await mp.waitForSelector('.map-btn:not(.hidden)');
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.map-row.legacy .sell-empire');
+      await mp.click('.map-row.legacy .sell-empire');
+      await mp.waitForSelector('.sell-empire-preview .city-pick');
+      const pick = await mp.$$eval('.city-opt', (bs) => bs.map((b) => `${b.dataset.city}:${b.getAttribute('aria-checked')}:${b.textContent}`));
+      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x5/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22a-city-pick.png') });
+      const mFits = await mp.$eval('.sell-empire-preview .modal', (e) => {
+        const r = e.getBoundingClientRect();
+        const b = e.querySelector('.buy').getBoundingClientRect();
+        const o = [...e.querySelectorAll('.city-opt')].map((x) => x.getBoundingClientRect());
+        return r.top >= 0 && r.bottom <= innerHeight + 0.5 && b.bottom <= innerHeight + 0.5 && o.every((x) => x.right <= r.right && x.left >= r.left) && o[0].right <= o[1].left;
+      });
+      assert(mFits, 'the preview with the city picker fits an iPhone SE (cards side by side, Sell button on screen)');
+      await mp.click('.city-opt[data-city="rustValley"]');
+      assert(await mp.$eval('.city-opt[data-city="rustValley"]', (b) => b.classList.contains('on') && b.getAttribute('aria-checked') === 'true'), 'tapping Rust Valley picks it');
+      await mp.click('.city-opt[data-city="motorCity"]');
+      assert(await mp.$eval('.city-opt[data-city="motorCity"]', (b) => b.classList.contains('on')) && !(await mp.$eval('.city-opt[data-city="rustValley"]', (b) => b.classList.contains('on'))), 'tapping Motor City picks it back');
+      await mp.click('.sell-empire-preview .modal .buy');
+      await mp.waitForSelector('.legacy-celebrate .modal');
+      const mcel = await mp.textContent('.legacy-celebrate .modal');
+      assert(/Next stop: .*Motor City/.test(mcel) && /\+10/.test(mcel), `the celebration names the next city (${mcel.match(/Next stop[^.]*/)?.[0]})`);
+      assert((await mp.evaluate(() => window.__jye.state.legacy.city)) === 'motorCity', 'the new empire is in Motor City');
+      await mp.waitForTimeout(400);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b-motor-city-sold.png') });
+      await Promise.all([mp.waitForNavigation(), mp.click('.legacy-celebrate .modal .buy')]);
+      await mp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
+      const mcs = await mp.evaluate(() => ({ city: window.__jye.state.legacy.city, pts: window.__jye.state.legacy.points, car: window.__jye.state.cars[0].value }));
+      assert(mcs.city === 'motorCity' && mcs.pts === 22, `Motor City survives the reload (${JSON.stringify(mcs)})`);
+      // Prices are x5: the Wash Bay's first level costs $750 instead of $150.
+      await mp.click('.tab:nth-child(1)');
+      const washBtn = await mp.textContent('.cards .card:first-child .buy');
+      assert(/\$750/.test(washBtn), `Motor City prices are x5 (Wash Bay ${washBtn})`);
+      await mp.evaluate(() => { window.__jye.state.carsSold = 30; });
+      await mp.waitForSelector('.map-btn:not(.hidden)');
+      await mp.waitForTimeout(2600); // let the CITY MAP banner clear
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.modal.city-map h2');
+      const mTitle = await mp.textContent('.modal.city-map h2');
+      const goal = await mp.textContent('.map-row[data-biz="garage"]');
+      assert(mTitle === 'Motor City' && /\$1(\.0+)?M/.test(goal), `the map is titled Motor City and the garage goal is x5 (${mTitle}; ${goal.trim()})`);
+      await mp.waitForTimeout(700); // the map slides in
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22c-motor-city-map.png') });
+      await mc.close();
     }
 
     console.log('car art gallery');

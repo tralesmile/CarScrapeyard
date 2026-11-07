@@ -124,7 +124,7 @@ describe('selling the empire', () => {
     const s = veteran();
     const rng = s.rng;
     const sold = sellEmpire(s, T0 + 1000);
-    expect(sold).toEqual({ points: 12, earned: 150 * S + 1234, seconds: 4 * 3600 });
+    expect(sold).toEqual({ points: 12, earned: 150 * S + 1234, seconds: 4 * 3600, city: 'rustValley' });
     // Reset
     expect(s.cash).toBe(0);
     expect(s.lifetimeEarnings).toBe(0);
@@ -148,7 +148,7 @@ describe('selling the empire', () => {
     expect(s.rng).toBe(rng);
     // The clock never moves backwards, even when "now" is older than the last save.
     expect(s.lastSeen).toBe(T0 + 5_000);
-    expect(s.legacy).toEqual({ points: 12, allTime: 150 * S + 1234, sold: 1, lastRunSeconds: 4 * 3600, bestRunSeconds: 4 * 3600, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false });
+    expect(s.legacy).toEqual({ points: 12, allTime: 150 * S + 1234, sold: 1, lastRunSeconds: 4 * 3600, bestRunSeconds: 4 * 3600, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
     expect(legacyMultiplier(s)).toBeCloseTo(1.24, 9);
     expect(canSellEmpire(s)).toBe(false);
   });
@@ -229,7 +229,7 @@ describe('the multiplier reaches every business', () => {
 describe('legacy saves', () => {
   it('round-trip, and saves from before prestige start with no points', () => {
     const s = newGame(T0, 3);
-    s.legacy = { points: 12, allTime: 150 * S, sold: 1, lastRunSeconds: 100, bestRunSeconds: 100, runSeconds: 5, tree: { mechanic: 2, dealer: 1, racer: 0 }, respecUsed: true };
+    s.legacy = { points: 12, allTime: 150 * S, sold: 1, lastRunSeconds: 100, bestRunSeconds: 100, runSeconds: 5, tree: { mechanic: 2, dealer: 1, racer: 0 }, respecUsed: true, city: 'rustValley' };
     expect(deserialize(serialize(s, T0), T0)?.state.legacy).toEqual(s.legacy);
     const old = JSON.parse(JSON.stringify(newGame(T0, 3))) as Record<string, unknown>;
     delete old.legacy;
@@ -240,8 +240,8 @@ describe('legacy saves', () => {
   });
 
   it('repair: no more points than the sold empires are worth, no negatives', () => {
-    const l = { points: 999, allTime: 100 * S, sold: -2, lastRunSeconds: NaN, bestRunSeconds: 5, runSeconds: -1, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false };
+    const l = { points: 999, allTime: 100 * S, sold: -2, lastRunSeconds: NaN, bestRunSeconds: 5, runSeconds: -1, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' as const };
     sanitizeLegacy(l);
-    expect(l).toEqual({ points: 10, allTime: 100 * S, sold: 0, lastRunSeconds: 0, bestRunSeconds: 5, runSeconds: 0, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false });
+    expect(l).toEqual({ points: 10, allTime: 100 * S, sold: 0, lastRunSeconds: 0, bestRunSeconds: 5, runSeconds: 0, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
   });
 });

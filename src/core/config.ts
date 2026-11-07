@@ -7,6 +7,7 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
 /** Businesses on the city map, in unlock order (P1.1). */
 export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
+export type CityId = 'rustValley' | 'motorCity';
 export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
 export type GarageUpgradeKind = 'tools' | 'rep';
 export type CarLotUpgradeKind = 'valet' | 'showroom';
@@ -199,6 +200,20 @@ export const ECON = {
         unlockCarsSold: number;
       }
     >,
+  },
+
+  /**
+   * Cities (P1.3d). An empire is built in one city; a new city is chosen when the empire is sold. The same four
+   * businesses run in every city, scaled: every value (car prices, fees, rewards, idle income) AND every price (upgrades,
+   * crew, slots, opening costs, unlock goals, Head Start cash) is x `scale`, so the pacing inside a run stays the one the
+   * sim tunes. The bigger earnings count in full for Legacy Points, so a run in a bigger city sells sooner and for more.
+   * `fromSale`: the city can be chosen on that empire sale and later ones (2 = from the second sale; 0 = the start).
+   */
+  cities: {
+    list: {
+      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began' },
+      motorCity: { name: 'Motor City', icon: '🏙️', scale: 5, fromSale: 2, tagline: 'The big city: bigger prices, bigger payouts' },
+    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string }>,
   },
 
   /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */

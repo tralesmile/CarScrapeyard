@@ -129,10 +129,10 @@ const ui = new Ui(document.getElementById('ui')!, {
     return sc.barnReveal(shown);
   },
   onSwitchBusiness: () => showBusiness(),
-  sellEmpire: () => {
+  sellEmpire: (city) => {
     // Freeze every scene first: their cars and textures belong to the empire being sold.
     for (const key of Object.values(SCENE_KEYS)) if (game.scene.isActive(key)) game.scene.pause(key);
-    const sold = sellEmpire(state, platform.now());
+    const sold = sellEmpire(state, platform.now(), city);
     if (!sold) {
       showBusiness();
       return null;

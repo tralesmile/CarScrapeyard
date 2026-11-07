@@ -46,7 +46,7 @@ describe('Hydraulic Press', () => {
     crushCar(s, car.id);
     expect(s.parts).toBe(crushParts(car.rarity, 6));
     expect(s.crusherCooldown).toBeCloseTo(crusherCooldown(6));
-    expect(upgradeCost('press', 1)).toBe(ECON.upgrades.press.baseCost);
+    expect(upgradeCost('press', 1, 1)).toBe(ECON.upgrades.press.baseCost);
   });
 
   it('old saves without the press get level 1 and no Scrapper', () => {

@@ -1,13 +1,14 @@
 import type { CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityPrice } from './cities';
 import { crewPerk, offlineCap, rarePerk, sellerDelay, tapPerk } from './legacyTree';
 
 /** cost(n) = base * growth^(n-1), where n is the level being bought FROM (level 1 -> 2 costs base). */
-export function upgradeCost(kind: UpgradeKind, currentLevel: number): number {
+export function upgradeCost(kind: UpgradeKind, currentLevel: number, scale: number): number {
   const u = ECON.upgrades[kind];
-  return Math.ceil(u.baseCost * Math.pow(u.growth, currentLevel - 1));
+  return Math.ceil(u.baseCost * Math.pow(u.growth, currentLevel - 1) * scale);
 }
 
 /** Total cost and number of levels for buying up to `max` levels with `cash`. */
@@ -16,12 +17,13 @@ export function bulkCost(
   currentLevel: number,
   count: number | 'max',
   cash: number,
+  scale: number,
 ): { levels: number; cost: number } {
   let levels = 0;
   let cost = 0;
   const limit = count === 'max' ? 10_000 : count;
   while (levels < limit) {
-    const next = upgradeCost(kind, currentLevel + levels);
+    const next = upgradeCost(kind, currentLevel + levels, scale);
     if (count === 'max' && cost + next > cash) break;
     cost += next;
     levels++;
@@ -76,9 +78,14 @@ export function crushParts(rarity: Rarity, pressLevel: number, bonus = 0): numbe
   return Math.round(ECON.crusher.parts[rarity] * (1 + ECON.crusher.pressPartsPerLevel * (pressLevel - 1)) * (1 + bonus));
 }
 
-export function slotCost(currentSlots: number): number | null {
-  const idx = currentSlots - ECON.slots.start;
-  return ECON.slots.costs[idx] ?? null;
+export function slotCost(currentSlots: number, scale: number): number | null {
+  const c = ECON.slots.costs[currentSlots - ECON.slots.start];
+  return c === undefined ? null : Math.round(c * scale);
+}
+
+/** Cost to hire a yard crew member in the current city. */
+export function managerCost(state: Pick<GameState, 'legacy'>, kind: ManagerKind): number {
+  return cityPrice(state, ECON.managers[kind].cost);
 }
 
 export function baseCarValue(family: CarFamily, rarity: Rarity, qualityLevel: number): number {
@@ -137,7 +144,7 @@ export function idleIncomePerSecond(state: GameState): number {
   const stages = [washTime, repairTime, sellerDelay(state), ECON.arrivalInterval];
   const cycle = stages.reduce((s, t) => s + t, 0);
   const carsPerSecond = Math.min(1 / Math.max(...stages), state.slots / cycle);
-  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold, rarePerk(state)) * legacyMultiplier(state);
+  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold, rarePerk(state)) * incomeMultiplier(state);
 }
 
 /** Offline earnings for a gap of `seconds`, using the cap and efficiency. */

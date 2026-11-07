@@ -166,12 +166,12 @@ describe('paint & tuning', () => {
     expect(buyPaintUpgrade(s, 'booth')).toBe(true);
     expect(paintWorkPerTap(s)).toBeGreaterThan(before);
     expect(buyPaintUpgrade(s, 'hype')).toBe(true);
-    expect(paintUpgradeCost('hype', 2)).toBeGreaterThan(paintUpgradeCost('hype', 1));
+    expect(paintUpgradeCost('hype', 2, 1)).toBeGreaterThan(paintUpgradeCost('hype', 1, 1));
     const job = waitForCar(s);
     expect(job.fee).toBe(paintFee(job.family, job.services, 2));
     expect(buyBooth(s)).toBe(true);
     expect(buyBooth(s)).toBe(true);
-    expect(boothCost(s.paint.booths)).toBeNull();
+    expect(boothCost(s.paint.booths, 1)).toBeNull();
     expect(buyBooth(s)).toBe(false);
     for (let i = 0; i < 200; i++) tickPaint(s, 0.1, []);
     expect(s.paint.jobs).toHaveLength(3);

@@ -8,7 +8,8 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityPrice, cityScale } from './cities';
 import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type CarLotEvent =
@@ -40,9 +41,9 @@ export function carlotOpen(state: GameState): boolean {
   return state.businesses.opened.carlot === true;
 }
 
-export function carlotUpgradeCost(kind: CarLotUpgradeKind, level: number): number {
+export function carlotUpgradeCost(kind: CarLotUpgradeKind, level: number, scale: number): number {
   const u = ECON.carlot.upgrades[kind];
-  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1));
+  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1) * scale);
 }
 
 export function showroomMultiplier(level: number): number {
@@ -70,7 +71,7 @@ export function baseRetail(family: CarFamily): number {
 
 /** What a buyer pays for a refurbished car today (list price, before haggling); a paint shop service adds its value. */
 export function listPrice(state: GameState, car: { family: CarFamily; tuneValue?: number }): number {
-  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) * legacyMultiplier(state) + (car.tuneValue ?? 0));
+  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) * incomeMultiplier(state) + (car.tuneValue ?? 0));
 }
 
 /** Seconds between walk-up buyers while a refurbished car waits (Regulars makes them come more often). */
@@ -87,8 +88,13 @@ export function lotProfit(state: GameState, lot: AuctionLot): number {
   return listPrice(state, lot) - lot.price;
 }
 
-export function spotCost(spots: number): number | null {
-  return ECON.carlot.spots.costs[spots - ECON.carlot.spots.start] ?? null;
+export function spotCost(spots: number, scale: number): number | null {
+  const c = ECON.carlot.spots.costs[spots - ECON.carlot.spots.start];
+  return c === undefined ? null : Math.round(c * scale);
+}
+
+export function lotCrewCost(state: Pick<GameState, 'legacy'>, kind: CarLotCrewKind): number {
+  return cityPrice(state, ECON.carlot.crew[kind].cost);
 }
 
 export function findLotCar(state: GameState, id: number | null): LotCar | undefined {
@@ -126,7 +132,7 @@ export function generateLot(state: GameState): AuctionLot {
     model: pick(state, MODEL_NAMES[family]),
     paint: pick(state, PAINTS),
     condition,
-    price: Math.max(1, Math.round(auctionPrice(family, condition) * legacyMultiplier(state) * auctionPerk(state))),
+    price: Math.max(1, Math.round(auctionPrice(family, condition) * incomeMultiplier(state) * auctionPerk(state))),
     timeLeft: ECON.carlot.lotSeconds,
   };
 }
@@ -362,7 +368,7 @@ export function focusLotCar(state: GameState, id: number): void {
 
 export function buyCarLotUpgrade(state: GameState, kind: CarLotUpgradeKind): boolean {
   if (!carlotOpen(state)) return false;
-  const cost = carlotUpgradeCost(kind, state.carlot.levels[kind]);
+  const cost = carlotUpgradeCost(kind, state.carlot.levels[kind], cityScale(state));
   if (cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.levels[kind] += 1;
@@ -370,7 +376,7 @@ export function buyCarLotUpgrade(state: GameState, kind: CarLotUpgradeKind): boo
 }
 
 export function buySpot(state: GameState): boolean {
-  const cost = spotCost(state.carlot.spots);
+  const cost = spotCost(state.carlot.spots, cityScale(state));
   if (!carlotOpen(state) || cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.spots += 1;
@@ -378,7 +384,7 @@ export function buySpot(state: GameState): boolean {
 }
 
 export function hireLotCrew(state: GameState, kind: CarLotCrewKind): boolean {
-  const cost = ECON.carlot.crew[kind].cost;
+  const cost = lotCrewCost(state, kind);
   if (!carlotOpen(state) || state.carlot.crew[kind] || cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.crew[kind] = true;
@@ -430,7 +436,7 @@ export function carlotIdleIncome(state: GameState): number {
   const l = state.carlot;
   if (!carlotOpen(state) || !l.crew.detailer || !l.crew.agent) return 0;
   const avg = conditionAverages();
-  const retail = averageRetail(state) * legacyMultiplier(state);
+  const retail = averageRetail(state) * incomeMultiplier(state);
   const profit = retail * (showroomMultiplier(l.levels.showroom) * averageBuyerMultiplier(state) - avg.priceFrac * auctionPerk(state));
   const workTime = avg.work / detailerRate(state);
   const buyer = lotBuyerInterval(state);

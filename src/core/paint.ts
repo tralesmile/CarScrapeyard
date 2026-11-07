@@ -9,7 +9,8 @@ import { carlotOpen, ensureLotFocus, findLotCar, lotCarHere, lotCarReady } from 
 import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { GameState, LotCar, PaintJob } from './state';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityPrice, cityScale } from './cities';
 import { crewPerk, offlineCap, tapPerk, tipSecondsPerService } from './legacyTree';
 
 export type PaintEvent =
@@ -33,9 +34,9 @@ export function paintOpen(state: GameState): boolean {
   return state.businesses.opened.paint === true;
 }
 
-export function paintUpgradeCost(kind: PaintUpgradeKind, level: number): number {
+export function paintUpgradeCost(kind: PaintUpgradeKind, level: number, scale: number): number {
   const u = ECON.paint.upgrades[kind];
-  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1));
+  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1) * scale);
 }
 
 export function hypeMultiplier(level: number): number {
@@ -55,8 +56,13 @@ export function painterRate(state: GameState): number {
   return state.paint.painter ? ECON.paint.painter.workPerSec * boothPower(state) * crewPerk(state) : 0;
 }
 
-export function boothCost(booths: number): number | null {
-  return ECON.paint.booths.costs[booths - ECON.paint.booths.start] ?? null;
+export function boothCost(booths: number, scale: number): number | null {
+  const c = ECON.paint.booths.costs[booths - ECON.paint.booths.start];
+  return c === undefined ? null : Math.round(c * scale);
+}
+
+export function painterCost(state: Pick<GameState, 'legacy'>): number {
+  return cityPrice(state, ECON.paint.painter.cost);
 }
 
 /** Fee for an order: the services' fees plus the combo bonus for every service beyond the first. */
@@ -128,7 +134,7 @@ export function generatePaintJob(state: GameState): PaintJob {
     services,
     step: 0,
     work: ECON.paint.services[services[0]!].work,
-    fee: Math.round(paintFee(family, services, p.levels.hype) * legacyMultiplier(state)),
+    fee: Math.round(paintFee(family, services, p.levels.hype) * incomeMultiplier(state)),
     age: 0,
   };
 }
@@ -193,7 +199,7 @@ export function lotCarService(car: { family: CarFamily }): PaintService {
 
 /** What the service adds to the car's sticker price at today's Hype level. */
 export function lotTuneValue(state: GameState, car: { family: CarFamily }): number {
-  return Math.round(paintFee(car.family, [lotCarService(car)], state.paint.levels.hype) * legacyMultiplier(state) * ECON.paint.lotCars.valueMult);
+  return Math.round(paintFee(car.family, [lotCarService(car)], state.paint.levels.hype) * incomeMultiplier(state) * ECON.paint.lotCars.valueMult);
 }
 
 export type LotSendBlock = 'closed' | 'missing' | 'notReady' | 'tuned' | 'away' | 'haggling' | 'boothsFull';
@@ -277,7 +283,7 @@ export function focusPaintJob(state: GameState, id: number): void {
 
 export function buyPaintUpgrade(state: GameState, kind: PaintUpgradeKind): boolean {
   if (!paintOpen(state)) return false;
-  const cost = paintUpgradeCost(kind, state.paint.levels[kind]);
+  const cost = paintUpgradeCost(kind, state.paint.levels[kind], cityScale(state));
   if (cost > state.cash) return false;
   state.cash -= cost;
   state.paint.levels[kind] += 1;
@@ -285,7 +291,7 @@ export function buyPaintUpgrade(state: GameState, kind: PaintUpgradeKind): boole
 }
 
 export function buyBooth(state: GameState): boolean {
-  const cost = boothCost(state.paint.booths);
+  const cost = boothCost(state.paint.booths, cityScale(state));
   if (!paintOpen(state) || cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.paint.booths += 1;
@@ -293,7 +299,7 @@ export function buyBooth(state: GameState): boolean {
 }
 
 export function hirePainter(state: GameState): boolean {
-  const cost = ECON.paint.painter.cost;
+  const cost = painterCost(state);
   if (!paintOpen(state) || state.paint.painter || cost > state.cash) return false;
   state.cash -= cost;
   state.paint.painter = true;
@@ -340,7 +346,7 @@ export function paintIdleIncome(state: GameState): number {
   const workTime = o.work / painterRate(state);
   const arrival = ECON.paint.arrivalInterval;
   const cycle = state.paint.booths > 1 ? Math.max(workTime, arrival) : workTime + arrival;
-  return (o.fee * legacyMultiplier(state)) / cycle;
+  return (o.fee * incomeMultiplier(state)) / cycle;
 }
 
 /** Offline shop earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */

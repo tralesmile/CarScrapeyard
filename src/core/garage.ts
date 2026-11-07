@@ -8,7 +8,8 @@ import { barnReservesParts } from './barn';
 import { stationPower, unlockedFamilies } from './formulas';
 import { pick, weighted } from './rng';
 import type { GameState, GarageJob } from './state';
-import { legacyMultiplier } from './legacy';
+import { incomeMultiplier } from './legacy';
+import { cityPrice, cityScale } from './cities';
 import { crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type GarageEvent =
@@ -27,9 +28,9 @@ export function garageOpen(state: GameState): boolean {
   return state.businesses.opened.garage === true;
 }
 
-export function garageUpgradeCost(kind: GarageUpgradeKind, level: number): number {
+export function garageUpgradeCost(kind: GarageUpgradeKind, level: number, scale: number): number {
   const u = ECON.garage.upgrades[kind];
-  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1));
+  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1) * scale);
 }
 
 /** Tool Wall power: linear per level, doubled at the station milestones (same curve as the yard stations). */
@@ -55,8 +56,13 @@ export function garageFee(family: CarFamily, fault: GarageFault, repLevel: numbe
   return Math.max(1, Math.round(g.baseFee * g.faults[fault].feeMult * fam * repMultiplier(repLevel)));
 }
 
-export function garageBayCost(bays: number): number | null {
-  return ECON.garage.bays.costs[bays - ECON.garage.bays.start] ?? null;
+export function garageBayCost(bays: number, scale: number): number | null {
+  const c = ECON.garage.bays.costs[bays - ECON.garage.bays.start];
+  return c === undefined ? null : Math.round(c * scale);
+}
+
+export function foremanCost(state: Pick<GameState, 'legacy'>): number {
+  return cityPrice(state, ECON.garage.foreman.cost);
 }
 
 export function findJob(state: GameState, id: number | null): GarageJob | undefined {
@@ -82,7 +88,7 @@ export function generateJob(state: GameState): GarageJob {
     paint: pick(state, PAINTS),
     fault,
     work: ECON.garage.faults[fault].work,
-    fee: Math.round(garageFee(family, fault, g.levels.rep) * legacyMultiplier(state)),
+    fee: Math.round(garageFee(family, fault, g.levels.rep) * incomeMultiplier(state)),
   };
 }
 
@@ -149,7 +155,7 @@ export function focusJob(state: GameState, id: number): void {
 
 export function buyGarageUpgrade(state: GameState, kind: GarageUpgradeKind): boolean {
   if (!garageOpen(state)) return false;
-  const cost = garageUpgradeCost(kind, state.garage.levels[kind]);
+  const cost = garageUpgradeCost(kind, state.garage.levels[kind], cityScale(state));
   if (cost > state.cash) return false;
   state.cash -= cost;
   state.garage.levels[kind] += 1;
@@ -157,7 +163,7 @@ export function buyGarageUpgrade(state: GameState, kind: GarageUpgradeKind): boo
 }
 
 export function buyGarageBay(state: GameState): boolean {
-  const cost = garageBayCost(state.garage.bays);
+  const cost = garageBayCost(state.garage.bays, cityScale(state));
   if (!garageOpen(state) || cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.garage.bays += 1;
@@ -165,7 +171,7 @@ export function buyGarageBay(state: GameState): boolean {
 }
 
 export function hireForeman(state: GameState): boolean {
-  const cost = ECON.garage.foreman.cost;
+  const cost = foremanCost(state);
   if (!garageOpen(state) || state.garage.foreman || cost > state.cash) return false;
   state.cash -= cost;
   state.garage.foreman = true;
@@ -202,7 +208,7 @@ export function garageIdleIncome(state: GameState): number {
   const workTime = faultAverages().work / foremanRate(state);
   const arrival = ECON.garage.arrivalInterval;
   const cycle = state.garage.bays > 1 ? Math.max(workTime, arrival) : workTime + arrival;
-  return (expectedGarageFee(state) * legacyMultiplier(state) * (1 - ECON.garage.partsBill)) / cycle;
+  return (expectedGarageFee(state) * incomeMultiplier(state) * (1 - ECON.garage.partsBill)) / cycle;
 }
 
 /** Offline garage earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */

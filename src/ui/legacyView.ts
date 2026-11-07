@@ -2,9 +2,10 @@
 // tree say. Pure (no DOM) so it is unit-tested.
 
 import { canSellEmpire, legacyMultiplier, nextLegacyMultiplier, pendingLegacyPoints, sellEmpireGlows, earningsForPoints } from '../core/legacy';
-import { ECON, type LegacyBranch, type LegacyNode } from '../core/config';
+import { ECON, type CityId, type LegacyBranch, type LegacyNode } from '../core/config';
 import { LEGACY_BRANCHES, canBuyNode, canRespec, freePoints, hasNode, nodeCost, nodeStatus, spentPoints, type NodeStatus } from '../core/legacyTree';
 import { formatCash, formatDuration } from '../core/format';
+import { citiesForNextEmpire, cityInfo, defaultNextCity, nextCityToUnlock } from '../core/cities';
 import type { GameState } from '../core/state';
 
 export const LEGACY_ICON = '🏛';
@@ -44,8 +45,25 @@ export function nextSaleLine(state: GameState): string | null {
   return `Sell Empire again after ${formatCash(Math.max(0, need))} more earnings`;
 }
 
+/** One city the next empire can be built in (P1.3d). */
+export interface CityChoice {
+  id: CityId;
+  name: string;
+  icon: string;
+  /** "Prices and payouts x10" (or the tagline for scale 1). */
+  line: string;
+  /** Picked by default (the biggest open city). */
+  picked: boolean;
+  /** The current empire's city. */
+  current: boolean;
+}
+
 export interface SellEmpirePreview {
   points: number;
+  /** Cities to pick from; empty when only one is open (no picker). */
+  cities: CityChoice[];
+  /** "Motor City opens on your 2nd sale" while a city is still ahead; null otherwise. */
+  cityTeaser: string | null;
   multNow: string;
   multNext: string;
   earned: string;
@@ -57,6 +75,8 @@ export interface SellEmpirePreview {
 export function sellEmpirePreview(state: GameState): SellEmpirePreview {
   return {
     points: pendingLegacyPoints(state),
+    cities: cityChoices(state),
+    cityTeaser: cityTeaser(state),
     multNow: formatMult(legacyMultiplier(state)),
     multNext: formatMult(nextLegacyMultiplier(state)),
     earned: formatCash(state.lifetimeEarnings + Math.max(0, state.pendingOffline)),
@@ -66,8 +86,31 @@ export function sellEmpirePreview(state: GameState): SellEmpirePreview {
   };
 }
 
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+
+/** What a city's scale means, from the config ("Prices and payouts x10"). */
+export function cityLine(id: CityId): string {
+  const c = cityInfo(id);
+  return c.scale === 1 ? c.tagline : `Prices and payouts x${c.scale}`;
+}
+
+/** The cities the next empire can be built in, when there is a choice (two or more open on this sale). */
+export function cityChoices(state: GameState): CityChoice[] {
+  const open = citiesForNextEmpire(state);
+  if (open.length < 2) return [];
+  const pick = defaultNextCity(state);
+  return open.map((id) => ({ id, name: cityInfo(id).name, icon: cityInfo(id).icon, line: cityLine(id), picked: id === pick, current: id === state.legacy.city }));
+}
+
+export function cityTeaser(state: GameState): string | null {
+  const next = nextCityToUnlock(state);
+  return next ? `${cityInfo(next.id).icon} ${cityInfo(next.id).name} opens on your ${ordinal(next.sale)} sale` : null;
+}
+
 /** Grandpa Joe's line in the celebration (first sale, then later ones). */
-export function grandpaLine(soldBefore: number): string {
+export function grandpaLine(soldBefore: number, city: CityId = 'rustValley', from: CityId = city): string {
+  if (city !== from)
+    return `"${cityInfo(city).name}! Bigger streets, bigger deals, bigger trouble. Start small again, kid: the scrapyard is how we do it."`;
   return soldBefore <= 0
     ? '"Kid, I never thought this old yard could become an empire. Sell it, start again, and this time the whole valley knows your name."'
     : '"Again? Ha! Every time you start over, you come back bigger. Go show them, kid."';
@@ -143,12 +186,12 @@ export function treeHasBuy(state: GameState): boolean {
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
 /** Short label of a node's effect, built from the config numbers ("👐 +25% taps"). */
-export function perkLabel(node: LegacyNode): string {
+export function perkLabel(node: LegacyNode, scale = 1): string {
   const T = ECON.legacy.tree;
   const icon = T.nodes[node].icon;
   const text: Record<LegacyNode, string> = {
     quickHands: `+${pct(T.quickHandsTap)} taps`,
-    headStart: `${formatCash(T.headStartCash)} start`,
+    headStart: `${formatCash(T.headStartCash * scale)} start`,
     partsHoarder: `+${pct(T.partsHoarderBonus)} parts`,
     masterCrew: `crew +${pct(T.masterCrewSpeed)}`,
     silverTongue: `zone +${pct(T.silverTongueZone)}`,

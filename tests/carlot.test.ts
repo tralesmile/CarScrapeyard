@@ -148,13 +148,13 @@ describe('used car lot', () => {
     const s = openLot();
     const tap1 = refurbPerTap(s);
     const price1 = listPrice(s, { family: 'sedan' });
-    const cost = carlotUpgradeCost('valet', 1);
+    const cost = carlotUpgradeCost('valet', 1, 1);
     expect(buyCarLotUpgrade(s, 'valet')).toBe(true);
     expect(refurbPerTap(s)).toBeGreaterThan(tap1);
     expect(buyCarLotUpgrade(s, 'showroom')).toBe(true);
     expect(listPrice(s, { family: 'sedan' })).toBeGreaterThan(price1);
-    expect(carlotUpgradeCost('valet', 2)).toBeGreaterThan(cost);
-    const sc = spotCost(s.carlot.spots)!;
+    expect(carlotUpgradeCost('valet', 2, 1)).toBeGreaterThan(cost);
+    const sc = spotCost(s.carlot.spots, 1)!;
     s.cash += sc;
     expect(buySpot(s)).toBe(true);
     expect(s.carlot.spots).toBe(ECON.carlot.spots.start + 1);
@@ -171,7 +171,7 @@ describe('used car lot', () => {
     expect(businessTier(s, 'carlot')).toBe(2);
     buySpot(s);
     expect(businessTier(s, 'carlot')).toBe(3);
-    expect(spotCost(s.carlot.spots)).toBeNull();
+    expect(spotCost(s.carlot.spots, 1)).toBeNull();
   });
 
   it('the Auction Agent buys the best lot and keeps a cash reserve; the Detailer refurbishes', () => {

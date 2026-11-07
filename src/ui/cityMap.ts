@@ -3,7 +3,7 @@
 
 import type { BusinessId } from '../core/config';
 import { perkChip } from './legacyView';
-import { BUSINESS_IDS, MAX_TIER, businessInfo, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
+import { BUSINESS_IDS, MAX_TIER, unlockGoal, businessInfo, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -308,7 +308,7 @@ export function mapRows(state: GameState): MapRow[] {
       line = active ? 'You are here' : 'Open';
       action = active ? null : 'Go';
     } else if (status === 'locked') {
-      line = `Earn ${formatCash(info.unlockLifetime)} in total to unlock`;
+      line = `Earn ${formatCash(unlockGoal(state, id))} in total to unlock`;
     } else if (status === 'soon') {
       line = 'Unlocked! Opening in the next update';
     } else {

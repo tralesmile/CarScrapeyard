@@ -304,3 +304,25 @@ Hands, Head Start, Parts Hoarder) $1.10B (+6%), Dealer (Silver Tongue, Regulars,
 Tips, Rare Finds, Barn Scout) $1.16B (+12%). Rare Finds was x1.5 in the design draft; at x1.5 Racer was +19%, so it was
 cut to x1.3. Every branch opens the paint shop no later than without the tree; the test caps a branch at +60%.
 
+
+## Cities (P1.3d1, run 23)
+
+| City | Scale | Opens | Notes |
+| --- | --- | --- | --- |
+| Rust Valley | x1 | the start | the tuned base game |
+| Motor City | x5 | can be picked from the 2nd empire sale | every value and every price x5 |
+
+`ECON.cities.list`. A city's `scale` multiplies **every value** (`incomeMultiplier = legacyMultiplier x scale`, used at
+all the call sites that used the Legacy multiplier) **and every price**: upgrade, slot, bay, spot and booth costs (a
+required `scale` argument, so the compiler finds every caller), crew hires (`managerCost`, `foremanCost`,
+`lotCrewCost`, `painterCost`), business open costs and unlock goals (`unlockGoal`), barn stage cash, Head Start cash
+(and the save's sanity allowance for it). Pacing inside a run is therefore the tuned one; what changes is that
+Legacy Points count real dollars, so a bigger city earns them faster (x5 earnings ~ x2.2 points).
+
+Run 23 sim (`Motor City` in balance.test.ts, active bot): 1st empire offered the sale at 3h28m, 2nd (x1.20) at 4h43m.
+Third empire from the same state: in **Rust Valley** paint opens at 1h07m and no sale is offered within 5 h (9 points
+waiting; $2.28B); in **Motor City** paint opens at 1h07m too, the sale is offered at **2h28m** and 5 h earn $11.8B
+(x5.19) with 32 points waiting. x10 offered it at 1h51m (51 points at 5 h: too generous), x4 at 2h47m, x6 at 2h20m.
+Finding: without a new city the 2nd and 3rd empires get *slower* (each sale needs 20P + 100 more points-squared), so the
+city is what keeps prestige moving. Tests: Motor City's lifetime is x scale ±15% of Rust Valley's, paint opens within
+15 min of it, and its sale comes before the first Rust Valley run's and after 1.5 h.

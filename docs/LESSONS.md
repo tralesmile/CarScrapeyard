@@ -414,3 +414,25 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   `translate(-50%, …)` for centred elements; reusing them on a row would have shifted it. Give new animations their own
   keyframes when the element isn't centred the same way.
 
+
+
+## 2026-11-07 (run 23)
+
+- **The baseline check is worth starting first: it found a flake before my change could be blamed.** The paint shop's
+  560 px check lost its ticket because the Painter finished a "held" 3-unit order in the 700 ms resize. A hold set in a
+  `waitForFunction` only lasts until that function returns; re-apply it right before the step that needs it.
+- **To thread a new multiplier through ~60 call sites, make the parameter required.** Every cost function got a
+  required `scale` argument, so `tsc` listed each caller (UI, rules, the balance bot); an optional one would have
+  silently left the UI showing Rust Valley prices. Crew costs read straight from `ECON` became small `xxxCost(state)`
+  helpers for the same reason.
+- **A codemod that "fixes the arity" can be wrong for the sim.** My script appended `, 1` to the bot's cost calls, so in
+  Motor City the bot would have judged prices at x1. Review what an automatic fix did in the sim before trusting a
+  balance number; the invariance check (Motor City lifetime = x5 of Rust Valley ±15%) is what catches this class.
+- **`run()` in balance.test.ts mutates the state it is given.** Branching a sim (stay vs move) needs a JSON clone of the
+  state at the branch point, or the second branch starts hours later.
+- **Screenshot before the layout assertion, not after.** When "fits the screen" failed there was no picture to look at;
+  the screenshot now comes first. And a modal that slides in needs ~700 ms before its screenshot.
+- **Fixing one e2e step's state can break a later step that measures cash exactly.** Holding the paint order longer
+  meant the Painter paid its fee 2 minutes later, inside the "Skip haggling" check (cash delta must equal the car's
+  value). That check already turned off every other earner; the Painter is now off too, and the assertion prints the
+  numbers. When a test asserts an exact cash delta, list every earner the earlier sections left running.

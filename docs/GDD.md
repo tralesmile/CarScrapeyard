@@ -229,4 +229,12 @@ to automate it, open new car businesses, then sell your empire and start again i
     "🌙 4h cap"). The welcome-back popup now says how long the crew really worked (up to the cap) and, when you were away
     longer, "You were away 5h 0m; crews work up to 2h 0m while you're gone." Buying a node pops its row with a gold
     glow and stamp, floats "−3 🏛" up and pulses the points header (static highlight with reduce motion).
+- **Cities (P1.3d, core and picker in run 23):** an empire is built in one city. The first empires are in **Rust
+  Valley**; from the **second sale** on, the preview asks "Where next?" with two cards: stay in Rust Valley or go to
+  **Motor City** (picked by default, steel blue). Motor City runs the same four businesses with every price and every
+  payout x5, so a run plays at the same pace but earns five times the dollars, and Legacy Points (which count dollars)
+  come faster: the sim's third empire is offered the sale at 2h28m in Motor City and not within 5 h in Rust Valley.
+  The first preview shows "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" with a
+  Grandpa Joe line; the map is titled with the city. Still to come: Motor City's own map art (P1.3d2) and a steel-blue
+  / neon palette for the scenes (P1.3d3). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 
