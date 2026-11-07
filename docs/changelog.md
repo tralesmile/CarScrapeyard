@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.18.0 - 2026-11-07 (run 18)
+
+- **Lot cars through the paint shop (P1.2f):** once Paint & Tuning is open, a refurbished car on the Used Car Lot shows
+  a purple Tune button beside Sell ("⚙️ Tune +$151K"). It drives to a free booth for one service that suits it (respray
+  for sedans and vans, rims for hatches, pickups and SUVs, a wrap for sports cars, an engine tune for muscle cars and
+  hypercars). In the shop it has no customer and its ticket reads "🏷️ +$151K sticker"; tap it or let the Painter.
+  It comes back with the service on its FOR SALE tag and a higher price (a respray or wrap in the new colour). While
+  it's away its thumbnail fades ("At the shop"), walk-up buyers pick another car and it can't be sold. Once per car.
+- Balance: the sticker bonus is the shop's fee for that service (with Hype) x 1.0. An active bot that sends a lot car
+  into every free booth ends 3 hours with +8% lifetime earnings (0.8 gave +3%, 0.6 lost money), so it's a choice
+  between tipped customers and a fatter sticker.
+- Saves: lot cars and booth jobs that point at each other are repaired on load (a car marked away without its job
+  comes back; a lot job without its car goes).
+- Tests: 8 new unit tests (when a car can go, the booth it takes, the sticker it gets back, respray colour, the Painter,
+  walk-up buyers leaving it alone, save round-trip and repair, old saves), a 180-minute sim comparing bots with and
+  without tuning, and an e2e section (Tune button beside Sell, send, the shop's lot ticket with no customer, back on
+  the lot with the higher tag, no shop charge).
+
 ## 0.17.0 - 2026-11-07 (run 17)
 
 - **Paint & Tuning is open for business (P1.2e), business 4:** earn $50M in total, open it on the map for $25M and

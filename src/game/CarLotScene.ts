@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { ECON, type BuyerKind, type LotBuyerKind } from '../core/config';
-import { findLotCar, focusLotCar, listPrice, lotBuyerBonus, lotCarReady, refurbTap } from '../core/carlot';
+import { findLotCar, focusLotCar, listPrice, lotBuyerBonus, lotCarHere, lotCarReady, refurbTap } from '../core/carlot';
 import { formatCash } from '../core/format';
 import { tick, type GameEvent } from '../core/sim';
 import type { LotCar } from '../core/state';
@@ -229,7 +229,8 @@ export class CarLotScene extends Phaser.Scene {
   }
 
   private ensureTextures(car: LotCar): string {
-    const key = `lcar-${car.id}`;
+    // The colour is in the key: a respray at Paint & Tuning (P1.2f) brings the car back in a new colour.
+    const key = `lcar-${car.id}-${car.paint.toString(16)}`;
     if (this.textures.exists(key)) return key;
     for (const [k, paint] of [
       [key, (ctx: CanvasRenderingContext2D) => paintCar(ctx, { family: car.family, paint: car.paint, rarity: 'common' }, this.texW, this.texH, { shadow: false })],
@@ -244,7 +245,8 @@ export class CarLotScene extends Phaser.Scene {
   }
 
   private releaseTextures(id: number) {
-    for (const k of [`lcar-${id}`, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    const keys = this.textures.getTextureKeys().filter((k) => k.startsWith(`lcar-${id}-`));
+    for (const k of [...keys, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
   }
 
   private placeBigCar() {
@@ -269,10 +271,11 @@ export class CarLotScene extends Phaser.Scene {
       this.barG.clear();
       // The hint says it during the first sales; after that the empty platform says where to go.
       const l = this.bridge.state.carlot;
-      if (!this.carLeaving) this.label.setText(l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
+      const away = l.cars.some((c) => !lotCarHere(c));
+      if (!this.carLeaving) this.label.setText(away ? 'Your car is at Paint & Tuning 🎨' : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
       return;
     }
-    if (car.id !== this.bigId) {
+    if (car.id !== this.bigId || this.bigCar.texture.key !== this.ensureTextures(car)) {
       this.bigId = car.id;
       this.bigCar.setTexture(this.ensureTextures(car)).setVisible(true);
       this.bigRust.setTexture(`lrust-${car.id}`).setVisible(true);
@@ -318,7 +321,8 @@ export class CarLotScene extends Phaser.Scene {
       this.tagKey = '';
       return;
     }
-    const price = formatCash(listPrice(this.bridge.state, car));
+    // A car back from Paint & Tuning shows what it had done next to the price.
+    const price = `${car.tuned ? `${ECON.paint.services[car.tuned].icon} ` : ''}${formatCash(listPrice(this.bridge.state, car))}`;
     const key = `${car.id}|${price}`;
     if (key !== this.tagKey) {
       const fresh = !this.tagKey.startsWith(`${car.id}|`);
@@ -477,7 +481,7 @@ export class CarLotScene extends Phaser.Scene {
 
   private syncSpots() {
     const l = this.bridge.state.carlot;
-    const key = `${l.spots}|${l.cars.map((c) => `${c.id}${lotCarReady(c) ? 'r' : ''}`).join(',')}|${l.focusedId}|${l.buyer ? `${l.buyer.kind}${l.buyer.carId}` : ''}`;
+    const key = `${l.spots}|${l.cars.map((c) => `${c.id}${lotCarReady(c) ? 'r' : ''}${c.atShop ? 's' : ''}${c.paint}`).join(',')}|${l.focusedId}|${l.buyer ? `${l.buyer.kind}${l.buyer.carId}` : ''}`;
     if (key !== this.spotsKey) {
       this.spotsKey = key;
       for (const v of this.spots) v.container.destroy();
@@ -499,8 +503,12 @@ export class CarLotScene extends Phaser.Scene {
         if (car) {
           const img = this.add.image(-this.px(6), -this.px(4), this.ensureTextures(car));
           img.setScale(this.px(w - 24) / this.texW);
-          const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), lotCarReady(car) ? '🏷️' : '🧽', { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
+          const away = !lotCarHere(car);
+          const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), away ? '🎨' : lotCarReady(car) ? '🏷️' : '🧽', { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
+          // Away at the paint shop: the thumbnail fades and says so.
+          if (away) img.setAlpha(0.35);
           items.push(img, icon);
+          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), 'At the shop', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
           // A buyer is looking this car over (shown on the platform when it is the big car).
           if (l.buyer && l.buyer.carId === car.id && car.id !== this.bigId) {
             const buyerIcon = ECON.buyers.kinds[l.buyer.kind].icon;

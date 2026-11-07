@@ -2,7 +2,7 @@
 // Every lot shows its condition and price before you buy (no blind boxes). Pure rules, ticked from sim.ts once the
 // lot is open, whichever business is on screen.
 
-import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, LotBuyerKind } from './config';
+import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, LotBuyerKind, PaintService } from './config';
 import { ECON, MODEL_NAMES, PAINTS } from './config';
 import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
@@ -66,9 +66,9 @@ export function baseRetail(family: CarFamily): number {
   return Math.round(c.retailBase * (ECON.families[family].baseValue / c.feeFamilyRef));
 }
 
-/** What a buyer pays for a refurbished car today (list price, before haggling). */
-export function listPrice(state: GameState, car: { family: CarFamily }): number {
-  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom));
+/** What a buyer pays for a refurbished car today (list price, before haggling); a paint shop service adds its value. */
+export function listPrice(state: GameState, car: { family: CarFamily; tuneValue?: number }): number {
+  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) + (car.tuneValue ?? 0));
 }
 
 export function auctionPrice(family: CarFamily, condition: Condition): number {
@@ -93,13 +93,20 @@ export function lotCarReady(car: LotCar): boolean {
   return car.work <= 0;
 }
 
-function ensureFocus(state: GameState): void {
+/** On the forecourt (not away in a Paint & Tuning booth). */
+export function lotCarHere(car: LotCar): boolean {
+  return car.atShop !== true;
+}
+
+/** Keep the focus on a car that is here, preferring one that still needs work. */
+export function ensureLotFocus(state: GameState): void {
   const l = state.carlot;
   const cur = findLotCar(state, l.focusedId);
-  if (cur && !lotCarReady(cur)) return;
-  // Prefer a car that still needs work, then any car.
-  l.focusedId = (l.cars.find((c) => !lotCarReady(c)) ?? l.cars[0])?.id ?? null;
+  if (cur && lotCarHere(cur) && !lotCarReady(cur)) return;
+  const here = l.cars.filter(lotCarHere);
+  l.focusedId = (here.find((c) => !lotCarReady(c)) ?? here[0])?.id ?? null;
 }
+const ensureFocus = ensureLotFocus;
 
 export function generateLot(state: GameState): AuctionLot {
   const l = state.carlot;
@@ -143,7 +150,7 @@ export function lotBuyerBonus(kind: LotBuyerKind, car: { family: CarFamily; cond
 /** Refurbished cars a walk-up buyer may take (not the one the player is haggling over). */
 function buyableCars(state: GameState): LotCar[] {
   const l = state.carlot;
-  return l.cars.filter((c) => lotCarReady(c) && c.id !== l.holdId);
+  return l.cars.filter((c) => lotCarReady(c) && lotCarHere(c) && c.id !== l.holdId);
 }
 
 /** The car a buyer of this kind picks: the one they like best, the oldest on a tie. */
@@ -186,7 +193,7 @@ function tickBuyer(state: GameState, dt: number, events: CarLotSink): void {
     const { kind } = l.buyer;
     // Their car may have been sold or held since they arrived: they take the best one still there.
     let car = findLotCar(state, l.buyer.carId);
-    if (!car || !lotCarReady(car) || car.id === l.holdId) car = lotBuyerChoice(state, kind)!;
+    if (!car || !lotCarReady(car) || !lotCarHere(car) || car.id === l.holdId) car = lotBuyerChoice(state, kind)!;
     l.buyer = null;
     l.buyerTimer = 0;
     const bonus = lotBuyerBonus(kind, car);
@@ -327,7 +334,7 @@ export function refurbTap(state: GameState, id: number): CarLotEvent[] {
 /** Sell a refurbished car now, at the list price x the haggle result (0.9..1.3). */
 export function sellLotCar(state: GameState, id: number, haggle = 1): CarLotEvent[] {
   const car = findLotCar(state, id);
-  if (!carlotOpen(state) || !car || !lotCarReady(car)) return [];
+  if (!carlotOpen(state) || !car || !lotCarReady(car) || !lotCarHere(car)) return [];
   const h = clampHaggle(haggle);
   const events: CarLotEvent[] = [];
   finishSale(state, car, Math.round(listPrice(state, car) * h), h, null, events);
@@ -336,11 +343,13 @@ export function sellLotCar(state: GameState, id: number, haggle = 1): CarLotEven
 
 /** Keep walk-up buyers away from a car while the player haggles over it (cleared by the sale or `null`). */
 export function holdLotCar(state: GameState, id: number | null): void {
-  state.carlot.holdId = id !== null && findLotCar(state, id) ? id : null;
+  const car = findLotCar(state, id);
+  state.carlot.holdId = car && lotCarHere(car) ? car.id : null;
 }
 
 export function focusLotCar(state: GameState, id: number): void {
-  if (findLotCar(state, id)) state.carlot.focusedId = id;
+  const car = findLotCar(state, id);
+  if (car && lotCarHere(car)) state.carlot.focusedId = id;
 }
 
 export function buyCarLotUpgrade(state: GameState, kind: CarLotUpgradeKind): boolean {
@@ -452,6 +461,17 @@ function validLotCar(c: unknown): c is LotCar {
   return [o.paid, o.work].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
 }
 
+/** Paint shop fields of a lot car: a service and its value go together; `atShop` is checked against the shop later. */
+function repairTune(c: LotCar): void {
+  const services = Object.keys(ECON.paint.services) as PaintService[];
+  const value = c.tuneValue;
+  if (!services.includes(c.tuned as PaintService) || typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    delete c.tuned;
+    delete c.tuneValue;
+  }
+  if (c.atShop !== true || c.tuned !== undefined || c.work > 0) delete c.atShop;
+}
+
 /** Repair impossible lot data from a save. */
 export function sanitizeCarLot(l: GameState['carlot']): void {
   const c = ECON.carlot;
@@ -470,6 +490,7 @@ export function sanitizeCarLot(l: GameState['carlot']): void {
   l.board = board;
   l.refill = refill;
   l.cars = l.cars.filter(validLotCar).slice(0, l.spots);
+  for (const car of l.cars) repairTune(car);
   l.buyerTimer = Math.max(0, Math.min(l.buyerTimer, c.buyerInterval));
   const b = l.buyer as unknown;
   const bo = b && typeof b === 'object' ? (b as Record<string, unknown>) : null;
@@ -484,7 +505,7 @@ export function sanitizeCarLot(l: GameState['carlot']): void {
   if (!Number.isFinite(l.profit)) l.profit = 0;
   // A haggle never survives a reload.
   l.holdId = null;
-  if (!l.cars.some((car) => car.id === l.focusedId)) l.focusedId = l.cars[0]?.id ?? null;
+  if (!l.cars.some((car) => car.id === l.focusedId && lotCarHere(car))) l.focusedId = l.cars.find(lotCarHere)?.id ?? null;
   const ids = [...l.cars.map((x) => x.id), ...board.filter((b): b is AuctionLot => !!b).map((b) => b.id)];
   l.nextId = Math.max(Math.floor(l.nextId) || 1, ...ids.map((id) => id + 1), 1);
 }

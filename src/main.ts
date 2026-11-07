@@ -9,7 +9,7 @@ import { haptics } from './platform/haptics';
 import { sfx } from './audio/sfx';
 import { ECON } from './core/config';
 import { SaveManager } from './core/save';
-import { setNumberFormat } from './core/format';
+import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
 import type { Bridge } from './game/bridge';
@@ -99,6 +99,10 @@ function onEvents(events: GameEvent[]) {
     if (e.type === 'paintDone') {
       sales.push({ t: performance.now(), amount: e.amount });
       if (e.tip > 0 && state.paint.tips === 1) ui.toast(`⚡ Quick tip! Finish an order fast yourself and the customer tips +${Math.round(ECON.paint.tip * 100)}%`, 4000);
+    }
+    if (e.type === 'paintLotCarDone' && state.businesses.active !== 'paint') {
+      const car = state.carlot.cars.find((c) => c.id === e.carId);
+      if (car) ui.toast(`🏷️ ${car.model} is back on the lot: +${formatCash(e.value)} on the sticker`, 3000);
     }
     if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;

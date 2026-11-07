@@ -22,7 +22,7 @@ import {
   sellCar,
   type GameEvent,
 } from '../core/sim';
-import type { Car, GameState } from '../core/state';
+import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
@@ -39,7 +39,7 @@ import {
   repMultiplier,
 } from '../core/garage';
 import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, PaintUpgradeKind } from '../core/config';
-import { boothCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, paintUpgradeCost, paintWorkPerTap, painterRate } from '../core/paint';
+import { boothCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, lotCarService, lotSendBlock, lotTuneValue, paintUpgradeCost, paintWorkPerTap, painterRate, sendLotCarToShop } from '../core/paint';
 import {
   buyCarLotUpgrade,
   buyLot,
@@ -111,6 +111,8 @@ export class Ui {
   private rate!: HTMLElement;
   private partsEl!: HTMLElement;
   private crush!: HTMLButtonElement;
+  /** Used Car Lot: send the refurbished car to Paint & Tuning for one service (P1.2f). */
+  private tuneBtn!: HTMLButtonElement;
   private soundBtn!: HTMLButtonElement;
   private settingsBtn!: HTMLButtonElement;
   private mapBtn!: HTMLButtonElement;
@@ -198,6 +200,9 @@ export class Ui {
     this.crush = el('button', 'crush display hidden') as HTMLButtonElement;
     this.crush.setAttribute('aria-label', 'Crush this wreck for parts');
     this.crush.onclick = () => this.onCrush();
+    this.tuneBtn = el('button', 'crush tune display hidden') as HTMLButtonElement;
+    this.tuneBtn.setAttribute('aria-label', 'Send this car to Paint & Tuning');
+    this.tuneBtn.onclick = () => this.onTuneLotCar();
 
     this.banner = el('div', 'banner display');
 
@@ -260,7 +265,7 @@ export class Ui {
     this.cardsBox = el('div', 'cards');
     this.panel.append(head, this.cardsBox);
 
-    this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.banner, this.panel);
+    this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.tuneBtn, this.banner, this.panel);
     this.buildCards();
   }
 
@@ -843,6 +848,21 @@ export class Ui {
     this.haggleSlider(car.id, false, (mult) => this.finishLotSale(car.id, mult));
   }
 
+  /** Send the focused lot car to a free Paint & Tuning booth; it comes back with a higher sticker price. */
+  private onTuneLotCar() {
+    const s = this.deps.state();
+    const id = s.carlot.focusedId;
+    if (this.haggling !== null || id === null) return;
+    const svc = lotCarService(findLotCar(s, id) ?? { family: 'sedan' });
+    const events = sendLotCarToShop(s, id);
+    if (!events.length) return;
+    sfx.engine();
+    this.toast(`🎨 Off to Paint & Tuning for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
+    this.deps.onEvents(events);
+    this.deps.onChange();
+    this.render();
+  }
+
   private finishLotSale(carId: number, haggle: number) {
     const s = this.deps.state();
     const events = sellLotCar(s, carId, haggle);
@@ -852,6 +872,30 @@ export class Ui {
       this.deps.onChange();
     }
     this.render();
+  }
+
+  /**
+   * The Tune button beside Sell on the lot (P1.2f): shown for a refurbished car that hasn't been to the paint shop,
+   * once Paint & Tuning is open. Greyed out while every booth is busy.
+   */
+  private renderTune(s: GameState, car: LotCar | undefined) {
+    const block = car ? lotSendBlock(s, car.id) : 'missing';
+    const show = !!car && this.haggling === null && !this.modalOpen && (block === null || block === 'boothsFull');
+    this.tuneBtn.classList.toggle('hidden', !show);
+    this.sell.classList.toggle('beside-tune', show);
+    if (!show || !car) return;
+    this.tuneBtn.disabled = block !== null;
+    const svc = ECON.paint.services[lotCarService(car)];
+    const sub = block === 'boothsFull' ? 'Booths busy' : `+${formatCash(lotTuneValue(s, car))}`;
+    // Short names fit beside Sell: "Custom rims" -> "Rims", "Engine tune" -> "Tune".
+    const word = svc.name.split(' ').pop() ?? svc.name;
+    const html = `${svc.icon} ${word[0]!.toUpperCase()}${word.slice(1)}<small>${sub}</small>`;
+    if (this.tuneBtn.innerHTML !== html) this.tuneBtn.innerHTML = html;
+    if (!s.tutorial.lotTuneSeen) {
+      s.tutorial.lotTuneSeen = true;
+      this.toast('🎨 Your paint shop can tune lot cars: they sell for more', 4000);
+      this.deps.onChange();
+    }
   }
 
   /** Timing slider: a needle sweeps the bar; tapping stops it. The centre pays most. */
@@ -1033,6 +1077,7 @@ export class Ui {
       if (this.sell.innerHTML !== html) this.sell.innerHTML = html;
       this.sell.classList.remove('match');
     }
+    this.renderTune(s, lotReady ? lotCar : undefined);
     if (ready && car) {
       const bm = buyerMultiplier(s, car);
       const who = bm > 1 && s.buyer ? ECON.buyers.kinds[s.buyer.kind] : null;

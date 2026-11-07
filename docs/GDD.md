@@ -130,8 +130,15 @@ to automate it, open new car businesses, then sell your empire and start again i
   car (new colour, new rims, a wrap pattern, a tune). Orders with more services pay a combo bonus (+15% per extra
   service). Finish an order yourself within 3 s per service of the car arriving and the customer tips +25%, so active
   play pays and the Painter (idle and offline) never tips. Upgrades: Spray Booth (speed, x2 at milestones), Hype
-  (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths). Planned next (P1.2f): send a refurbished
-  Used Car Lot car through the shop for a higher list price.
+  (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths).
+  **Lot cars through the shop (P1.2f):** on the lot, a refurbished car shows a purple Tune button beside Sell (e.g.
+  "⚙️ Tune +$180K"), once Paint & Tuning is open. It takes a free booth (greyed "Booths busy" otherwise) for one service
+  that suits it: respray for sedans and vans, rims for hatches, pickups and SUVs, a wrap for sports cars, an engine
+  tune for muscle cars and hypercars. While away it is off the market: its thumbnail fades with "At the shop", walk-up
+  buyers pick another car, and the platform says "Your car is at Paint & Tuning 🎨". In the shop it drives in with no
+  customer and the ticket's tip column reads "🏷️ +$180K sticker". Tap it (or let the Painter) and it goes back with
+  "🏷️ Back to the lot" (a toast when you're elsewhere). Its FOR SALE tag shows the service icon and the higher price;
+  a respray or wrap brings it back in the new colour. Once per car; the shop charges and pays nothing.
   The scene (P1.2e) is a spray booth: slate wall panels, ceiling light strips, two extraction fans, a shelf of paint
   cans, a colour-swatch fan, a floor grate with overspray and a purple "PAINT & TUNING" band with paint drips. The car
   drives in from the left and the customer waits on the right. An order ticket sits on the car's roof: one slot per

@@ -1063,6 +1063,84 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('paint'), null, { timeout: 4000 });
     assert(true, 'back to the yard from the paint shop');
 
+    console.log('lot cars through the paint shop');
+    const goTo = async (biz, scene) => {
+      await page.click('.map-btn');
+      await page.click(`.map-row[data-biz="${biz}"] button`);
+      await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+      await page.waitForSelector('.modal.city-map', { state: 'detached' });
+      await page.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 4000 });
+    };
+    await goTo('carlot', 'carlot');
+    // One known refurbished muscle car; no walk-up buyers, no Auction Agent buys and no paint customers for now.
+    const tuneId = await page.evaluate(() => {
+      const s = window.__jye.state;
+      const l = s.carlot;
+      const id = l.nextId++;
+      l.crew.agent = false;
+      l.buyer = null;
+      l.buyerTimer = -1e6;
+      l.cars = [{ id, family: 'muscle', model: 'Stallion Thunder', paint: 0xe5484d, condition: 3, paid: 1000, work: 0 }];
+      l.focusedId = id;
+      s.paint.jobs = [];
+      s.paint.focusedId = null;
+      s.paint.arrivalTimer = -1e6;
+      return id;
+    });
+    await page.waitForSelector('.crush.tune:not(.hidden)', { timeout: 4000 });
+    const tuneUi = await page.evaluate(() => {
+      const t = document.querySelector('.crush.tune').getBoundingClientRect();
+      const s = document.querySelector('.sell').getBoundingClientRect();
+      return { text: document.querySelector('.crush.tune').textContent, disabled: document.querySelector('.crush.tune').disabled, apart: s.right <= t.left - 4, onScreen: s.left >= 0 && t.right <= window.innerWidth };
+    });
+    assert(/⚙️ Tune\+\$[\d.]+[KMB]?/.test(tuneUi.text) && !tuneUi.disabled, `a refurbished lot car offers an engine tune at the paint shop (${tuneUi.text})`);
+    assert(tuneUi.apart && tuneUi.onScreen, 'the Tune button sits beside the Sell button, both on screen');
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('carlot').tag.visible, null, { timeout: 3000 });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21a-lot-tune-button.png') });
+    const sticker0 = await page.evaluate((id) => window.__jye.state.carlot.cars.find((c) => c.id === id) && window.__jye.game.scene.getScene('carlot').tagText.text, tuneId);
+    await page.click('.crush.tune');
+    const sent = await page.evaluate((id) => {
+      const s = window.__jye.state;
+      return { away: s.carlot.cars.find((c) => c.id === id)?.atShop === true, job: s.paint.jobs.find((j) => j.lotCarId === id)?.services.join(',') };
+    }, tuneId);
+    assert(sent.away && sent.job === 'tune', 'Tune sends the car to a paint booth for an engine tune');
+    await page.waitForFunction(() => document.querySelector('.sell').classList.contains('hidden') && document.querySelector('.crush.tune').classList.contains('hidden'));
+    await page.waitForFunction(() => /Paint & Tuning/.test(window.__jye.game.scene.getScene('carlot').label.text), null, { timeout: 2000 });
+    assert(true, 'the lot says the car is at the paint shop; it cannot be sold meanwhile');
+    await goTo('paint', 'paint');
+    await page.waitForFunction((id) => {
+      const s = window.__jye.state;
+      const v = window.__jye.game.scene.getScene('paint').debugView();
+      const job = s.paint.jobs.find((j) => j.lotCarId === id);
+      const ok = !!job && v.bigId === job.id && v.carVisible && !v.arriving && v.ticket;
+      // Hold the job (the Painter works on it) for the checks and the screenshot.
+      if (job) job.work = Math.max(job.work, 10);
+      return ok;
+    }, tuneId, { timeout: 5000 });
+    const lotJobView = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(lotJobView.ticketIcons === '⚙️' && /^🏷️ \+\$[\d.]+[KMB]?\nsticker$/.test(lotJobView.tipText) && !lotJobView.customer, `the shop shows your lot car with its sticker bonus and no customer (${lotJobView.tipText.replace('\n', ' ')})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21b-paint-lot-car.png') });
+    const cash0 = await page.evaluate(() => window.__jye.state.cash);
+    await page.waitForFunction((id) => window.__jye.state.carlot.cars.find((c) => c.id === id)?.tuned === 'tune', tuneId, { timeout: 30000 });
+    const back = await page.evaluate((id) => ({ car: window.__jye.state.carlot.cars.find((c) => c.id === id), done: window.__jye.state.paint.jobsDone }), tuneId);
+    assert(back.car.atShop === undefined && back.car.tuneValue > 0, `the tuned car goes back to the lot (+${back.car.tuneValue} on its sticker)`);
+    await goTo('carlot', 'carlot');
+    await page.waitForFunction((id) => {
+      const sc = window.__jye.game.scene.getScene('carlot');
+      return window.__jye.state.carlot.focusedId === id && sc.tag.visible && /⚙️/.test(sc.tagText.text);
+    }, tuneId, { timeout: 4000 });
+    const sticker1 = await page.evaluate(() => window.__jye.game.scene.getScene('carlot').tagText.text);
+    assert(sticker1 !== sticker0 && (await page.evaluate(() => document.querySelector('.crush.tune').classList.contains('hidden'))), `its FOR SALE tag shows the tune and the higher price (${sticker0.replace('\n', ' ')} -> ${sticker1.replace('\n', ' ')}); it can't go twice`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21c-lot-tuned.png') });
+    assert((await page.evaluate(() => window.__jye.state.cash)) >= cash0 - 1, 'the shop charged nothing for your own car');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.carlot.crew.agent = true;
+      s.carlot.buyerTimer = 0;
+      s.paint.arrivalTimer = 0;
+    });
+    await goTo('scrapyard', 'yard');
+
     console.log('save and reload');
     const before = await page.evaluate(() => {
       window.__jye.saveNow();

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 17; next run is run 18). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 18; next run is run 19). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -96,11 +96,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         tune overlays), order ticket on the roof (service slots, order progress, tip timer), spray mist / rim glints /
         exhaust flames, Painter, booth thumbnails, Shop / Crew tabs, hints, first-tip toast, map tier art, welcome-back
         line, e2e. `ready: true`.
-  - [ ] P1.2f Lot cars through the shop (design note from P1.2d): send a refurbished Used Car Lot car to Paint & Tuning
-        for one service; it comes back with a higher list price (walk-up buyers like tuned cars).
+  - [x] P1.2f Lot cars through the shop (run 18): a Tune button beside Sell sends a refurbished lot car to a free
+        booth for the one service that suits its family; no fee, its sticker rises by the shop's fee for that service
+        (walk-up bonuses and haggling apply on top), once per car; away cars can't be sold or picked by buyers; save
+        links repaired; tuned with a with/without bot run (+8% lifetime at 3 h).
   - [ ] P1.2g Paint shop polish (found in run 17): the customer says what they want as they step out ("Make it pop!",
         like the garage's speech bubble); on very short phones (560 CSS px tall) the ticket covers the sign strip and
-        could touch the booth row with 2+ booths, so move the ticket beside the car there.
+        could touch the booth row with 2+ booths, so move the ticket beside the car there. Design note (run 18): the
+        tip clock starts on arrival, so the speech bubble must not hide the ticket (a 1-service order has only 3 s);
+        show both at once, the bubble clear of the ticket on every phone size (unit-test the geometry like the sign).
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements

@@ -114,7 +114,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Scrapyard | - | - | open from the start |
 | Repair Garage | $200K | $100K | open (P1.1c, run 11) |
 | Used Car Lot | $5M | $2.5M | open (P1.2b, run 14) |
-| Paint & Tuning | $50M | $25M | core rules done (P1.2d, run 16); scene next (P1.2e), still "soon" on the map |
+| Paint & Tuning | $50M | $25M | open (P1.2e, run 17); lot cars through the shop (P1.2f, run 18) |
 
 The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
 the garage goal at 12m35s (seed 12345), 12m12s on average over 12 seeds (worst 13m49s), matching the plan's "second
@@ -216,6 +216,19 @@ hires the Painter at 2h0m; the lot keeps 20% (relaxed 21%). Asserted: opens betw
 lot share > 10%, some but not all orders tipped. The bot buys only the cheapest upgrade each time, so it rarely buys Hype
 or a second booth in this window; that is a bot habit, not a price problem.
 
+## Lot cars through the shop (P1.2f, run 18)
+
+A refurbished Used Car Lot car can take a free paint booth for one service that suits its family (sedan and van:
+respray; hatch, pickup and SUV: rims; sports: wrap; muscle and hyper: engine tune). The shop charges nothing and pays
+nothing; the car's sticker price goes up by the shop's fee for that service (Hype included, no combo, no tip) x
+`valueMult`, fixed when the car drives in. Walk-up buyer bonuses and haggling then apply to the whole sticker; only the
+profit counts as earnings. Once per car. The Painter works lot cars like any order; crews never send cars on their own.
+
+Run 18 sim (`sending lot cars through the shop`, 180 minutes, active bot that sends a ready lot car into every free
+booth vs the same bot without): valueMult 0.6 -> lifetime -4% (the booth time is worth more on customers), 0.8 -> +3%,
+1.0 -> +8% (chosen: $387M vs $357M; 788 lot cars tuned, lot profit $72M -> $172M, paint fees $147M -> $72M). So it is
+a real choice between tipped customers and a fatter sticker, not a new economy. Asserted: lifetime +1% to +15%.
+
 ## Pacing targets (checked by `npm run sim`)
 
 | Milestone | Target | Active bot | Relaxed bot |
@@ -237,6 +250,7 @@ or a second booth in this window; that is a bot habit, not a price problem.
 | Paint & Tuning goal ($50M) | - | 1h 22m | 1h 45m |
 | Paint & Tuning opened ($25M) | 70-140 min | 1h 35m | 2h 7m |
 | Paint share of earnings at 3 h | 12-60% | 41% | 29% |
+| Lot cars through the shop (active bot that always sends) | +1% to +15% lifetime at 3 h | +8% | - |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.

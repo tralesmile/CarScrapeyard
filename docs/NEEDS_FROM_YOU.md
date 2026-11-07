@@ -61,6 +61,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       An order ticket sits on the car's roof; tap the car and watch the new colour spray across it, gold rims fade in
       and flames appear on the side with a tune. Finish fast for the "⚡ Quick tip". Is the tip timer (3 s per service)
       exciting or stressful? Is the order ticket easy to read on your phone?
+      New since run 18: the lot and the paint shop work together. On the Used Car Lot a polished car shows a purple
+      "Tune" button next to Sell: it drives to a free paint booth (no customer, no fee), gets one service that suits it
+      (an engine tune for muscle cars, a wrap for sports cars, rims, or a respray) and comes back with a higher price on
+      its FOR SALE tag. It costs you a booth that a paying customer could have used. Is that trade-off clear, or would
+      you rather pick the service yourself?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

@@ -330,7 +330,7 @@ export const ECON = {
   /**
    * Paint & Tuning (business 4, P1.2d): customers order one to three services for their car (respray, rims, vinyl
    * wrap, engine tune). The booth works through them in order (tap, or the Painter); bigger orders pay a combo bonus,
-   * and an order you finish yourself quickly earns a tip. Lot cars come in later (P1.2f).
+   * and an order you finish yourself quickly earns a tip. Refurbished lot cars can come in for one service (P1.2f).
    */
   paint: {
     /** Seconds until the next customer drives in while a booth is free. */
@@ -368,6 +368,24 @@ export const ECON = {
     hypeFeeGrowth: 1.1,
     /** The Painter works on the oldest order on its own (work units per second at Spray Booth level 1), also offline. */
     painter: { name: 'Painter', cost: 60_000_000, workPerSec: 1.2 },
+    /**
+     * Lot cars through the shop (P1.2f): a refurbished Used Car Lot car can take a free booth for one service. It pays
+     * nothing at the shop; its sticker price on the lot goes up by the shop's fee for that service x `valueMult`
+     * (walk-up buyers then add their bonus on top). The service suits the car.
+     */
+    lotCars: {
+      valueMult: 1,
+      service: {
+        sedan: 'respray',
+        hatch: 'rims',
+        pickup: 'rims',
+        muscle: 'tune',
+        van: 'respray',
+        suv: 'rims',
+        sports: 'wrap',
+        hyper: 'tune',
+      },
+    } satisfies { valueMult: number; service: Record<CarFamily, PaintService> },
   },
 
   barn: {

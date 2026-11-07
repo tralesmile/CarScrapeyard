@@ -302,3 +302,25 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Old fixed waits keep flaking.** "Wait 1200 ms, then the yard shows the focused car" failed once this run: the
   Salesperson sold a car and the drive-off (0.5 s, `bigCarId = null`) overlapped the check. Replaced with a predicate
   wait. When a check flakes, grep the e2e for other `waitForTimeout` + assert pairs on animated state.
+
+
+## 2026-11-07 (run 18)
+
+- **Compare a bot with and without a new choice, not just "does pacing still pass".** The first valueMult (1.2) passed
+  every old pacing check because the old bots never used the feature; only an A/B run (same bot, `tuneLotCars` on vs
+  off, 180 min) showed +18% lifetime and the paint shop's own fees halved. A sweep of 0.6/0.8/1.0 in one loop then
+  showed where it stops being a free win (0.8 ~ break-even, 1.0 +8%). Bake the A/B into `npm run sim` with bounds.
+- **When two businesses share an object, repair the links after both are repaired.** A lot car marked "at the shop"
+  and the booth job pointing at it are saved in different blocks; `sanitizeLotShopLinks` runs after `sanitizeCarLot`
+  and `sanitizePaint` and fixes either side missing. A one-sided repair would strand a car off the market forever.
+- **Put mutable looks into texture keys.** The lot keyed car textures by id; a respray changes the colour, so the old
+  key would have shown the old paint forever. `lcar-<id>-<paint>` plus a prefix release on sale fixes it without
+  freeing a texture an image still uses.
+- **The e2e runs ~8 minutes; the tool call limit is 2.** Start it in the background with `&` and an EXIT marker in the
+  log, then do docs while it runs (and never rebuild meanwhile). A foreground run just times out and wastes the call.
+- **Assert UI text with the exact label you mean to ship.** "⚙️ tune" (from stripping "Engine " off the name) passed
+  typecheck and unit tests; only the e2e regex for "Tune" caught the lowercase label.
+
+- **`page.isHidden` is false for our `.hidden` buttons.** They fade with `opacity: 0` (for the transition), which
+  Playwright still counts as visible. Check `classList.contains('hidden')` for those. Also read a value shown only
+  after an animation (the FOR SALE tag after the drive-in) with a wait on its visibility, not a fixed 300 ms.

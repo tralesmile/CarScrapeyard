@@ -335,7 +335,7 @@ export class PaintScene extends Phaser.Scene {
       this.time.delayedCall(this.calm ? 1 : 620, () => this.carArrived(job.id));
       sfx.engine();
     }
-    this.label.setText(`${job.model} · ${formatCash(job.fee)}`);
+    this.label.setText(job.lotCarId !== undefined ? `${job.model} · your lot car` : `${job.model} · ${formatCash(job.fee)}`);
     this.applyReveal(job);
     if (this.arriving) {
       this.ticket.setVisible(false);
@@ -360,6 +360,16 @@ export class PaintScene extends Phaser.Scene {
     this.arriving = false;
     const job = this.focused();
     if (!job) return;
+    if (!this.calm) {
+      this.ticket.setScale(0.6);
+      this.tweens.add({ targets: this.ticket, scale: 1, duration: 220, ease: 'Back.easeOut' });
+    }
+    // Your own lot car has no customer waiting for it.
+    if (job.lotCarId !== undefined) {
+      this.tweens.killTweensOf(this.customer);
+      this.customer.setVisible(false);
+      return;
+    }
     const kind = customerKind(job.id);
     const spot = this.customerSpot();
     this.tweens.killTweensOf(this.customer);
@@ -370,10 +380,6 @@ export class PaintScene extends Phaser.Scene {
       .setAlpha(0)
       .setVisible(true);
     this.tweens.add({ targets: this.customer, x: spot.x, alpha: 1, duration: this.calm ? 1 : 450, ease: 'Sine.easeOut' });
-    if (!this.calm) {
-      this.ticket.setScale(0.6);
-      this.tweens.add({ targets: this.ticket, scale: 1, duration: 220, ease: 'Back.easeOut' });
-    }
   }
 
   private customerSpot() {
@@ -495,10 +501,11 @@ export class PaintScene extends Phaser.Scene {
     g.lineStyle(this.px(1.5), 0x8b5cf6, 0.35).lineBetween(dx, -h / 2 + this.px(7), dx, h / 2 - this.px(7));
     const left = tipDeadline(job) - job.age;
     const tipOn = left > 0;
-    const t = tipOn ? `⚡ +${formatCash(tipFor(job))}\ntip · ${Math.ceil(left)}s` : `${job.step}/${n}\ndone`;
+    const lot = job.lotCarId !== undefined;
+    const t = lot ? `🏷️ +${formatCash(job.fee)}\nsticker` : tipOn ? `⚡ +${formatCash(tipFor(job))}\ntip · ${Math.ceil(left)}s` : `${job.step}/${n}\ndone`;
     if (this.ticketTip.text !== t) this.ticketTip.setText(t);
-    this.ticketTip.setColor(tipOn ? '#b45309' : '#5d6674');
-    if (tipOn) {
+    this.ticketTip.setColor(lot ? '#6d28d9' : tipOn ? '#b45309' : '#5d6674');
+    if (tipOn && !lot) {
       const tw = this.px(TICKET.tipW - 18);
       const frac = Math.max(0, Math.min(1, left / tipDeadline(job)));
       const tx = this.ticketTip.x - tw / 2;
@@ -619,6 +626,7 @@ export class PaintScene extends Phaser.Scene {
     for (const e of events) {
       if (e.type === 'paintStepDone' && e.job.id === this.bigId && e.job.step < e.job.services.length) this.onStepDone(e.job, e.service);
       if (e.type === 'paintDone') this.onDone(e.job, e.amount, e.tip);
+      if (e.type === 'paintLotCarDone') this.onDone(e.job, 0, 0, e.value);
     }
     this.bridge.onEvents(events);
   }
@@ -640,7 +648,8 @@ export class PaintScene extends Phaser.Scene {
     sfx.rev();
   }
 
-  private onDone(job: PaintJob, amount: number, tip: number) {
+  /** An order is done: the car drives off. A lot car (P1.2f) pays nothing here; its sticker went up by `lotValue`. */
+  private onDone(job: PaintJob, amount: number, tip: number, lotValue = 0) {
     const big = job.id === this.bigId;
     const from = big ? { x: this.bigCar.x, y: this.bigCar.y } : { x: this.scale.width / 2, y: this.px(this.focusArea().rowY) };
     if (big) {
@@ -652,7 +661,8 @@ export class PaintScene extends Phaser.Scene {
       this.applyReveal({ ...job, step: job.services.length, work: 0 });
       this.driveOff(job.id);
     } else this.time.delayedCall(800, () => this.releaseTextures(job.id));
-    this.coinBurst(from.x, from.y, amount - tip);
+    if (job.lotCarId !== undefined) this.floatText(from.x, from.y - this.px(40), `🏷️ Back to the lot +${formatCash(lotValue)}`, '#c7b8e8', 22);
+    else this.coinBurst(from.x, from.y, amount - tip);
     if (tip > 0) {
       this.floatText(from.x, from.y - this.px(70), `⚡ Quick tip +${formatCash(tip)}`, '#f5b700', 22);
       sfx.bonus();

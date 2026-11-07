@@ -38,7 +38,7 @@ import {
   sellLotCar,
   spotCost,
 } from '../src/core/carlot';
-import { boothCost, buyBooth, buyPaintUpgrade, hirePainter, paintTap, paintUpgradeCost } from '../src/core/paint';
+import { boothCost, buyBooth, buyPaintUpgrade, hirePainter, lotSendBlock, paintTap, paintUpgradeCost, sendLotCarToShop } from '../src/core/paint';
 import { buyGarageBay, buyGarageUpgrade, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
 
 interface BotProfile {
@@ -51,6 +51,8 @@ interface BotProfile {
   reaction: number;
   /** Haggle multiplier the bot lands on big sales. */
   haggle: number;
+  /** In the paint shop, send refurbished lot cars into free booths (P1.2f). */
+  tuneLotCars?: boolean;
 }
 
 const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5, haggle: 1.2 };
@@ -165,6 +167,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
   let extraCash = 0;
   let barnCash = 0;
   let scrapperCrushes = 0;
+  let lotTunes = 0;
   for (let t = 0; t < seconds; t += dt) {
     for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
     // In the garage (once the yard runs on its own) the bot taps customer cars instead of working the yard.
@@ -181,6 +184,14 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     // In the paint shop the bot taps the oldest order.
     const inPaint = s.businesses.active === 'paint' && s.managers.seller;
     if (inPaint) {
+      // P1.2f: a free booth takes a refurbished lot car that hasn't been tuned yet.
+      if (profile.tuneLotCars) {
+        const lotCar = s.carlot.cars.find((c) => lotSendBlock(s, c.id) === null);
+        if (lotCar) {
+          sendLotCarToShop(s, lotCar.id);
+          lotTunes += 1;
+        }
+      }
       const job = s.paint.jobs[0];
       if (job) {
         tapBudget += profile.tapsPerSec * dt;
@@ -277,7 +288,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (s.garage.foreman && marks.foreman === undefined) marks.foreman = t;
     if (s.garage.bays >= 2 && marks.bay2 === undefined) marks.bay2 = t;
   }
-  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes };
+  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes, lotTunes };
 }
 
 describe('opening pacing', () => {
@@ -495,5 +506,26 @@ describe('Paint & Tuning (P1.2d)', () => {
     expect(a.lotShare).toBeGreaterThan(0.1);
     expect(a.tips).toBeGreaterThan(0);
     expect(a.tips).toBeLessThan(a.jobs);
+  });
+
+  it('sending lot cars through the shop (P1.2f) is worth it but does not run away', () => {
+    const rows: string[] = [];
+    const out: Record<string, { life: number; lot: number; tunes: number }> = {};
+    for (const profile of [ACTIVE, { ...ACTIVE, name: 'active+tune', tuneLotCars: true }]) {
+      const { s, lotTunes } = withReadyPaint(() => run(profile, 180 * 60));
+      out[profile.name] = { life: s.lifetimeEarnings, lot: s.carlot.profit, tunes: lotTunes };
+      rows.push(
+        `${profile.name}: lot cars tuned ${lotTunes}, lot profit ${formatCash(s.carlot.profit)}, paint ${formatCash(s.paint.earned)}, ` +
+          `lifetime ${formatCash(s.lifetimeEarnings)}`,
+      );
+    }
+    console.log(['--- Lot cars through the shop, 180 minutes ---', ...rows].join('\n'));
+    const base = out.active!;
+    const tuned = out['active+tune']!;
+    expect(tuned.tunes).toBeGreaterThan(20);
+    expect(tuned.lot).toBeGreaterThan(base.lot);
+    // A bonus for playing both businesses, not a new economy: within +15% lifetime at 3 hours.
+    expect(tuned.life).toBeGreaterThan(base.life * 1.01);
+    expect(tuned.life).toBeLessThan(base.life * 1.15);
   });
 });

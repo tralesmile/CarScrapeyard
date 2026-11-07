@@ -72,6 +72,12 @@ export interface LotCar {
   paid: number;
   /** Refurbish work units left (0 = ready to sell). */
   work: number;
+  /** In a Paint & Tuning booth right now (P1.2f): it can't be sold or looked at until it comes back. */
+  atShop?: boolean;
+  /** The service the paint shop did on it (it can only go once). */
+  tuned?: PaintService;
+  /** What the service added to its sticker price. */
+  tuneValue?: number;
 }
 
 /** A walk-up buyer looking over one of your refurbished cars before paying for it (P1.2c). */
@@ -123,6 +129,11 @@ export interface PaintJob {
   fee: number;
   /** Seconds since the car arrived (for the quick-finish tip). */
   age: number;
+  /**
+   * Set when this is one of your own Used Car Lot cars (P1.2f): no fee and no tip; `fee` is what the service adds to
+   * the car's sticker price when it goes back to the lot.
+   */
+  lotCarId?: number;
 }
 
 export interface PaintShop {
@@ -235,6 +246,8 @@ export interface GameState {
     barnSeen: boolean;
     /** The city map was opened at least once (its button shows a dot until then). */
     mapSeen: boolean;
+    /** The "lot cars can go to Paint & Tuning" toast was shown (P1.2f). */
+    lotTuneSeen: boolean;
   };
   settings: {
     sound: boolean;
@@ -357,7 +370,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },

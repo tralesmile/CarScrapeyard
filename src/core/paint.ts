@@ -5,16 +5,19 @@
 
 import type { CarFamily, PaintService, PaintUpgradeKind } from './config';
 import { ECON, MODEL_NAMES, PAINTS } from './config';
+import { carlotOpen, ensureLotFocus, findLotCar, lotCarHere, lotCarReady } from './carlot';
 import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
-import type { GameState, PaintJob } from './state';
+import type { GameState, LotCar, PaintJob } from './state';
 
 export type PaintEvent =
   | { type: 'paintArrived'; job: PaintJob }
   /** One service of an order is done (`service`); more may follow. */
   | { type: 'paintStepDone'; job: PaintJob; service: PaintService }
   /** The whole order is done and paid. `tip` is included in `amount`. */
-  | { type: 'paintDone'; job: PaintJob; amount: number; tip: number; auto: boolean };
+  | { type: 'paintDone'; job: PaintJob; amount: number; tip: number; auto: boolean }
+  /** One of your Used Car Lot cars is done (P1.2f) and went back to the lot; its sticker price rose by `value`. */
+  | { type: 'paintLotCarDone'; job: PaintJob; carId: number; value: number; auto: boolean };
 
 export interface PaintSink {
   push(e: PaintEvent): void;
@@ -146,6 +149,7 @@ function workOn(state: GameState, job: PaintJob, amount: number, auto: boolean, 
 
 function finishJob(state: GameState, job: PaintJob, auto: boolean, events: PaintSink): void {
   const p = state.paint;
+  if (job.lotCarId !== undefined) return returnLotCar(state, job, auto, events);
   const tip = !auto && job.age <= tipDeadline(job) ? tipFor(job) : 0;
   const amount = job.fee + tip;
   state.cash += amount;
@@ -176,6 +180,82 @@ export function tickPaint(state: GameState, dt: number, events: PaintSink): void
   const rate = painterRate(state);
   const job = p.jobs[0];
   if (rate > 0 && job) workOn(state, job, rate * dt, true, events);
+}
+
+// ---- Lot cars through the shop (P1.2f) --------------------------------------
+
+/** The service the shop does on a lot car (one that suits it). */
+export function lotCarService(car: { family: CarFamily }): PaintService {
+  return ECON.paint.lotCars.service[car.family];
+}
+
+/** What the service adds to the car's sticker price at today's Hype level. */
+export function lotTuneValue(state: GameState, car: { family: CarFamily }): number {
+  return Math.round(paintFee(car.family, [lotCarService(car)], state.paint.levels.hype) * ECON.paint.lotCars.valueMult);
+}
+
+export type LotSendBlock = 'closed' | 'missing' | 'notReady' | 'tuned' | 'away' | 'haggling' | 'boothsFull';
+
+/** Why a lot car can't go to the shop now, or null when it can. */
+export function lotSendBlock(state: GameState, carId: number | null): LotSendBlock | null {
+  if (!paintOpen(state) || !carlotOpen(state)) return 'closed';
+  const car = findLotCar(state, carId);
+  if (!car) return 'missing';
+  if (!lotCarReady(car)) return 'notReady';
+  if (car.tuned !== undefined) return 'tuned';
+  if (!lotCarHere(car)) return 'away';
+  if (state.carlot.holdId === car.id) return 'haggling';
+  if (state.paint.jobs.length >= state.paint.booths) return 'boothsFull';
+  return null;
+}
+
+/** Drive a refurbished lot car to a free booth for its service. It stays off the market until it comes back. */
+export function sendLotCarToShop(state: GameState, carId: number): PaintEvent[] {
+  if (lotSendBlock(state, carId) !== null) return [];
+  const car = findLotCar(state, carId)!;
+  const p = state.paint;
+  const service = lotCarService(car);
+  const others = PAINTS.filter((c) => c !== car.paint);
+  const job: PaintJob = {
+    id: p.nextJobId++,
+    family: car.family,
+    model: car.model,
+    paint: car.paint,
+    newPaint: others[Math.floor(nextRandom(state) * others.length)] ?? car.paint,
+    services: [service],
+    step: 0,
+    work: ECON.paint.services[service].work,
+    fee: lotTuneValue(state, car),
+    age: 0,
+    lotCarId: car.id,
+  };
+  car.atShop = true;
+  const l = state.carlot;
+  // A buyer who was looking at it picks another car (or walks off) on the next tick.
+  if (l.buyer?.carId === car.id) {
+    const other = l.cars.find((c) => c.id !== car.id && lotCarReady(c) && lotCarHere(c) && c.id !== l.holdId);
+    if (other) l.buyer.carId = other.id;
+  }
+  ensureLotFocus(state);
+  p.jobs.push(job);
+  ensureFocus(state);
+  return [{ type: 'paintArrived', job }];
+}
+
+function returnLotCar(state: GameState, job: PaintJob, auto: boolean, events: PaintSink): void {
+  const p = state.paint;
+  p.jobs = p.jobs.filter((j) => j.id !== job.id);
+  const car: LotCar | undefined = findLotCar(state, job.lotCarId ?? null);
+  if (car) {
+    const service = job.services[0]!;
+    delete car.atShop;
+    car.tuned = service;
+    car.tuneValue = job.fee;
+    if (service === 'respray' || service === 'wrap') car.paint = job.newPaint;
+    ensureLotFocus(state);
+    events.push({ type: 'paintLotCarDone', job, carId: car.id, value: job.fee, auto });
+  }
+  ensureFocus(state);
 }
 
 // ---- Player actions -------------------------------------------------------
@@ -279,7 +359,27 @@ function validJob(j: unknown): j is PaintJob {
   const sv = o.services;
   if (!Array.isArray(sv) || sv.length < 1 || sv.length > MAX_ORDER) return false;
   if (!sv.every((k) => PAINT_SERVICES.includes(k as PaintService)) || new Set(sv).size !== sv.length) return false;
+  if (o.lotCarId !== undefined && (typeof o.lotCarId !== 'number' || sv.length !== 1)) return false;
   return Number.isInteger(o.step) && (o.step as number) < sv.length;
+}
+
+/**
+ * Lot cars and their booth jobs point at each other: drop a lot job whose car is gone (or not marked away) and bring
+ * back a car marked away without a job. Run after both businesses were repaired.
+ */
+export function sanitizeLotShopLinks(state: GameState): void {
+  const p = state.paint;
+  const away = new Set(state.carlot.cars.filter((c) => c.atShop === true).map((c) => c.id));
+  const seen = new Set<number>();
+  p.jobs = p.jobs.filter((j) => {
+    if (j.lotCarId === undefined) return true;
+    if (!away.has(j.lotCarId) || seen.has(j.lotCarId)) return false;
+    seen.add(j.lotCarId);
+    return true;
+  });
+  for (const c of state.carlot.cars) if (c.atShop === true && !seen.has(c.id)) delete c.atShop;
+  if (!p.jobs.some((j) => j.id === p.focusedId)) p.focusedId = p.jobs[0]?.id ?? null;
+  ensureLotFocus(state);
 }
 
 /** Repair impossible shop data from a save. */
