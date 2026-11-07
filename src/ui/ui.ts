@@ -27,7 +27,7 @@ import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
-import { LEGACY_ICON, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, sellEmpirePreview, sellEmpireRow, treeHasBuy } from './legacyView';
+import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import {
   buyGarageBay,
@@ -63,7 +63,7 @@ import {
 } from '../core/carlot';
 import { conditionStars } from '../game/carlotArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
-import { barnStageSeconds, buyNode, perfectZone, respecTree } from '../core/legacyTree';
+import { barnStageSeconds, buyNode, offlineCap, perfectZone, respecTree } from '../core/legacyTree';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
@@ -135,6 +135,8 @@ export class Ui {
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
   private cardsBox!: HTMLElement;
+  /** Owned Legacy perks that change this tab (P1.3e). */
+  private perkStrip!: HTMLElement;
   private tabButtons = new Map<Tab, HTMLButtonElement>();
   private modeButtons = new Map<string, HTMLButtonElement>();
   private banner!: HTMLElement;
@@ -278,7 +280,9 @@ export class Ui {
       head.append(b);
     }
     this.cardsBox = el('div', 'cards');
-    this.panel.append(head, this.cardsBox);
+    this.perkStrip = el('div', 'perk-strip hidden');
+    this.perkStrip.setAttribute('aria-label', 'Legacy perks here');
+    this.panel.append(head, this.perkStrip, this.cardsBox);
 
     this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.tuneBtn, this.banner, this.panel);
     this.buildCards();
@@ -828,7 +832,15 @@ export class Ui {
     else if (this.tab === 'pcrew') this.cards = [this.painterCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
+    this.renderPerkStrip();
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
+  }
+
+  /** The chip row of owned Legacy perks that apply to the open tab (hidden when none). */
+  private renderPerkStrip() {
+    const chips = tabPerks(this.deps.state(), this.tab);
+    this.perkStrip.replaceChildren(...chips.map((c) => perkChipEl(c)));
+    this.perkStrip.classList.toggle('hidden', chips.length === 0);
   }
 
   // ---- actions -------------------------------------------------------------
@@ -935,6 +947,8 @@ export class Ui {
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
     hg.classList.toggle('lesson', lesson);
     setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
+    const tongue = perkChip(this.deps.state(), 'silverTongue');
+    if (tongue) this.haggleLabel.append(perkChipEl(tongue));
     const start = performance.now();
     let done = false;
     let raf = 0;
@@ -1571,6 +1585,7 @@ export class Ui {
       if (!back.isConnected) return;
       back.remove();
       this.modalOpen = false;
+      this.renderPerkStrip();
       this.render();
     };
     let branch = this.legacyTab;
@@ -1614,6 +1629,7 @@ export class Ui {
               haptics.play('celebrate');
               this.deps.onChange();
               paint();
+              this.nodeBought(list, header, n.id, n.cost);
             };
             row.append(b);
           }
@@ -1644,6 +1660,23 @@ export class Ui {
     back.append(box);
     this.root.append(back);
     ok.focus({ preventScroll: true });
+  }
+
+  /**
+   * Node-bought animation (P1.3e): the row pops with a gold flash and a stamp, the points header pulses and a
+   * "-3 🏛" floats up from the row. Plain CSS animations (a reduce-motion rule turns them into a static highlight).
+   */
+  private nodeBought(list: HTMLElement, header: HTMLElement, node: string, cost: number) {
+    const row = list.querySelector<HTMLElement>(`.tree-node[data-node="${node}"]`);
+    if (row) {
+      row.classList.add('just-bought');
+      const f = el('span', 'tree-spend', `−${cost} ${LEGACY_ICON}`);
+      row.append(f);
+      setTimeout(() => f.remove(), 1200);
+    }
+    header.classList.remove('pulse');
+    void header.offsetWidth;
+    header.classList.add('pulse');
   }
 
   /** Settings sheet: sound, music, motion, number format, reset, credits. */
@@ -1776,12 +1809,24 @@ export class Ui {
       (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
       (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '') +
       (paint > 0 ? `<p class="offline-paint">🎨 The Painter finished paint and tuning orders: ${formatCash(paint)}</p>` : '');
+    const away = awayText(this.deps.state(), seconds, offlineCap(this.deps.state()));
+    const capLine = away.capped ? `<p class="offline-cap">${away.capped}</p>` : '';
+    const perk = away.perk ? `<p class="offline-perk">${perkChipEl(away.perk).outerHTML} Night Shift: your crew works longer while you're away</p>` : '';
     this.modal({
       title: 'Welcome back!',
-      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}${shop}`,
+      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,
     });
   }
+}
+
+/** A small gold chip for an owned Legacy perk (P1.3e). */
+function perkChipEl(c: PerkChip): HTMLElement {
+  const e = el('span', 'perk-chip', c.label);
+  e.title = c.title;
+  e.setAttribute('aria-label', c.title);
+  e.dataset.perk = c.node;
+  return e;
 }

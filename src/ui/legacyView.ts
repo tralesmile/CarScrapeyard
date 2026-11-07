@@ -3,7 +3,7 @@
 
 import { canSellEmpire, legacyMultiplier, nextLegacyMultiplier, pendingLegacyPoints, sellEmpireGlows, earningsForPoints } from '../core/legacy';
 import { ECON, type LegacyBranch, type LegacyNode } from '../core/config';
-import { LEGACY_BRANCHES, canBuyNode, canRespec, freePoints, nodeCost, nodeStatus, spentPoints, type NodeStatus } from '../core/legacyTree';
+import { LEGACY_BRANCHES, canBuyNode, canRespec, freePoints, hasNode, nodeCost, nodeStatus, spentPoints, type NodeStatus } from '../core/legacyTree';
 import { formatCash, formatDuration } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -136,4 +136,85 @@ export function legacyTreeView(state: GameState): TreeView {
 /** A dot on the HUD chip: some node can be bought. */
 export function treeHasBuy(state: GameState): boolean {
   return LEGACY_BRANCHES.some((b) => ECON.legacy.tree.branches[b].nodes.some((n) => canBuyNode(state, n)));
+}
+
+// ---- "What changed" notes (P1.3e) ----
+
+const pct = (f: number) => `${Math.round(f * 100)}%`;
+
+/** Short label of a node's effect, built from the config numbers ("👐 +25% taps"). */
+export function perkLabel(node: LegacyNode): string {
+  const T = ECON.legacy.tree;
+  const icon = T.nodes[node].icon;
+  const text: Record<LegacyNode, string> = {
+    quickHands: `+${pct(T.quickHandsTap)} taps`,
+    headStart: `${formatCash(T.headStartCash)} start`,
+    partsHoarder: `+${pct(T.partsHoarderBonus)} parts`,
+    masterCrew: `crew +${pct(T.masterCrewSpeed)}`,
+    silverTongue: `zone +${pct(T.silverTongueZone)}`,
+    regulars: `buyers +${pct(T.regularsRate)}`,
+    insider: `auctions −${pct(T.insiderDiscount)}`,
+    franchise: `opening −${pct(T.franchiseDiscount)}`,
+    quickTips: `tip +${T.quickTipsSeconds}s`,
+    rareFinds: `rares x${T.rareFindsMult}`,
+    barnScout: `barn x${T.barnScoutFind}`,
+    nightShift: `${+((ECON.offline.capSeconds + T.nightShiftSeconds) / 3600).toFixed(1)}h cap`,
+  };
+  return `${icon} ${text[node]}`;
+}
+
+/** Which owned perks change what a panel tab shows (a small chip row above its cards). */
+export const TAB_PERKS: Record<string, readonly LegacyNode[]> = {
+  upgrades: ['quickHands', 'rareFinds'],
+  crew: ['masterCrew'],
+  yard: ['partsHoarder', 'barnScout'],
+  jobs: [],
+  gupgrades: ['quickHands'],
+  gcrew: ['masterCrew'],
+  auction: ['insider'],
+  lupgrades: ['quickHands', 'regulars'],
+  lcrew: ['masterCrew'],
+  pupgrades: ['quickHands', 'quickTips'],
+  pcrew: ['masterCrew'],
+};
+
+export interface PerkChip {
+  node: LegacyNode;
+  label: string;
+  /** "Quick Hands (Legacy): +25% tap work in every business" for the tooltip / screen readers. */
+  title: string;
+}
+
+function chip(node: LegacyNode): PerkChip {
+  const n = ECON.legacy.tree.nodes[node];
+  return { node, label: perkLabel(node), title: `${n.name} (Legacy): ${n.desc}` };
+}
+
+/** The owned perks that apply to a tab, in order. Empty for unknown tabs or when nothing is owned. */
+export function tabPerks(state: GameState, tab: string): PerkChip[] {
+  return (TAB_PERKS[tab] ?? []).filter((n) => hasNode(state, n)).map(chip);
+}
+
+/** One owned perk as a chip, or null (haggle slider, welcome-back popup, map open cost). */
+export function perkChip(state: GameState, node: LegacyNode): PerkChip | null {
+  return hasNode(state, node) ? chip(node) : null;
+}
+
+export interface AwayText {
+  /** "Your crew kept working for 2h 0m." (never more than the offline cap) */
+  worked: string;
+  /** Set when the player was away longer than the cap. */
+  capped: string | null;
+  /** Night Shift's chip when owned (the welcome-back popup names it). */
+  perk: PerkChip | null;
+}
+
+/** The welcome-back popup's time lines (P1.3e): the crew works up to the offline cap, Night Shift raises it. */
+export function awayText(state: GameState, seconds: number, cap: number): AwayText {
+  const worked = Math.min(Math.max(0, seconds), cap);
+  return {
+    worked: `Your crew kept working for ${formatDuration(worked)}.`,
+    capped: seconds > cap + 60 ? `You were away ${formatDuration(seconds)}; crews work up to ${formatDuration(cap)} while you're gone.` : null,
+    perk: perkChip(state, 'nightShift'),
+  };
 }

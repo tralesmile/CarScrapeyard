@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.22.0 - 2026-11-07 (run 22)
+
+- **Legacy perks show where they act (P1.3e):** owned Legacy tree upgrades appear as small gold chips on the screens
+  they change: "👐 +25% taps" and "💎 rares x1.3" above the Upgrades cards, "👷 crew +30%" on the Crew tabs,
+  "🔨 auctions −10%" on the auction board, a "🗣️ zone +30%" badge on the haggle slider, "🏢 opening −25%" on the city
+  map's open line and "🌙 4h cap" in the welcome-back popup.
+- **Node-bought animation:** buying a Legacy node pops its row with a gold glow, stamps "✓ Owned", floats "−3 🏛" up and
+  pulses the free-points header (a static highlight with Reduce motion).
+- **Fix:** the welcome-back popup said "Your crew kept working for 5h" even though crews stop at the offline cap (2 h,
+  4 h with Night Shift). It now shows the time actually worked and adds "You were away 5h 0m; crews work up to 2h 0m
+  while you're gone."
+- Tests: 7 new unit tests (labels from the config, chips per tab, every perk named on some screen, the Franchise map
+  line, the away-time lines with and without Night Shift); e2e buys a node and checks the animation, the Upgrades chip
+  row on an iPhone SE, the Night Shift welcome-back after 3 hours away and the Silver Tongue haggle badge
+  (screenshots e2e-21g to e2e-21j).
+
 ## 0.21.0 - 2026-11-07 (run 21)
 
 - **Legacy tree (P1.3c):** tap the gold 🏛 Legacy chip to spend Legacy Points on three branches of four upgrades,

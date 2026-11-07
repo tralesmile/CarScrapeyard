@@ -396,3 +396,21 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the others; x1.3 brings it to +12%. A tested probability bound must come from the config (`expectA/expectB`), not a
   hand-typed window, or the next tweak breaks the test for the wrong reason.
 
+
+## 2026-11-07 (run 22)
+
+- **A save repair can silently undo an e2e's injected state.** My Night Shift test set `legacy.points = 40` in the save,
+  but load repair re-derives points from all-time earnings (12), so the tree was cut back and the perk vanished; the
+  test timed out waiting for a line that never came. Inject *consistent* state (points and the earnings that back them),
+  and when an injected save "does nothing", dump the loaded state first (one `console.log` found it in a minute).
+- **Run the baseline check in the background and iterate on a scratch e2e at the same time.** The full check takes
+  ~17 minutes; `nohup npm run check > log &` at the start, then build to a separate `--outDir` and serve it with
+  `vite preview --outDir` on another port, so the scratch run (1 minute, only the Legacy section) never overwrites
+  the `dist/` the baseline is testing.
+- **Writing a "what changed" note exposed a real bug.** The welcome-back popup reported the raw time away ("worked for
+  5h") although every business stops at the offline cap. Showing a perk's effect forces you to compute the number the
+  rules use (`offlineCap`), so check each existing text against the rule while you are there.
+- **Reuse keyframes only when their transforms match.** `stamp-in` and the second `pop` both carry
+  `translate(-50%, …)` for centred elements; reusing them on a row would have shifted it. Give new animations their own
+  keyframes when the element isn't centred the same way.
+

@@ -1505,3 +1505,136 @@ body {
   padding: 10px;
   flex: none;
 }
+
+/* ---- Legacy perk notes (P1.3e) ---- */
+.perk-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin: -4px 0 -2px;
+  overflow: hidden;
+  min-height: 0;
+  flex: none;
+}
+
+.perk-strip.hidden {
+  display: none;
+}
+
+.perk-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(245, 183, 0, 0.16);
+  border: 1px solid rgba(245, 183, 0, 0.6);
+  color: #ffd75e;
+  font: 800 11px/16px 'Nunito', sans-serif;
+  white-space: nowrap;
+}
+
+/* On light surfaces (welcome-back popup) the chip is darker gold. */
+.modal .perk-chip {
+  color: #7a5a00;
+  background: #fff1c2;
+  border-color: #e0a800;
+}
+
+/* Silver Tongue sits as a badge on the haggle box's top edge, so the label keeps its width. */
+.haggle .perk-chip {
+  position: absolute;
+  top: -11px;
+  right: 14px;
+  background: #3a2f12;
+  font-family: 'Nunito', sans-serif;
+}
+
+.offline-cap,
+.offline-perk {
+  font-size: 13px;
+  color: #6a5a48;
+}
+
+.tree-node.just-bought {
+  animation: node-bought 700ms ease-out;
+}
+
+.tree-node.just-bought::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow: 0 0 0 3px #f7c948, 0 0 18px 6px rgba(247, 201, 72, 0.7);
+  opacity: 0;
+  animation: node-glow 900ms ease-out;
+}
+
+.tree-node.just-bought .tree-owned {
+  display: inline-block;
+  animation: owned-stamp 380ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.tree-spend {
+  position: absolute;
+  right: 12px;
+  top: 4px;
+  font: 800 16px 'Lilita One', sans-serif;
+  color: #b07d00;
+  pointer-events: none;
+  animation: spend-up 1100ms ease-out forwards;
+}
+
+.legacy-tree .tree-head.pulse b {
+  display: inline-block;
+  animation: points-pulse 450ms ease-out;
+}
+
+@keyframes owned-stamp {
+  from { transform: rotate(-10deg) scale(2); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes points-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); color: #b07d00; }
+  100% { transform: scale(1); }
+}
+
+@keyframes node-bought {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes node-glow {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes spend-up {
+  0% { opacity: 0; transform: translateY(6px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+
+.reduce-motion .tree-node.just-bought,
+.reduce-motion .tree-node.just-bought .tree-owned,
+.reduce-motion .legacy-tree .tree-head.pulse b,
+.reduce-motion .tree-spend {
+  animation: none;
+}
+
+.reduce-motion .tree-node.just-bought::after {
+  animation: none;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-node.just-bought,
+  .tree-node.just-bought .tree-owned,
+  .tree-node.just-bought::after,
+  .legacy-tree .tree-head.pulse b,
+  .tree-spend {
+    animation: none;
+  }
+}

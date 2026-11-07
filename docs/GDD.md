@@ -221,4 +221,12 @@ to automate it, open new car businesses, then sell your empire and start again i
     free points and the multiplier, three branch tabs (dot when that branch has a buyable node), four node rows with a
     connector, gold when owned, Buy button with the cost; the free respec link; the fastest empire and next sale goal.
     Effects apply at once (no reload); Head Start applies from the next empire.
+  - **Where you see a perk (P1.3e, run 22):** every owned node shows where it acts, as a small gold chip with a short
+    label built from the config ("👐 +25% taps"): a chip row above the panel cards on the tabs it changes (Upgrades:
+    Quick Hands, Rare Finds; Crew tabs: Master Crew; Yard: Parts Hoarder, Barn Scout; Auction: Insider; lot Upgrades:
+    Quick Hands, Regulars; paint Shop: Quick Hands, Quick Tips; at most two per tab), a badge on the haggle box (Silver
+    Tongue), the map's "Ready to open · 🏢 opening −25%" line (Franchise) and the welcome-back popup (Night Shift,
+    "🌙 4h cap"). The welcome-back popup now says how long the crew really worked (up to the cap) and, when you were away
+    longer, "You were away 5h 0m; crews work up to 2h 0m while you're gone." Buying a node pops its row with a gold
+    glow and stamp, floats "−3 🏛" up and pulses the points header (static highlight with reduce motion).
 

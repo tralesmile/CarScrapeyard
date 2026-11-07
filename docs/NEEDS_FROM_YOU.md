@@ -76,6 +76,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       three branches (Mechanic, Dealer, Racer), e.g. faster tapping, cheaper auctions, rarer cars, a longer offline cap.
       Spent points still count for the +2% income, and you get one free respec per empire. Do the choices feel
       meaningful, or is one branch an obvious pick?
+      New since run 22: the upgrades you bought in the Legacy tree now show where they work: small gold chips such as
+      "👐 +25% taps" above the upgrade cards, a "🗣️ zone +30%" badge on the haggle slider, "🌙 4h cap" in the welcome-back
+      popup. Buying one pops with a gold glow. The welcome-back popup now tells you when you were away longer than the
+      crew works (2 hours). Are the chips helpful or clutter on your phone?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

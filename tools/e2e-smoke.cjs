@@ -1444,6 +1444,77 @@ async function waitForServer(url, ms = 15000) {
       await sp.waitForFunction(() => window.__jye && window.__jye.state);
       const t4 = await sp.evaluate(() => ({ ...window.__jye.state.legacy.tree }));
       assert(t4.racer === 1 && t4.mechanic === 0, `the tree survives a reload (${JSON.stringify(t4)})`);
+      // P1.3e: a node-bought animation, then the perk shows as a chip on the tabs it changes.
+      assert(!(await sp.isVisible('.perk-strip')), 'no perk chips on the Upgrades tab before Quick Hands');
+      await sp.click('.legacy-chip');
+      await sp.waitForSelector('.legacy-tree .modal');
+      await sp.click('.tree-tab[data-branch="mechanic"]');
+      await sp.click('.tree-node[data-node="quickHands"] .tree-buy');
+      const anim = await sp.evaluate(() => ({
+        row: !!document.querySelector('.tree-node[data-node="quickHands"].owned.just-bought'),
+        spend: document.querySelector('.tree-node[data-node="quickHands"] .tree-spend')?.textContent ?? '',
+        pulse: document.querySelector('.tree-head')?.classList.contains('pulse'),
+      }));
+      assert(anim.row && /−2/.test(anim.spend) && anim.pulse, `buying a node pops the row, floats "−2 🏛" and pulses the points (${JSON.stringify(anim)})`);
+      await sp.waitForTimeout(250);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21g-node-bought.png') });
+      await sp.waitForTimeout(1100);
+      assert((await sp.$('.tree-spend')) === null, 'the floating spend text cleans itself up');
+      await sp.click('.legacy-tree .modal .buy');
+      await sp.waitForSelector('.perk-strip .perk-chip[data-perk="quickHands"]', { state: 'visible' });
+      const strip = await sp.evaluate(() => {
+        const p = document.querySelector('.panel').getBoundingClientRect();
+        const st = document.querySelector('.perk-strip').getBoundingClientRect();
+        const c = document.querySelector('.cards').getBoundingClientRect();
+        return { text: document.querySelector('.perk-strip').textContent, inPanel: st.left >= p.left && st.right <= p.right + 0.5, h: st.height, above: st.bottom <= c.top + 0.5, cardsH: c.height };
+      });
+      assert(/\+25% taps/.test(strip.text) && strip.inPanel && strip.h <= 20 && strip.above && strip.cardsH > 60, `the Upgrades tab names Quick Hands in a slim chip row (${JSON.stringify(strip)})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21h-perk-strip.png') });
+      // Night Shift: the welcome-back popup names it and counts the longer cap.
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        s.legacy.points = 22; // 2 (Quick Hands) + 2 (Silver Tongue) + 18 (the whole Racer branch); all-time earnings must back it
+        s.legacy.allTime = 22 * 22 * 5e6;
+        s.legacy.tree.racer = 4;
+        s.legacy.tree.dealer = 1;
+        s.carsSold = 5;
+        s.managers.mechanic = s.managers.washer = s.managers.seller = true;
+        s.lastSeen = Date.now() - 3 * 3600 * 1000;
+        const data = JSON.stringify(s);
+        let h = 0x811c9dc5;
+        for (let i = 0; i < data.length; i++) { h ^= data.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+        const env = JSON.stringify({ v: s.version, savedAt: Date.now() + 10, sum: (h >>> 0).toString(16).padStart(8, '0'), data });
+        localStorage.setItem('jye_save_a', env);
+        localStorage.setItem('jye_save_b', env);
+        Storage.prototype.setItem = function () {};
+      });
+      await sp.reload();
+      await sp.waitForSelector('.modal .offline-perk', { timeout: 8000 });
+      const wb = await sp.textContent('.modal');
+      assert(/working for (2h 59m|3h 0m)/.test(wb) && /4h cap/.test(wb) && !/You were away/.test(wb), `with Night Shift the crew works the full 3 hours away (${wb.match(/working for [^.]+/)?.[0]})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21i-night-shift.png') });
+      // Silver Tongue: a badge on the haggle box names the wider PERFECT zone.
+      await sp.click('.modal .buy');
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        s.managers.seller = false;
+        const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+        c.dirt = 0;
+        c.damage = 0;
+        c.rarity = 'rare';
+      });
+      await sp.waitForSelector('.sell:not(.hidden)');
+      await sp.click('.sell');
+      await sp.waitForSelector('.haggle:not(.hidden) .perk-chip[data-perk="silverTongue"]');
+      const hb = await sp.evaluate(() => {
+        const h = document.querySelector('.haggle').getBoundingClientRect();
+        const c = document.querySelector('.haggle .perk-chip').getBoundingClientRect();
+        const z = document.querySelector('.haggle .zone-perfect').getBoundingClientRect();
+        return { chipIn: c.left >= h.left && c.right <= h.right && c.top >= 0, zone: z.width / document.querySelector('.haggle-track').getBoundingClientRect().width };
+      });
+      assert(hb.chipIn && hb.zone > 0.15, `the haggle box shows the Silver Tongue badge over a wider zone (${JSON.stringify(hb)})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21j-silver-tongue.png') });
+      await sp.click('.haggle');
       await se.close();
     }
 

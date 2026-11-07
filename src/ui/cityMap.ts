@@ -2,6 +2,7 @@
 // Pure string building (no DOM) so the art can be unit-tested and stays crisp at any size.
 
 import type { BusinessId } from '../core/config';
+import { perkChip } from './legacyView';
 import { BUSINESS_IDS, MAX_TIER, businessInfo, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
 import type { GameState } from '../core/state';
@@ -311,7 +312,8 @@ export function mapRows(state: GameState): MapRow[] {
     } else if (status === 'soon') {
       line = 'Unlocked! Opening in the next update';
     } else {
-      line = `Ready to open`;
+      const fr = perkChip(state, 'franchise');
+      line = fr ? `Ready to open · ${fr.label}` : 'Ready to open';
       action = `Open ${formatCash(openCost(state, id))}`;
     }
     return { id, icon: info.icon, name: info.name, status, active, line, progress: unlockProgress(state, id), action, tier: businessTier(state, id), nextTier: nextTierGoal(state, id) };

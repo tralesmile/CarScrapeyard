@@ -4,8 +4,9 @@ import { sellEmpire } from '../src/core/legacy';
 import { deserialize, serialize, withDefaults } from '../src/core/save';
 import { formatCash } from '../src/core/format';
 import { newGame, type GameState } from '../src/core/state';
-import { formatMult, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, sellEmpirePreview, sellEmpireRow, treeHasBuy } from '../src/ui/legacyView';
-import { buyNode, respecTree } from '../src/core/legacyTree';
+import { TAB_PERKS, awayText, formatMult, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, perkLabel, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy } from '../src/ui/legacyView';
+import { mapRows } from '../src/ui/cityMap';
+import { buyNode, offlineCap, respecTree } from '../src/core/legacyTree';
 
 const T0 = 1_800_000_000_000;
 const S = ECON.legacy.pointScale;
@@ -157,3 +158,86 @@ describe('Legacy tree screen (P1.3c)', () => {
   });
 });
 
+
+describe('Legacy perk notes (P1.3e)', () => {
+  const owned = (nodes: Parameters<typeof buyNode>[1][]) => {
+    const s = newGame(T0, 4);
+    s.legacy.points = 200;
+    for (const n of nodes) {
+      const { branch } = { branch: Object.entries(ECON.legacy.tree.branches).find(([, b]) => (b.nodes as readonly string[]).includes(n))![0] };
+      const order = ECON.legacy.tree.branches[branch as keyof typeof ECON.legacy.tree.branches].nodes;
+      for (const m of order) {
+        buyNode(s, m);
+        if (m === n) break;
+      }
+    }
+    return s;
+  };
+
+  it('labels are short and built from the config numbers', () => {
+    expect(perkLabel('quickHands')).toBe('👐 +25% taps');
+    expect(perkLabel('insider')).toBe('🔨 auctions −10%');
+    expect(perkLabel('franchise')).toBe('🏢 opening −25%');
+    expect(perkLabel('nightShift')).toBe('🌙 4h cap');
+    expect(perkLabel('rareFinds')).toBe(`💎 rares x${ECON.legacy.tree.rareFindsMult}`);
+    for (const n of Object.keys(ECON.legacy.tree.nodes) as (keyof typeof ECON.legacy.tree.nodes)[]) {
+      expect(perkLabel(n).length, n).toBeLessThanOrEqual(18);
+    }
+  });
+
+  it('no chips for a player without perks', () => {
+    const s = newGame(T0, 1);
+    for (const tab of Object.keys(TAB_PERKS)) expect(tabPerks(s, tab)).toEqual([]);
+    expect(perkChip(s, 'nightShift')).toBeNull();
+  });
+
+  it('each tab shows only its owned perks, in order, with a readable title', () => {
+    const s = owned(['quickHands', 'masterCrew', 'insider', 'rareFinds']);
+    expect(tabPerks(s, 'upgrades').map((c) => c.node)).toEqual(['quickHands', 'rareFinds']);
+    expect(tabPerks(s, 'crew').map((c) => c.node)).toEqual(['masterCrew']);
+    expect(tabPerks(s, 'auction')[0]!.title).toBe('Insider (Legacy): Auction prices -10%');
+    expect(tabPerks(s, 'lupgrades').map((c) => c.node)).toEqual(['quickHands', 'regulars']); // Insider needs Regulars first
+    expect(tabPerks(s, 'jobs')).toEqual([]);
+    expect(tabPerks(s, 'nope')).toEqual([]);
+  });
+
+  it('every perk with a visible effect has a screen that names it', () => {
+    const onTabs = new Set(Object.values(TAB_PERKS).flat());
+    // Silver Tongue: haggle slider; Franchise: map open cost; Night Shift: welcome-back; Head Start: acts at the sale.
+    const elsewhere = ['silverTongue', 'franchise', 'nightShift', 'headStart'];
+    for (const n of Object.keys(ECON.legacy.tree.nodes)) expect(onTabs.has(n as never) || elsewhere.includes(n), n).toBe(true);
+    for (const tab of ['upgrades', 'crew', 'yard', 'jobs', 'gupgrades', 'gcrew', 'auction', 'lupgrades', 'lcrew', 'pupgrades', 'pcrew']) {
+      expect(TAB_PERKS[tab], tab).toBeDefined();
+      expect(TAB_PERKS[tab]!.length, tab).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('the map open line names Franchise when it is owned', () => {
+    const s = owned(['franchise']);
+    s.lifetimeEarnings = ECON.businesses.list.garage.unlockLifetime;
+    const row = mapRows(s)[1]!;
+    expect(row.line).toBe('Ready to open · 🏢 opening −25%');
+    expect(row.action).toBe(`Open ${formatCash(ECON.businesses.list.garage.openCost * 0.75)}`);
+  });
+});
+
+describe('Welcome-back time lines (P1.3e)', () => {
+  const cap = ECON.offline.capSeconds;
+  it('says the real time worked and when the cap cut it', () => {
+    const s = newGame(T0, 1);
+    expect(awayText(s, 3600, cap)).toEqual({ worked: 'Your crew kept working for 1h 0m.', capped: null, perk: null });
+    const t = awayText(s, 5 * 3600, cap);
+    expect(t.worked).toBe('Your crew kept working for 2h 0m.');
+    expect(t.capped).toBe("You were away 5h 0m; crews work up to 2h 0m while you're gone.");
+    expect(awayText(s, cap + 30, cap).capped).toBeNull(); // a few seconds over is not worth a line
+  });
+  it('names Night Shift when it is owned', () => {
+    const s = newGame(T0, 1);
+    s.legacy.points = 18;
+    for (const n of ECON.legacy.tree.branches.racer.nodes) buyNode(s, n);
+    const t = awayText(s, 3 * 3600, offlineCap(s));
+    expect(t.worked).toBe('Your crew kept working for 3h 0m.');
+    expect(t.capped).toBeNull();
+    expect(t.perk?.label).toBe('🌙 4h cap');
+  });
+});
