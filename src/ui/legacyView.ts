@@ -1,7 +1,9 @@
-// Sell Empire UI text (P1.3b): what the map row, the preview and the HUD badge say. Pure (no DOM) so it is unit-tested.
+// Sell Empire UI text (P1.3b) and the Legacy tree screen (P1.3c): what the map row, the preview, the HUD badge and the
+// tree say. Pure (no DOM) so it is unit-tested.
 
 import { canSellEmpire, legacyMultiplier, nextLegacyMultiplier, pendingLegacyPoints, sellEmpireGlows, earningsForPoints } from '../core/legacy';
-import { ECON } from '../core/config';
+import { ECON, type LegacyBranch, type LegacyNode } from '../core/config';
+import { LEGACY_BRANCHES, canBuyNode, canRespec, freePoints, nodeCost, nodeStatus, spentPoints, type NodeStatus } from '../core/legacyTree';
 import { formatCash, formatDuration } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -69,4 +71,69 @@ export function grandpaLine(soldBefore: number): string {
   return soldBefore <= 0
     ? '"Kid, I never thought this old yard could become an empire. Sell it, start again, and this time the whole valley knows your name."'
     : '"Again? Ha! Every time you start over, you come back bigger. Go show them, kid."';
+}
+
+// ---- Legacy tree screen (P1.3c) ----
+
+export interface TreeNodeView {
+  id: LegacyNode;
+  icon: string;
+  name: string;
+  desc: string;
+  status: NodeStatus;
+  cost: number;
+  canBuy: boolean;
+  /** Button text, or the state shown instead of a button. */
+  action: string;
+}
+
+export interface TreeBranchView {
+  id: LegacyBranch;
+  icon: string;
+  name: string;
+  owned: number;
+  /** True when the branch's next node can be bought now (a dot on its tab). */
+  canBuy: boolean;
+  nodes: TreeNodeView[];
+}
+
+export interface TreeView {
+  free: number;
+  /** "7 of 12 points free · income x1.24 (spent points keep their bonus)" */
+  header: string;
+  branches: TreeBranchView[];
+  /** Respec button text, or null when it can't be used. */
+  respec: string | null;
+  /** Why respec is unavailable, when something is owned. */
+  respecNote: string | null;
+}
+
+export function legacyTreeView(state: GameState): TreeView {
+  const T = ECON.legacy.tree;
+  const free = freePoints(state);
+  const branches = LEGACY_BRANCHES.map((b): TreeBranchView => {
+    const def = T.branches[b];
+    const nodes = def.nodes.map((id): TreeNodeView => {
+      const n = T.nodes[id];
+      const status = nodeStatus(state, id);
+      const cost = nodeCost(id);
+      const canBuy = canBuyNode(state, id);
+      const action = status === 'owned' ? 'Owned' : status === 'locked' ? `${cost} ${LEGACY_ICON}` : canBuy ? `Buy ${cost} ${LEGACY_ICON}` : `${cost} ${LEGACY_ICON}`;
+      return { id, icon: n.icon, name: n.name, desc: n.desc, status, cost, canBuy, action };
+    });
+    return { id: b, icon: def.icon, name: def.name, owned: state.legacy.tree[b], canBuy: nodes.some((n) => n.canBuy), nodes };
+  });
+  const spent = spentPoints(state.legacy);
+  return {
+    free,
+    header: `${free} of ${state.legacy.points} points free · income ${formatMult(legacyMultiplier(state))}`,
+    branches,
+    respec: canRespec(state) ? `Free respec: refund ${spent} ${LEGACY_ICON} (once per empire)` : null,
+    respecNote: spent > 0 && state.legacy.respecUsed ? 'Respec used: free again in your next empire' : null,
+  };
+}
+
+/** A dot on the HUD chip: some node can be bought. */
+export function treeHasBuy(state: GameState): boolean {
+  return LEGACY_BRANCHES.some((b) => ECON.legacy.tree.branches[b].nodes.some((n) => canBuyNode(state, n)));
 }

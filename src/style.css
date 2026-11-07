@@ -1301,3 +1301,207 @@ body {
     display: none;
   }
 }
+
+/* ---- Legacy tree (P1.3c): must fit a 320x560 phone; the node list scrolls inside the modal ---- */
+.legacy-chip {
+  position: relative;
+}
+
+.legacy-chip .dot,
+.tree-tab .dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 1.5px solid #fff;
+}
+
+/* The grid row must be the screen's height, or max-height: 100% resolves against the content and never limits. */
+.modal-back.legacy-tree {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 8px 12px;
+}
+
+.legacy-tree .modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  padding: 14px 14px 10px;
+}
+
+.legacy-tree .modal h2 {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.legacy-tree .tree-head {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.legacy-tree .tree-head small {
+  display: block;
+  color: #7a6a58;
+  font-size: 12px;
+}
+
+.tree-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tree-tab {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  border: 2px solid #e3c9a0;
+  background: #fff9ee;
+  color: #5a4a38;
+  border-radius: 10px;
+  padding: 6px 2px;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tree-tab span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-tab small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.tree-tab.on {
+  background: var(--rust);
+  border-color: var(--rust-dark);
+  color: #fff;
+}
+
+.tree-nodes {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  position: relative;
+}
+
+/* A short connector between the nodes of a branch (they are bought in order). */
+.tree-node + .tree-node::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: -8px;
+  width: 4px;
+  height: 8px;
+  background: #e3c9a0;
+}
+
+.tree-node.owned {
+  background: linear-gradient(90deg, #fff4d1, #fffaf0);
+  border-color: #e0a800;
+}
+
+.tree-node.owned + .tree-node::before {
+  background: #e0a800;
+}
+
+.tree-node.locked {
+  opacity: 0.6;
+}
+
+.tree-icon {
+  font-size: 24px;
+  width: 36px;
+  text-align: center;
+  flex: none;
+}
+
+.tree-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.tree-text b {
+  display: block;
+  font-size: 15px;
+}
+
+.tree-text small {
+  display: block;
+  font-size: 12px;
+  color: #6a5a48;
+}
+
+.tree-buy {
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tree-buy:disabled {
+  background: #e7e1d6;
+  color: #8a7e6e;
+  cursor: default;
+}
+
+.tree-owned {
+  flex: none;
+  font: 800 13px 'Nunito', sans-serif;
+  color: #9a7400;
+}
+
+.tree-foot {
+  margin: 6px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree-foot .tree-respec {
+  margin-top: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tree-note {
+  color: #7a6a58;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.legacy-tree .modal .buy {
+  font-size: 18px;
+  padding: 10px;
+  flex: none;
+}

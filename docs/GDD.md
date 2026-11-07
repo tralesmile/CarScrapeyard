@@ -204,7 +204,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   multiplier now and next, what you keep and what starts over, this empire's earnings and time) with "Not yet"; a
   confetti celebration with Grandpa Joe; then the game reloads into the fresh scrapyard (no intro). A gold chip in the
   top bar shows the multiplier ("🏛 x1.24"); tapping it shows the points, the fastest empire and the next sale goal.
-- **Legacy tree (P1.3c, design draft run 20):** three branches of four nodes, bought in order within a branch with
+- **Legacy tree (P1.3c, built run 21):** three branches of four nodes, bought in order within a branch with
   Legacy Points. Spending a point does **not** remove its +2% income (the multiplier counts points earned, not points
   held), so the tree is pure upside and the choice is only *which* node first. Costs 2 / 3 / 5 / 8 per branch (54 for
   everything; the first sale gives ~12, so 2-4 nodes per empire early on). Every effect is a number in `ECON.legacy.tree`.
@@ -214,7 +214,11 @@ to automate it, open new car businesses, then sell your empire and start again i
   - **Dealer** (sell better): Silver Tongue (2) haggle "perfect" zone 30% wider · Regulars (3) buyers arrive 25% more
     often in the yard and the lot · Insider (5) auction prices -10% · Franchise (8) opening a business costs 25% less.
   - **Racer** (luck and time): Quick Tips (2) +1 s per service on the paint shop tip timer · Rare Finds (3) Rare, Epic and
-    Legendary chances x1.5 · Barn Scout (5) barn finds come twice as often and stages take 20% less time · Night Shift
+    Legendary chances x1.3 (x1.5 in the draft; cut after the sim) · Barn Scout (5) barn finds come twice as often and stages take 20% less time · Night Shift
     (8) the offline earnings cap is 2 hours longer.
   - Respec: free once per empire (refund all spent points), so an early wrong pick never hurts. No paid respec.
+  - **Screen:** tap the gold Legacy chip in the top bar (it shows a red dot while a node is affordable). Header with
+    free points and the multiplier, three branch tabs (dot when that branch has a buyable node), four node rows with a
+    connector, gold when owned, Buy button with the cost; the free respec link; the fastest empire and next sale goal.
+    Effects apply at once (no reload); Head Start applies from the next empire.
 

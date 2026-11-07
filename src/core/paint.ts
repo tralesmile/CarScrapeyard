@@ -10,6 +10,7 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { GameState, LotCar, PaintJob } from './state';
 import { legacyMultiplier } from './legacy';
+import { crewPerk, offlineCap, tapPerk, tipSecondsPerService } from './legacyTree';
 
 export type PaintEvent =
   | { type: 'paintArrived'; job: PaintJob }
@@ -47,11 +48,11 @@ export function boothPower(state: GameState): number {
 }
 
 export function paintWorkPerTap(state: GameState): number {
-  return ECON.paint.workPerTap * boothPower(state);
+  return ECON.paint.workPerTap * boothPower(state) * tapPerk(state);
 }
 
 export function painterRate(state: GameState): number {
-  return state.paint.painter ? ECON.paint.painter.workPerSec * boothPower(state) : 0;
+  return state.paint.painter ? ECON.paint.painter.workPerSec * boothPower(state) * crewPerk(state) : 0;
 }
 
 export function boothCost(booths: number): number | null {
@@ -71,9 +72,9 @@ export function orderWork(services: readonly PaintService[]): number {
   return services.reduce((s, k) => s + ECON.paint.services[k].work, 0);
 }
 
-/** Seconds the player has to finish an order by hand for the tip. */
-export function tipDeadline(job: PaintJob): number {
-  return ECON.paint.tipSecondsPerService * job.services.length;
+/** Seconds the player has to finish an order by hand for the tip (longer with Quick Tips when `state` is given). */
+export function tipDeadline(job: PaintJob, state?: Pick<GameState, 'legacy'>): number {
+  return (state ? tipSecondsPerService(state) : ECON.paint.tipSecondsPerService) * job.services.length;
 }
 
 export function tipFor(job: PaintJob): number {
@@ -151,7 +152,7 @@ function workOn(state: GameState, job: PaintJob, amount: number, auto: boolean, 
 function finishJob(state: GameState, job: PaintJob, auto: boolean, events: PaintSink): void {
   const p = state.paint;
   if (job.lotCarId !== undefined) return returnLotCar(state, job, auto, events);
-  const tip = !auto && job.age <= tipDeadline(job) ? tipFor(job) : 0;
+  const tip = !auto && job.age <= tipDeadline(job, state) ? tipFor(job) : 0;
   const amount = job.fee + tip;
   state.cash += amount;
   state.lifetimeEarnings += amount;
@@ -344,7 +345,7 @@ export function paintIdleIncome(state: GameState): number {
 
 /** Offline shop earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */
 export function paintOfflineEarnings(state: GameState, seconds: number): number {
-  const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
+  const capped = Math.max(0, Math.min(seconds, offlineCap(state)));
   return Math.floor(paintIdleIncome(state) * capped * ECON.offline.efficiency);
 }
 

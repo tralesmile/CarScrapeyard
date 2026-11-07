@@ -4,6 +4,7 @@
 import type { BusinessId } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
+import { franchisePerk } from './legacyTree';
 
 export const BUSINESS_IDS = Object.keys(ECON.businesses.list) as BusinessId[];
 
@@ -43,14 +44,19 @@ export function nextBusiness(state: GameState): BusinessId | null {
   return BUSINESS_IDS.find((id) => !state.businesses.opened[id]) ?? null;
 }
 
+/** Cash it costs to open this business now (Franchise makes it cheaper). */
+export function openCost(state: Pick<GameState, 'legacy'>, id: BusinessId): number {
+  return Math.round(businessInfo(id).openCost * franchisePerk(state));
+}
+
 export function canOpenBusiness(state: GameState, id: BusinessId): boolean {
-  return businessStatus(state, id) === 'forSale' && state.cash >= businessInfo(id).openCost;
+  return businessStatus(state, id) === 'forSale' && state.cash >= openCost(state, id);
 }
 
 /** Buy a business. It does not switch to it; the map does that after the opening celebration. */
 export function openBusiness(state: GameState, id: BusinessId): boolean {
   if (!canOpenBusiness(state, id)) return false;
-  state.cash -= businessInfo(id).openCost;
+  state.cash -= openCost(state, id);
   state.businesses.opened[id] = true;
   return true;
 }

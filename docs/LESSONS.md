@@ -371,3 +371,28 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **The e2e log is block-buffered; the failure line is not where it stopped.** `console.log` to a file buffers while
   `console.error` doesn't, so "E2E FAILED" printed before the last few "ok" lines. Read the assertion text, not the
   position. The full e2e took ~17 minutes this run (headless GL at ~10 fps); run the new section alone first.
+
+
+## 2026-11-07 (run 21)
+
+- **A percentage `max-height` inside a grid backdrop limits nothing.** The Legacy tree's modal had
+  `max-height: calc(100% - 8px)`, but `.modal-back` is a `display: grid` with an auto row, so 100% resolved against the
+  content and the Done button fell below a 568 px screen. `grid-template-rows: minmax(0, 1fr)` on the backdrop makes
+  the row the screen's height. The e2e checked the modal box on the first screenshot only, when it still fit: assert
+  "fits" again after the content grows (respec line, more owned rows), and include the last button in the check.
+- **Wire a cross-cutting perk through one small module of helpers.** All 12 tree effects are functions in
+  `legacyTree.ts` that return the plain ECON value when the node isn't owned (`tapPerk`, `offlineCap`, ...), and the
+  module only imports config and state types, so every business file can use it without an import cycle. Functions
+  without state (`crushParts`, `haggleMultiplier`, `tipDeadline`, `expectedCarValue`) got an optional parameter that
+  defaults to today's value, so old call sites and tests stayed valid. A mutation run (two perks returning 1) failed
+  exactly those two tests.
+- **Points bank on the sale, so a sim that "buys before selling" can't.** My first branch A/B called `buyNode` before
+  `sellEmpire` and every buy failed (0 points). Buy right after the sale; effects that only act at the next sale
+  (Head Start) need their own unit test, not the sim.
+- **A gift must not break the save's sanity checks.** Head Start gives cash before any earnings, and `sane()` rejects
+  `cash > lifetimeEarnings + 1`. Allow the gift whenever an empire has been sold (not only while the node is owned:
+  a respec right after the sale would otherwise make the save unloadable). Unit-tested with a respec.
+- **Read the sim before shipping a design number.** Rare Finds at x1.5 (the GDD draft) made Racer +19% vs +6-7% for
+  the others; x1.3 brings it to +12%. A tested probability bound must come from the config (`expectA/expectB`), not a
+  hand-typed window, or the next tweak breaks the test for the wrong reason.
+

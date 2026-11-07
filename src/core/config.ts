@@ -19,6 +19,12 @@ export type PaintUpgradeKind = 'booth' | 'hype';
 /** Auction condition grade of a used car, 1 (rough) to 5 (nearly mint). */
 export type Condition = 1 | 2 | 3 | 4 | 5;
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
+/** Legacy tree (P1.3c): three branches of four nodes, bought in order within a branch. */
+export type LegacyBranch = 'mechanic' | 'dealer' | 'racer';
+export type LegacyNode =
+  | 'quickHands' | 'headStart' | 'partsHoarder' | 'masterCrew'
+  | 'silverTongue' | 'regulars' | 'insider' | 'franchise'
+  | 'quickTips' | 'rareFinds' | 'barnScout' | 'nightShift';
 
 export const ECON = {
   /** Seconds between new wrecks arriving while a lot slot is free. */
@@ -414,6 +420,54 @@ export const ECON = {
     incomePerPoint: 0.02,
     /** The button glows when new points >= this share of the points already owned. */
     glowFrac: 0.5,
+    /**
+     * Legacy tree (P1.3c). Nodes are bought in order within a branch for `costs[i]` points. Spent points keep their
+     * +2% income (the multiplier counts points earned). One free respec per empire.
+     */
+    tree: {
+      costs: [2, 3, 5, 8] as const,
+      branches: {
+        mechanic: { name: 'Mechanic', icon: '🔧', nodes: ['quickHands', 'headStart', 'partsHoarder', 'masterCrew'] },
+        dealer: { name: 'Dealer', icon: '🤝', nodes: ['silverTongue', 'regulars', 'insider', 'franchise'] },
+        racer: { name: 'Racer', icon: '🏁', nodes: ['quickTips', 'rareFinds', 'barnScout', 'nightShift'] },
+      } satisfies Record<LegacyBranch, { name: string; icon: string; nodes: readonly [LegacyNode, LegacyNode, LegacyNode, LegacyNode] }>,
+      nodes: {
+        quickHands: { name: 'Quick Hands', icon: '👐', desc: '+25% tap work in every business' },
+        headStart: { name: 'Head Start', icon: '🚀', desc: 'New empires start with $5K and the Mechanic' },
+        partsHoarder: { name: 'Parts Hoarder', icon: '⚙️', desc: '+50% parts from the crusher' },
+        masterCrew: { name: 'Master Crew', icon: '👷', desc: 'All crew work 30% faster' },
+        silverTongue: { name: 'Silver Tongue', icon: '🗣️', desc: 'Haggle PERFECT zone 30% wider' },
+        regulars: { name: 'Regulars', icon: '🔔', desc: 'Buyers come 25% more often' },
+        insider: { name: 'Insider', icon: '🔨', desc: 'Auction prices -10%' },
+        franchise: { name: 'Franchise', icon: '🏢', desc: 'Opening a business costs 25% less' },
+        quickTips: { name: 'Quick Tips', icon: '⚡', desc: '+1s per service on the paint tip timer' },
+        rareFinds: { name: 'Rare Finds', icon: '💎', desc: 'Rare, Epic and Legendary cars x1.3 as often' },
+        barnScout: { name: 'Barn Scout', icon: '🏚️', desc: 'Barn finds twice as often, stages 20% faster' },
+        nightShift: { name: 'Night Shift', icon: '🌙', desc: 'Offline earnings cap +2 hours' },
+      } satisfies Record<LegacyNode, { name: string; icon: string; desc: string }>,
+      /** Tap work in every business x (1 + this). */
+      quickHandsTap: 0.25,
+      headStartCash: 5_000,
+      /** Crusher parts x (1 + this). */
+      partsHoarderBonus: 0.5,
+      /** Crew work rates x (1 + this); the Salesperson's delay / (1 + this). */
+      masterCrewSpeed: 0.3,
+      /** Haggle perfect zone x (1 + this). */
+      silverTongueZone: 0.3,
+      /** Buyer gaps (yard) and walk-up intervals (lot) / (1 + this). */
+      regularsRate: 0.25,
+      /** Auction prices x (1 - this). */
+      insiderDiscount: 0.1,
+      /** Business open costs x (1 - this). */
+      franchiseDiscount: 0.25,
+      quickTipsSeconds: 1,
+      /** Rare, Epic and Legendary arrival weights x this. */
+      rareFindsMult: 1.3,
+      /** Barn: time to the next find / this; stage times x (1 - barnScoutStage). */
+      barnScoutFind: 2,
+      barnScoutStage: 0.2,
+      nightShiftSeconds: 2 * 60 * 60,
+    },
   },
 } as const;
 

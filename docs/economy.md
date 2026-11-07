@@ -278,3 +278,29 @@ $1.75B lifetime). After selling at 12 points (x1.24) the same bot opens the gara
 (45m39s) and paint 1h19m (1h35m); its next sale (10 more points, $2B in total) comes at 4h43m. The tree (P1.3c) and
 city 2 (P1.3d) should make later runs faster; check the second-run time again then.
 
+## Legacy tree (P1.3c)
+
+Bought with free Legacy Points (points earned minus points spent); the income multiplier always counts points earned.
+Nodes are bought in order per branch for 2 / 3 / 5 / 8 points (54 for all twelve). One free respec per empire.
+All numbers are in `ECON.legacy.tree`.
+
+| Branch | Node (cost) | Effect |
+| --- | --- | --- |
+| Mechanic | Quick Hands (2) | tap work x1.25 in every business (yard wash and repair, garage, lot, paint) |
+| | Head Start (3) | each new empire starts with $5K (a gift: not counted as earnings) and the Mechanic hired |
+| | Parts Hoarder (5) | crusher parts x1.5 (also the Scrapper, online and offline) |
+| | Master Crew (8) | Washer, Mechanic, Foreman, Detailer, Painter rates x1.3; Salesperson delay / 1.3 |
+| Dealer | Silver Tongue (2) | haggle PERFECT half-width 0.12 -> 0.156 (the slider draws it) |
+| | Regulars (3) | yard buyer gap and lot walk-up interval / 1.25 (6 s -> 4.8 s; the 2.5 s look stays) |
+| | Insider (5) | auction prices x0.9 (also in the lot's idle profit) |
+| | Franchise (8) | business open costs x0.75 |
+| Racer | Quick Tips (2) | paint tip window +1 s per service |
+| | Rare Finds (3) | Rare/Epic/Legendary weights x1.3 (non-Common share 22% -> 26.8%; expected yard value used by idle income) |
+| | Barn Scout (5) | next barn find 300 s -> 150 s; stage times x0.8 |
+| | Night Shift (8) | offline cap 2 h -> 4 h in every business |
+
+Run 21 sim (`Legacy tree` in balance.test.ts): the active bot sells at its first offer (10 points, x1.20), buys 10 points of one branch, then plays 4 hours. Lifetime at 4 h: none $1.04B, Mechanic (Quick
+Hands, Head Start, Parts Hoarder) $1.10B (+6%), Dealer (Silver Tongue, Regulars, Insider) $1.11B (+7%), Racer (Quick
+Tips, Rare Finds, Barn Scout) $1.16B (+12%). Rare Finds was x1.5 in the design draft; at x1.5 Racer was +19%, so it was
+cut to x1.3. Every branch opens the paint shop no later than without the tree; the test caps a branch at +60%.
+

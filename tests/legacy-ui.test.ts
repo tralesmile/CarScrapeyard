@@ -4,7 +4,8 @@ import { sellEmpire } from '../src/core/legacy';
 import { deserialize, serialize, withDefaults } from '../src/core/save';
 import { formatCash } from '../src/core/format';
 import { newGame, type GameState } from '../src/core/state';
-import { formatMult, grandpaLine, legacyBadge, nextSaleLine, sellEmpirePreview, sellEmpireRow } from '../src/ui/legacyView';
+import { formatMult, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, sellEmpirePreview, sellEmpireRow, treeHasBuy } from '../src/ui/legacyView';
+import { buyNode, respecTree } from '../src/core/legacyTree';
 
 const T0 = 1_800_000_000_000;
 const S = ECON.legacy.pointScale;
@@ -104,3 +105,55 @@ describe('Sell Empire UI text (P1.3b)', () => {
     expect(grandpaLine(0)).toMatch(/empire/);
   });
 });
+
+describe('Legacy tree screen (P1.3c)', () => {
+  function owner(points: number): GameState {
+    const s = newGame(T0, 3);
+    s.legacy.points = points;
+    s.legacy.allTime = points * points * S;
+    s.legacy.sold = 1;
+    return s;
+  }
+
+  it('lists three branches of four nodes with status, cost and the button text', () => {
+    const s = owner(12);
+    const v = legacyTreeView(s);
+    expect(v.header).toBe('12 of 12 points free · income x1.24');
+    expect(v.branches.map((b) => b.id)).toEqual(['mechanic', 'dealer', 'racer']);
+    expect(v.branches.every((b) => b.nodes.length === 4 && b.canBuy)).toBe(true);
+    const m = v.branches[0]!.nodes;
+    expect(m.map((n) => n.status)).toEqual(['next', 'locked', 'locked', 'locked']);
+    expect(m.map((n) => n.cost)).toEqual([2, 3, 5, 8]);
+    expect(m[0]!.action).toBe('Buy 2 🏛');
+    expect(m[1]!.action).toBe('3 🏛');
+    expect(v.respec).toBeNull();
+    expect(v.respecNote).toBeNull();
+    expect(treeHasBuy(s)).toBe(true);
+  });
+
+  it('after buying: owned nodes, fewer free points, a respec offer, then the used note', () => {
+    const s = owner(12);
+    buyNode(s, 'quickHands');
+    buyNode(s, 'headStart');
+    let v = legacyTreeView(s);
+    expect(v.header.startsWith('7 of 12')).toBe(true);
+    expect(v.branches[0]!.nodes[0]!.status).toBe('owned');
+    expect(v.branches[0]!.nodes[0]!.action).toBe('Owned');
+    expect(v.branches[0]!.owned).toBe(2);
+    expect(v.branches[0]!.canBuy).toBe(true); // Parts Hoarder for 5
+    expect(v.branches[0]!.nodes[3]!.canBuy).toBe(false);
+    expect(v.respec).toBe('Free respec: refund 5 🏛 (once per empire)');
+    respecTree(s);
+    buyNode(s, 'silverTongue');
+    v = legacyTreeView(s);
+    expect(v.respec).toBeNull();
+    expect(v.respecNote).toMatch(/next empire/);
+  });
+
+  it('no dot once nothing is affordable', () => {
+    const s = owner(1);
+    expect(treeHasBuy(s)).toBe(false);
+    expect(legacyTreeView(s).branches.every((b) => !b.canBuy && b.nodes[0]!.action === '2 🏛')).toBe(true);
+  });
+});
+

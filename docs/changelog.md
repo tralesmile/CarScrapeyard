@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.0 - 2026-11-07 (run 21)
+
+- **Legacy tree (P1.3c):** tap the gold 🏛 Legacy chip to spend Legacy Points on three branches of four upgrades,
+  bought in order. **Mechanic:** Quick Hands (+25% tap work everywhere), Head Start (new empires start with $5K and the
+  Mechanic), Parts Hoarder (+50% crusher parts), Master Crew (all crew 30% faster). **Dealer:** Silver Tongue (wider
+  PERFECT haggle zone, drawn on the slider), Regulars (buyers 25% more often), Insider (auctions 10% cheaper),
+  Franchise (businesses 25% cheaper to open). **Racer:** Quick Tips (+1 s per service on the paint tip), Rare Finds
+  (rarer cars x1.3 as often), Barn Scout (barn finds twice as often, stages 20% faster), Night Shift (offline cap
+  +2 h). Costs 2/3/5/8 points per branch. Spending never lowers your income bonus: spent points keep their +2%.
+  One free respec per empire. A red dot on the chip and the branch tabs shows when something is affordable.
+- Balance: every branch makes the second empire faster (+6% to +12% earnings at 4 hours with the first 10 points);
+  Rare Finds was cut from x1.5 to x1.3 so the Racer branch doesn't dominate.
+- Tests: 17 unit tests for the tree (buying in order, costs, respec once per empire, save repair and round trip, each
+  of the 12 effects in the rules that use it, Head Start saves loading), 3 for the tree screen texts, a branch A/B in
+  the balance sim; e2e opens the tree on a 320 px iPhone SE, checks it fits, buys nodes, respecs and reloads
+  (screenshots e2e-21e/f).
+
 ## 0.20.0 - 2026-11-07 (run 20)
 
 - **Sell Empire (P1.3b):** once selling would give 10 or more Legacy Points, an "EMPIRE FOR SALE!" banner shows and

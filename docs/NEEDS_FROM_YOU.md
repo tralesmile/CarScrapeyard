@@ -72,6 +72,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       gold "Sell Empire" row appears on the city map. Selling resets your businesses and cash but every point adds +2%
       to all income forever (a gold "🏛 x1.24" chip in the top bar). Is the first sale at ~3.5 hours the right moment,
       and is the preview clear about what you keep and lose? Would you rather keep something more (e.g. the crew)?
+      New since run 21: **the Legacy tree.** Tap the gold 🏛 chip in the top bar to spend Legacy Points on 12 upgrades in
+      three branches (Mechanic, Dealer, Racer), e.g. faster tapping, cheaper auctions, rarer cars, a longer offline cap.
+      Spent points still count for the +2% income, and you get one free respec per empire. Do the choices feel
+      meaningful, or is one branch an obvious pick?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

@@ -3,7 +3,7 @@
 // see the timeline printed.
 
 import { describe, expect, it } from 'vitest';
-import { ECON, type ManagerKind, type UpgradeKind } from '../src/core/config';
+import { ECON, type LegacyNode, type ManagerKind, type UpgradeKind } from '../src/core/config';
 import { slotCost, upgradeCost } from '../src/core/formulas';
 import { mapUnlocked } from '../src/core/businesses';
 import { formatCash, formatDuration } from '../src/core/format';
@@ -27,6 +27,7 @@ import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
 import { canSellEmpire, legacyMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
+import { buyNode, spentPoints } from '../src/core/legacyTree';
 import { canOpenBusiness, openBusiness, switchBusiness } from '../src/core/businesses';
 import {
   buyCarLotUpgrade,
@@ -579,3 +580,52 @@ describe('Sell Empire (P1.3a)', () => {
     expect(two.marks.lotOpen!).toBeLessThan(base.marks.lotOpen!);
   }, 60_000);
 });
+
+describe('Legacy tree (P1.3c)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('each branch speeds up the second empire without running away', () => {
+    const first = withReadyPaint(() => run(ACTIVE, 7 * 3600));
+    const offered = first.marks.legacy!;
+    const plans: Record<string, LegacyNode[]> = {
+      none: [],
+      mechanic: ['quickHands', 'headStart', 'partsHoarder'],
+      dealer: ['silverTongue', 'regulars', 'insider'],
+      racer: ['quickTips', 'rareFinds', 'barnScout'],
+    };
+    const hours = 4;
+    const rows: string[] = [];
+    const out: Record<string, { paint: number; lifetime: number }> = {};
+    for (const [name, nodes] of Object.entries(plans)) {
+      const one = withReadyPaint(() => run(ACTIVE, offered + 1));
+      // Points bank on the sale, so the tree is bought at the start of the new empire (Head Start pays from the next one).
+      expect(sellEmpire(one.s, 0)).not.toBeNull();
+      for (const n of nodes) expect(buyNode(one.s, n)).toBe(true);
+      const two = withReadyPaint(() => run(ACTIVE, hours * 3600, 999, one.s));
+      out[name] = { paint: two.marks.paintOpen ?? Infinity, lifetime: two.s.lifetimeEarnings };
+      rows.push(
+        `${name.padEnd(8)} (${spentPoints(one.s.legacy)}/${one.s.legacy.points} pts): garage ${formatDuration(two.marks.garageOpen ?? 0)}, ` +
+          `lot ${formatDuration(two.marks.lotOpen ?? 0)}, paint ${two.marks.paintOpen === undefined ? 'never' : formatDuration(two.marks.paintOpen)}, ` +
+          `${hours} h lifetime ${formatCash(two.s.lifetimeEarnings)}`,
+      );
+    }
+    console.log(['--- Legacy tree, 2nd empire (active bot, first 10 points) ---', ...rows].join('\n'));
+    for (const name of ['mechanic', 'dealer', 'racer']) {
+      // Every branch helps...
+      expect(out[name]!.lifetime).toBeGreaterThan(out.none!.lifetime);
+      expect(out[name]!.paint).toBeLessThanOrEqual(out.none!.paint);
+      // ...but ten points never more than +60% at 4 hours (the +2% per point already gives x1.24).
+      expect(out[name]!.lifetime).toBeLessThan(out.none!.lifetime * 1.6);
+    }
+  }, 180_000);
+});
+

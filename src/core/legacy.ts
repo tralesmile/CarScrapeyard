@@ -4,6 +4,7 @@
 
 import { ECON } from './config';
 import { newGame, type GameState, type Legacy } from './state';
+import { hasNode, sanitizeTree } from './legacyTree';
 
 export { newLegacy, type Legacy } from './state';
 
@@ -83,7 +84,14 @@ export function sellEmpire(state: GameState, now: number): SoldEmpire | null {
     lastRunSeconds: seconds,
     bestRunSeconds: state.legacy.bestRunSeconds > 0 ? Math.min(state.legacy.bestRunSeconds, seconds) : seconds,
     runSeconds: 0,
+    tree: { ...state.legacy.tree },
+    respecUsed: false,
   };
+  // Head Start (legacy tree): the new empire starts with some cash and the Mechanic hired.
+  if (hasNode(fresh, 'headStart')) {
+    fresh.cash += ECON.legacy.tree.headStartCash;
+    fresh.managers.mechanic = true;
+  }
   for (const k of Object.keys(state) as (keyof GameState)[]) delete state[k];
   Object.assign(state, fresh);
   return { points, earned, seconds };
@@ -98,4 +106,5 @@ export function sanitizeLegacy(l: Legacy): void {
   l.lastRunSeconds = num(l.lastRunSeconds);
   l.bestRunSeconds = num(l.bestRunSeconds);
   l.runSeconds = num(l.runSeconds);
+  sanitizeTree(l);
 }

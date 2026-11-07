@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 20; next run is run 21). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 21; next run is run 22). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -118,9 +118,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         a confetti celebration with Grandpa Joe's line, then a reload into the new empire (every scene and texture is
         rebuilt from the save, since car ids restart). HUD Legacy chip with the multiplier, tap for info. e2e on an
         iPhone SE.
-  - [ ] P1.3c Legacy tree: spend points on Mechanic, Dealer and Racer branches (spent points keep their +2%). Node design
-        drafted in GDD (run 20: 3 x 4 nodes, costs 2/3/5/8, free respec once per empire). Next: core (`ECON.legacy.tree`,
-        `state.legacy.nodes`, buy/respec, each effect wired + tested, sim A/B), then a tree screen from the Legacy chip.
+  - [x] P1.3c Legacy tree (run 21): `src/core/legacyTree.ts` (`state.legacy.tree` levels per branch, buy in order for
+        2/3/5/8, free points = earned - spent, one free respec per empire reset on a sale, save repair), all 12 effects
+        wired into the rules (tap work, Head Start in `sellEmpire`, crusher parts, crew rates and seller delay, haggle
+        zone, buyer gaps, auction prices, open costs, tip window, rarity weights, barn find/stage times, offline cap in
+        every business), sim A/B per branch (Rare Finds cut to x1.3). Tree screen from the Legacy chip (`legacyTreeView`
+        in legacyView.ts; branch tabs, node rows, respec), dots on the chip and tabs, e2e on a 320 px phone.
+  - [ ] P1.3e Legacy tree polish: a short "what changed" line per node on the screens it affects (e.g. the haggle
+        slider's wider zone label, "4 h cap" in the welcome-back popup with Night Shift), and a node-bought animation.
   - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
       for `.icon-btn.hidden`); on 320 px phones the panel's tabs and buy modes overflowed and a modal's focus slid the

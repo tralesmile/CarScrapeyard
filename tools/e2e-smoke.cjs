@@ -1396,11 +1396,54 @@ async function waitForServer(url, ms = 15000) {
       });
       assert(val > 0, `the new empire's first wreck is on the way ($${val})`);
       await sp.screenshot({ path: path.join(SHOTS, 'e2e-21d-new-empire.png') });
+      // Legacy tree (P1.3c): the chip has a dot while a node is affordable and opens the tree.
+      assert(await sp.isVisible('.legacy-chip .dot'), 'the Legacy chip shows a dot: points to spend');
       await sp.click('.legacy-chip');
-      await sp.waitForSelector('.modal h2:has-text("Legacy")');
-      const info = await sp.textContent('.modal');
-      assert(/12 Legacy Points/.test(info) && /x1\.24/.test(info) && /Sell Empire again after/.test(info), 'tapping the chip explains the points and the next sale');
-      await sp.click('.modal .buy');
+      await sp.waitForSelector('.legacy-tree .modal h2:has-text("Legacy")');
+      const info = await sp.textContent('.legacy-tree .modal');
+      assert(/12 of 12 points free/.test(info) && /x1\.24/.test(info) && /Sell Empire again after/.test(info), 'the tree shows the free points, the multiplier and the next sale');
+      const tabs = await sp.$$eval('.tree-tab', (ts) => ts.map((t) => t.dataset.branch));
+      assert(tabs.join() === 'mechanic,dealer,racer', `three branch tabs (${tabs.join()})`);
+      const nodes = await sp.$$eval('.tree-node', (ns) => ns.map((n) => n.dataset.node + ':' + n.className.split(' ')[1]));
+      assert(nodes.join() === 'quickHands:next,headStart:locked,partsHoarder:locked,masterCrew:locked', `the Mechanic branch lists four nodes in order (${nodes.join()})`);
+      assert(await sp.$eval('.tree-node[data-node="headStart"] .tree-buy', (b) => b.disabled), 'a later node cannot be bought first');
+      const treeFits = () => sp.evaluate(() => {
+        const m = document.querySelector('.legacy-tree .modal').getBoundingClientRect();
+        const tabsR = [...document.querySelectorAll('.tree-tab')].map((t) => t.getBoundingClientRect());
+        const done = document.querySelector('.legacy-tree .modal .buy').getBoundingClientRect();
+        const name = document.querySelector('.tree-tab span');
+        return m.top >= 0 && m.bottom <= innerHeight + 0.5 && m.right <= innerWidth + 0.5 && done.bottom <= innerHeight + 0.5 &&
+          tabsR.every((r) => r.right <= m.right + 0.5) && name.scrollWidth <= name.clientWidth + 1;
+      });
+      assert(await treeFits(), 'the tree fits a 320 px phone (modal, tabs, tab names and Done on screen)');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21e-legacy-tree.png') });
+      await sp.click('.tree-node[data-node="quickHands"] .tree-buy');
+      await sp.waitForSelector('.tree-node[data-node="quickHands"].owned');
+      const t1 = await sp.evaluate(() => ({ tree: { ...window.__jye.state.legacy.tree }, pts: window.__jye.state.legacy.points }));
+      assert(t1.tree.mechanic === 1 && t1.pts === 12, 'buying Quick Hands spends 2 points and keeps all 12 for income');
+      assert(/10 of 12 points free/.test(await sp.textContent('.tree-head')), 'the header counts the spent points');
+      await sp.click('.tree-tab[data-branch="racer"]');
+      await sp.click('.tree-node[data-node="quickTips"] .tree-buy');
+      await sp.click('.tree-node[data-node="rareFinds"] .tree-buy');
+      await sp.waitForSelector('.tree-node[data-node="rareFinds"].owned');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21f-legacy-racer.png') });
+      assert(await treeFits(), 'still fits with the respec line showing');
+      const t2 = await sp.evaluate(() => ({ ...window.__jye.state.legacy.tree }));
+      assert(t2.racer === 2, 'two Racer nodes bought');
+      assert(/respec: refund 7/.test(await sp.textContent('.tree-respec')), 'respec offers to refund the 7 spent points');
+      await sp.click('.tree-respec');
+      const t3 = await sp.evaluate(() => ({ tree: { ...window.__jye.state.legacy.tree }, used: window.__jye.state.legacy.respecUsed }));
+      assert(t3.tree.mechanic === 0 && t3.tree.racer === 0 && t3.used, 'respec refunds every node, once');
+      assert(/Respec used/.test(await sp.textContent('.legacy-tree .modal')) || (await sp.$('.tree-respec')) === null, 'no second respec this empire');
+      await sp.click('.tree-node[data-node="quickTips"] .tree-buy');
+      await sp.click('.legacy-tree .modal .buy');
+      assert((await sp.$('.legacy-tree')) === null, 'Done closes the tree');
+      // Bought nodes are saved.
+      await sp.evaluate(() => window.__jye.saveNow());
+      await sp.reload();
+      await sp.waitForFunction(() => window.__jye && window.__jye.state);
+      const t4 = await sp.evaluate(() => ({ ...window.__jye.state.legacy.tree }));
+      assert(t4.racer === 1 && t4.mechanic === 0, `the tree survives a reload (${JSON.stringify(t4)})`);
       await se.close();
     }
 

@@ -7,6 +7,7 @@ import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { pick } from './rng';
 import type { GameState } from './state';
 import { legacyMultiplier } from './legacy';
+import { barnFindSeconds, barnStageSeconds } from './legacyTree';
 
 export type BarnEvent =
   | { type: 'barnFound' }
@@ -108,7 +109,7 @@ export function startBarnStage(state: GameState): boolean {
   state.cash -= cost.cash;
   state.parts -= cost.parts;
   state.barn.status = 'working';
-  state.barn.timeLeft = st.seconds;
+  state.barn.timeLeft = barnStageSeconds(state, state.barn.stage);
   return true;
 }
 
@@ -131,6 +132,6 @@ export function sellBarnCar(state: GameState): number {
   b.status = 'away';
   b.stage = 0;
   b.value = 0;
-  b.timeLeft = ECON.barn.nextFindSeconds;
+  b.timeLeft = barnFindSeconds(state);
   return amount;
 }

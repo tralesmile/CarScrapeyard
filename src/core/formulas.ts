@@ -2,6 +2,7 @@ import type { CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
 import { legacyMultiplier } from './legacy';
+import { crewPerk, offlineCap, rarePerk, sellerDelay, tapPerk } from './legacyTree';
 
 /** cost(n) = base * growth^(n-1), where n is the level being bought FROM (level 1 -> 2 costs base). */
 export function upgradeCost(kind: UpgradeKind, currentLevel: number): number {
@@ -49,18 +50,18 @@ export function qualityMultiplier(level: number): number {
 }
 
 export function washPerPixel(state: GameState): number {
-  return ECON.manual.washPerPixel * stationPower(state.levels.wash);
+  return ECON.manual.washPerPixel * stationPower(state.levels.wash) * tapPerk(state);
 }
 
 export function repairPerTap(state: GameState): number {
-  return ECON.manual.repairPerTap * stationPower(state.levels.repair);
+  return ECON.manual.repairPerTap * stationPower(state.levels.repair) * tapPerk(state);
 }
 
 /** Automatic progress per second for each manager. */
 export function managerRate(state: GameState, kind: ManagerKind): number {
   if (!state.managers[kind]) return 0;
-  if (kind === 'washer') return ECON.managers.washer.ratePerSec * stationPower(state.levels.wash);
-  if (kind === 'mechanic') return ECON.managers.mechanic.ratePerSec * stationPower(state.levels.repair);
+  if (kind === 'washer') return ECON.managers.washer.ratePerSec * stationPower(state.levels.wash) * crewPerk(state);
+  if (kind === 'mechanic') return ECON.managers.mechanic.ratePerSec * stationPower(state.levels.repair) * crewPerk(state);
   return 0;
 }
 
@@ -70,9 +71,9 @@ export function crusherCooldown(pressLevel: number): number {
   return Math.max(c.minCooldown, c.cooldown / (1 + c.pressSpeedPerLevel * (pressLevel - 1)));
 }
 
-/** Parts from crushing a car of this rarity at this Hydraulic Press level. */
-export function crushParts(rarity: Rarity, pressLevel: number): number {
-  return Math.round(ECON.crusher.parts[rarity] * (1 + ECON.crusher.pressPartsPerLevel * (pressLevel - 1)));
+/** Parts from crushing a car of this rarity at this Hydraulic Press level (`bonus`: Parts Hoarder's extra fraction). */
+export function crushParts(rarity: Rarity, pressLevel: number, bonus = 0): number {
+  return Math.round(ECON.crusher.parts[rarity] * (1 + ECON.crusher.pressPartsPerLevel * (pressLevel - 1)) * (1 + bonus));
 }
 
 export function slotCost(currentSlots: number): number | null {
@@ -100,14 +101,22 @@ export function familyWeights(carsSold: number): Record<CarFamily, number> {
   return Object.fromEntries(unlockedFamilies(carsSold).map((f) => [f, ECON.families[f].weight])) as Record<CarFamily, number>;
 }
 
+/** Rarity arrival weights; `rareMult` (Rare Finds) scales every rarity above Common. */
+export function rarityWeights(rareMult = 1): Record<Rarity, number> {
+  return Object.fromEntries(
+    (Object.keys(ECON.rarity) as Rarity[]).map((r) => [r, ECON.rarity[r].weight * (r === 'common' ? 1 : rareMult)]),
+  ) as Record<Rarity, number>;
+}
+
 /** Expected value of the next car, averaged over the unlocked families (by weight) and rarities. */
-export function expectedCarValue(qualityLevel: number, carsSold: number): number {
+export function expectedCarValue(qualityLevel: number, carsSold: number, rareMult = 1): number {
   const fams = unlockedFamilies(carsSold).map((f) => ECON.families[f]);
   const famW = fams.reduce((s, f) => s + f.weight, 0);
   const famAvg = fams.reduce((s, f) => s + f.weight * f.baseValue, 0) / famW;
-  const rar = Object.values(ECON.rarity);
-  const totalW = rar.reduce((s, r) => s + r.weight, 0);
-  const rarAvg = rar.reduce((s, r) => s + r.weight * r.valueMult, 0) / totalW;
+  const w = rarityWeights(rareMult);
+  const rs = Object.keys(w) as Rarity[];
+  const totalW = rs.reduce((s, r) => s + w[r], 0);
+  const rarAvg = rs.reduce((s, r) => s + w[r] * ECON.rarity[r].valueMult, 0) / totalW;
   return famAvg * rarAvg * qualityMultiplier(qualityLevel);
 }
 
@@ -125,15 +134,15 @@ export function idleIncomePerSecond(state: GameState): number {
   if (!mechanic || !washer || !seller) return 0;
   const washTime = 1 / managerRate(state, 'washer');
   const repairTime = 0.8 / managerRate(state, 'mechanic');
-  const stages = [washTime, repairTime, ECON.sellerDelay, ECON.arrivalInterval];
+  const stages = [washTime, repairTime, sellerDelay(state), ECON.arrivalInterval];
   const cycle = stages.reduce((s, t) => s + t, 0);
   const carsPerSecond = Math.min(1 / Math.max(...stages), state.slots / cycle);
-  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold) * legacyMultiplier(state);
+  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold, rarePerk(state)) * legacyMultiplier(state);
 }
 
 /** Offline earnings for a gap of `seconds`, using the cap and efficiency. */
 export function offlineEarnings(state: GameState, seconds: number): number {
-  const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
+  const capped = Math.max(0, Math.min(seconds, offlineCap(state)));
   return Math.floor(idleIncomePerSecond(state) * capped * ECON.offline.efficiency);
 }
 

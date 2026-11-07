@@ -105,7 +105,9 @@ const BARN_STATUS: GameState['barn']['status'][] = ['locked', 'covered', 'workin
 /** Reject values no honest game can reach. */
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
-  if (state.cash > state.lifetimeEarnings + 1) return false;
+  // Head Start (legacy tree) hands a new empire some cash before it has earned anything (even if respecced after).
+  const gift = state.legacy.sold > 0 ? ECON.legacy.tree.headStartCash : 0;
+  if (state.cash > state.lifetimeEarnings + gift + 1) return false;
   if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;
   return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l < 100_000);

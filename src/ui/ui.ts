@@ -27,7 +27,7 @@ import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
-import { LEGACY_ICON, grandpaLine, legacyBadge, nextSaleLine, sellEmpirePreview, sellEmpireRow } from './legacyView';
+import { LEGACY_ICON, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, sellEmpirePreview, sellEmpireRow, treeHasBuy } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import {
   buyGarageBay,
@@ -40,7 +40,7 @@ import {
   hireForeman,
   repMultiplier,
 } from '../core/garage';
-import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, PaintUpgradeKind } from '../core/config';
+import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, LegacyBranch, PaintUpgradeKind } from '../core/config';
 import { boothCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, lotCarService, lotSendBlock, lotTuneValue, paintUpgradeCost, paintWorkPerTap, painterRate, sendLotCarToShop } from '../core/paint';
 import {
   buyCarLotUpgrade,
@@ -63,6 +63,7 @@ import {
 } from '../core/carlot';
 import { conditionStars } from '../game/carlotArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
+import { barnStageSeconds, buyNode, perfectZone, respecTree } from '../core/legacyTree';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
@@ -126,6 +127,8 @@ export class Ui {
   private mapAnnounced = false;
   /** The "empire for sale" banner was shown this session (P1.3b). */
   private legacyAnnounced = false;
+  /** The Legacy tree's open branch tab (kept while the game runs). */
+  private legacyTab: LegacyBranch = 'mechanic';
   /** HUD chip with the Legacy income multiplier, once the player owns points (P1.3b). */
   private legacyChip!: HTMLButtonElement;
   private hint!: HTMLElement;
@@ -524,7 +527,7 @@ export class Ui {
       } else if (b.status === 'working') {
         const st = ECON.barn.stages[b.stage]!;
         setText(desc, `${st.name}… ${formatDuration(Math.ceil(b.timeLeft))} left (keeps going while you're away)`);
-        bar.style.width = `${((b.stage + 1 - b.timeLeft / st.seconds) / stages) * 100}%`;
+        bar.style.width = `${((b.stage + 1 - b.timeLeft / Math.max(1e-6, barnStageSeconds(s, b.stage))) / stages) * 100}%`;
         setText(btn, 'Working…');
         btn.disabled = true;
       } else if (b.status === 'finished') {
@@ -922,6 +925,13 @@ export class Ui {
     this.haggling = carId;
     sfx.tap();
     const hg = this.haggleEl;
+    // Silver Tongue (legacy tree) widens the PERFECT zone: draw what the rules pay.
+    const zone = perfectZone(this.deps.state());
+    const zoneEl = hg.querySelector<HTMLElement>('.zone-perfect');
+    if (zoneEl) {
+      zoneEl.style.width = `${zone * 100}%`;
+      zoneEl.style.left = `${50 - zone * 50}%`;
+    }
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
     hg.classList.toggle('lesson', lesson);
     setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
@@ -940,7 +950,7 @@ export class Ui {
       done = true;
       cancelAnimationFrame(raf);
       hg.onpointerdown = null;
-      const mult = pos === null ? 1 : haggleMultiplier(pos, lesson);
+      const mult = pos === null ? 1 : haggleMultiplier(pos, lesson, zone);
       const grade = haggleGrade(mult);
       hg.classList.add('stopped', grade);
       const words = { perfect: 'PERFECT!', great: 'Great deal!', good: 'Deal!', poor: 'Ouch…' } as const;
@@ -1140,8 +1150,9 @@ export class Ui {
     this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);
-    if (badge !== null && this.legacyChip.textContent !== badge) {
-      this.legacyChip.textContent = badge;
+    const chipHtml = badge === null ? '' : `${badge}${treeHasBuy(s) ? '<i class="dot on"></i>' : ''}`;
+    if (badge !== null && this.legacyChip.innerHTML !== chipHtml) {
+      this.legacyChip.innerHTML = chipHtml;
       this.legacyChip.setAttribute('aria-label', `Legacy: income ${badge.split(' ')[1]}`);
     }
     if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
@@ -1537,16 +1548,102 @@ export class Ui {
     });
   }
 
-  /** Tapping the HUD's Legacy chip: what the points do. */
+  /**
+   * Tapping the HUD's Legacy chip: the Legacy tree (P1.3c). Points, the income multiplier, three branch tabs with four
+   * nodes each (bought in order), a free respec once per empire, and the old info lines (fastest empire, next sale).
+   */
   openLegacyInfo() {
     if (this.modalOpen) return;
-    const s = this.deps.state();
-    const best = s.legacy.bestRunSeconds > 0 ? `<p class="legacy-run">Fastest empire: ${formatDuration(s.legacy.bestRunSeconds)} · empires sold: ${s.legacy.sold}</p>` : '';
-    this.modal({
-      title: 'Legacy',
-      body: `<p>${s.legacy.points} Legacy Points: every payout and all idle income are worth <b>${legacyBadge(s)?.split(' ')[1] ?? 'x1.00'}</b>.</p>${best}<p>${nextSaleLine(s) ?? 'Sell your empire on the city map for more points.'}</p>`,
-      button: 'OK',
-    });
+    this.modalOpen = true;
+    sfx.tap();
+    const back = el('div', 'modal-back legacy-tree');
+    const box = el('div', 'modal');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Legacy tree');
+    box.append(el('h2', 'display', `${LEGACY_ICON} Legacy`));
+    const header = el('p', 'tree-head');
+    const tabs = el('div', 'tree-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const list = el('div', 'tree-nodes');
+    const foot = el('div', 'tree-foot');
+    const close = () => {
+      if (!back.isConnected) return;
+      back.remove();
+      this.modalOpen = false;
+      this.render();
+    };
+    let branch = this.legacyTab;
+    const paint = () => {
+      const v = legacyTreeView(this.deps.state());
+      if (!v.branches.some((b) => b.id === branch)) branch = v.branches[0]!.id;
+      header.innerHTML = `<b>${v.header}</b><small>Spent points keep their +2% income</small>`;
+      tabs.replaceChildren(
+        ...v.branches.map((b) => {
+          const t = el('button', `tree-tab${b.id === branch ? ' on' : ''}`, `<span>${b.name}</span><small>${b.icon} ${b.owned}/4</small>${b.canBuy ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+          t.setAttribute('role', 'tab');
+          t.setAttribute('aria-selected', String(b.id === branch));
+          t.dataset.branch = b.id;
+          t.onclick = () => {
+            branch = b.id;
+            this.legacyTab = b.id;
+            sfx.tap();
+            paint();
+          };
+          return t;
+        }),
+      );
+      const bv = v.branches.find((b) => b.id === branch)!;
+      list.replaceChildren(
+        ...bv.nodes.map((n) => {
+          const row = el('div', `tree-node ${n.status}`);
+          row.dataset.node = n.id;
+          const text = el('div', 'tree-text', `<b>${n.name}</b><small>${n.desc}</small>`);
+          row.append(el('div', 'tree-icon', n.icon), text);
+          if (n.status === 'owned') row.append(el('span', 'tree-owned', '✓ Owned'));
+          else {
+            const b = el('button', 'tree-buy', n.action) as HTMLButtonElement;
+            b.disabled = !n.canBuy;
+            b.setAttribute('aria-label', `${n.name}: ${n.canBuy ? 'buy for' : 'costs'} ${n.cost} Legacy Points`);
+            b.onclick = () => {
+              if (!buyNode(this.deps.state(), n.id)) {
+                sfx.denied();
+                return;
+              }
+              sfx.fanfare();
+              haptics.play('celebrate');
+              this.deps.onChange();
+              paint();
+            };
+            row.append(b);
+          }
+          return row;
+        }),
+      );
+      foot.replaceChildren();
+      if (v.respec) {
+        const r = el('button', 'secondary tree-respec', v.respec) as HTMLButtonElement;
+        r.onclick = () => {
+          const st = this.deps.state();
+          if (respecTree(st) > 0) {
+            sfx.tap();
+            this.deps.onChange();
+            paint();
+          }
+        };
+        foot.append(r);
+      } else if (v.respecNote) foot.append(el('small', 'tree-note', v.respecNote));
+      const st = this.deps.state();
+      const best = st.legacy.bestRunSeconds > 0 ? `Fastest empire: ${formatDuration(st.legacy.bestRunSeconds)} · empires sold: ${st.legacy.sold}. ` : '';
+      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? 'Sell your empire on the city map for more points.'}`));
+    };
+    paint();
+    const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    ok.onclick = close;
+    box.append(header, tabs, list, foot, ok);
+    back.append(box);
+    this.root.append(back);
+    ok.focus({ preventScroll: true });
   }
 
   /** Settings sheet: sound, music, motion, number format, reset, credits. */

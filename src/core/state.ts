@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -293,10 +293,14 @@ export interface Legacy {
   bestRunSeconds: number;
   /** Seconds played in this empire (playSeconds is lifetime). */
   runSeconds: number;
+  /** Legacy tree (P1.3c): nodes owned per branch (0-4, bought in order). */
+  tree: Record<LegacyBranch, number>;
+  /** The free respec of this empire is used (reset on every sale). */
+  respecUsed: boolean;
 }
 
 export function newLegacy(): Legacy {
-  return { points: 0, allTime: 0, sold: 0, lastRunSeconds: 0, bestRunSeconds: 0, runSeconds: 0 };
+  return { points: 0, allTime: 0, sold: 0, lastRunSeconds: 0, bestRunSeconds: 0, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false };
 }
 
 export function emptyFamilyCounts(): Record<CarFamily, number> {

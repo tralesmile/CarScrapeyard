@@ -9,6 +9,7 @@ import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
 import { legacyMultiplier } from './legacy';
+import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type CarLotEvent =
   | { type: 'lotListed'; lot: AuctionLot; index: number }
@@ -54,11 +55,11 @@ export function valetPower(state: GameState): number {
 }
 
 export function refurbPerTap(state: GameState): number {
-  return ECON.carlot.workPerTap * valetPower(state);
+  return ECON.carlot.workPerTap * valetPower(state) * tapPerk(state);
 }
 
 export function detailerRate(state: GameState): number {
-  return state.carlot.crew.detailer ? ECON.carlot.crew.detailer.workPerSec * valetPower(state) : 0;
+  return state.carlot.crew.detailer ? ECON.carlot.crew.detailer.workPerSec * valetPower(state) * crewPerk(state) : 0;
 }
 
 /** Retail value at Showroom level 1 (what a buyer pays before the Showroom multiplier). */
@@ -70,6 +71,11 @@ export function baseRetail(family: CarFamily): number {
 /** What a buyer pays for a refurbished car today (list price, before haggling); a paint shop service adds its value. */
 export function listPrice(state: GameState, car: { family: CarFamily; tuneValue?: number }): number {
   return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) * legacyMultiplier(state) + (car.tuneValue ?? 0));
+}
+
+/** Seconds between walk-up buyers while a refurbished car waits (Regulars makes them come more often). */
+export function lotBuyerInterval(state: Pick<GameState, 'legacy'>): number {
+  return ECON.carlot.buyerInterval / buyerRatePerk(state);
 }
 
 export function auctionPrice(family: CarFamily, condition: Condition): number {
@@ -120,7 +126,7 @@ export function generateLot(state: GameState): AuctionLot {
     model: pick(state, MODEL_NAMES[family]),
     paint: pick(state, PAINTS),
     condition,
-    price: Math.max(1, Math.round(auctionPrice(family, condition) * legacyMultiplier(state))),
+    price: Math.max(1, Math.round(auctionPrice(family, condition) * legacyMultiplier(state) * auctionPerk(state))),
     timeLeft: ECON.carlot.lotSeconds,
   };
 }
@@ -183,14 +189,15 @@ function tickBuyer(state: GameState, dt: number, events: CarLotSink): void {
     return;
   }
   l.buyerTimer += dt;
-  if (!l.buyer && l.buyerTimer >= c.buyerInterval - c.buyerLookSeconds) {
+  const interval = lotBuyerInterval(state);
+  if (!l.buyer && l.buyerTimer >= interval - c.buyerLookSeconds) {
     const kinds = lotBuyerKinds(state);
     const kind = weighted(state, Object.fromEntries(kinds.map((k) => [k, c.buyers[k].weight])) as Record<LotBuyerKind, number>);
     const car = lotBuyerChoice(state, kind)!;
     l.buyer = { kind, carId: car.id };
     events.push({ type: 'lotBuyerArrived', kind, car, bonus: lotBuyerBonus(kind, car) });
   }
-  if (l.buyer && l.buyerTimer >= c.buyerInterval) {
+  if (l.buyer && l.buyerTimer >= interval) {
     const { kind } = l.buyer;
     // Their car may have been sold or held since they arrived: they take the best one still there.
     let car = findLotCar(state, l.buyer.carId);
@@ -424,15 +431,16 @@ export function carlotIdleIncome(state: GameState): number {
   if (!carlotOpen(state) || !l.crew.detailer || !l.crew.agent) return 0;
   const avg = conditionAverages();
   const retail = averageRetail(state) * legacyMultiplier(state);
-  const profit = retail * (showroomMultiplier(l.levels.showroom) * averageBuyerMultiplier(state) - avg.priceFrac);
+  const profit = retail * (showroomMultiplier(l.levels.showroom) * averageBuyerMultiplier(state) - avg.priceFrac * auctionPerk(state));
   const workTime = avg.work / detailerRate(state);
-  const cycle = l.spots > 1 ? Math.max(workTime, ECON.carlot.buyerInterval) : workTime + ECON.carlot.buyerInterval;
+  const buyer = lotBuyerInterval(state);
+  const cycle = l.spots > 1 ? Math.max(workTime, buyer) : workTime + buyer;
   return Math.max(0, profit) / cycle;
 }
 
 /** Offline lot profit for a gap of `seconds`, with the same cap and efficiency as the yard. */
 export function carlotOfflineEarnings(state: GameState, seconds: number): number {
-  const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
+  const capped = Math.max(0, Math.min(seconds, offlineCap(state)));
   return Math.floor(carlotIdleIncome(state) * capped * ECON.offline.efficiency);
 }
 

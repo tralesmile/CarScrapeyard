@@ -9,6 +9,7 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { pick, weighted } from './rng';
 import type { GameState, GarageJob } from './state';
 import { legacyMultiplier } from './legacy';
+import { crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type GarageEvent =
   | { type: 'garageArrived'; job: GarageJob }
@@ -41,11 +42,11 @@ export function repMultiplier(level: number): number {
 }
 
 export function garageWorkPerTap(state: GameState): number {
-  return ECON.garage.workPerTap * toolPower(state);
+  return ECON.garage.workPerTap * toolPower(state) * tapPerk(state);
 }
 
 export function foremanRate(state: GameState): number {
-  return state.garage.foreman ? ECON.garage.foreman.workPerSec * toolPower(state) : 0;
+  return state.garage.foreman ? ECON.garage.foreman.workPerSec * toolPower(state) * crewPerk(state) : 0;
 }
 
 export function garageFee(family: CarFamily, fault: GarageFault, repLevel: number): number {
@@ -206,7 +207,7 @@ export function garageIdleIncome(state: GameState): number {
 
 /** Offline garage earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */
 export function garageOfflineEarnings(state: GameState, seconds: number): number {
-  const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
+  const capped = Math.max(0, Math.min(seconds, offlineCap(state)));
   return Math.floor(garageIdleIncome(state) * capped * ECON.offline.efficiency);
 }
 

@@ -590,7 +590,7 @@ export class PaintScene extends Phaser.Scene {
     // Divider, then the tip column: the tip on offer and the seconds left, with a draining gold bar.
     const dx = bx + bw + this.px(5);
     g.lineStyle(this.px(1.5), 0x8b5cf6, 0.35).lineBetween(dx, -h / 2 + this.px(7), dx, h / 2 - this.px(7));
-    const left = tipDeadline(job) - job.age;
+    const left = tipDeadline(job, this.bridge.state) - job.age;
     const tipOn = left > 0;
     const lot = job.lotCarId !== undefined;
     const t = lot ? `🏷️ +${formatCash(job.fee)}\nsticker` : tipOn ? `⚡ +${formatCash(tipFor(job))}\ntip · ${Math.ceil(left)}s` : `${job.step}/${n}\ndone`;
@@ -598,7 +598,7 @@ export class PaintScene extends Phaser.Scene {
     this.ticketTip.setColor(lot ? '#6d28d9' : tipOn ? '#b45309' : '#5d6674');
     if (tipOn && !lot) {
       const tw = this.px(TICKET.tipW - 18);
-      const frac = Math.max(0, Math.min(1, left / tipDeadline(job)));
+      const frac = Math.max(0, Math.min(1, left / tipDeadline(job, this.bridge.state)));
       const tx = this.ticketTip.x - tw / 2;
       g.fillStyle(0x1e2430, 0.12).fillRoundedRect(tx, by, tw, bh, bh / 2);
       g.fillStyle(0xf5b700, 1).fillRoundedRect(tx, by, Math.max(bh, tw * frac), bh, bh / 2);
