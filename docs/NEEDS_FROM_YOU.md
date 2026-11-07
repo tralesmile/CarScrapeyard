@@ -66,6 +66,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       (an engine tune for muscle cars, a wrap for sports cars, rims, or a respray) and comes back with a higher price on
       its FOR SALE tag. It costs you a booth that a paying customer could have used. Is that trade-off clear, or would
       you rather pick the service yourself?
+      New since run 19: paint shop customers say what they want as they step out ("Make it pop!", "The full works,
+      please!"), next to the order ticket. On a short phone the car is a little smaller so the shop sign stays readable.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

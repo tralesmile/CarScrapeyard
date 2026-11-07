@@ -275,6 +275,26 @@ export interface GameState {
     perfectHaggles: number;
     buyersServed: number;
   };
+  /** Prestige (P1.3a): Legacy Points and what's left of the empires sold before this one. Kept on a sale. */
+  legacy: Legacy;
+}
+
+export interface Legacy {
+  /** Legacy Points earned so far (never lost). */
+  points: number;
+  /** Earnings of every empire sold before this one. */
+  allTime: number;
+  /** Empires sold. */
+  sold: number;
+  /** Seconds played in the empire that was sold last, and the fastest sale so far (0 = none yet). */
+  lastRunSeconds: number;
+  bestRunSeconds: number;
+  /** Seconds played in this empire (playSeconds is lifetime). */
+  runSeconds: number;
+}
+
+export function newLegacy(): Legacy {
+  return { points: 0, allTime: 0, sold: 0, lastRunSeconds: 0, bestRunSeconds: 0, runSeconds: 0 };
 }
 
 export function emptyFamilyCounts(): Record<CarFamily, number> {
@@ -374,5 +394,6 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
+    legacy: newLegacy(),
   };
 }

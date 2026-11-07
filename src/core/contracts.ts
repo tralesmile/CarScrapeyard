@@ -6,6 +6,7 @@ import { ECON } from './config';
 import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { Car, Contract, ContractKind, GameState } from './state';
+import { legacyMultiplier } from './legacy';
 
 export type ContractEvent =
   | { type: 'contractDone'; contract: Contract }
@@ -53,7 +54,7 @@ export function generateContract(state: GameState, slot: Contract, avoid?: Pick<
     if (free.length) [kind, family] = pick(state, free);
   }
   const target = rollInt(state, ECON.contracts.targets[kind]);
-  const cash = expectedCarValue(state.levels.quality, state.carsSold) * target * ECON.contracts.rewardMult[kind];
+  const cash = expectedCarValue(state.levels.quality, state.carsSold) * legacyMultiplier(state) * target * ECON.contracts.rewardMult[kind];
   slot.id = state.nextContractId++;
   slot.status = 'active';
   slot.kind = kind;

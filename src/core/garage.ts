@@ -8,6 +8,7 @@ import { barnReservesParts } from './barn';
 import { stationPower, unlockedFamilies } from './formulas';
 import { pick, weighted } from './rng';
 import type { GameState, GarageJob } from './state';
+import { legacyMultiplier } from './legacy';
 
 export type GarageEvent =
   | { type: 'garageArrived'; job: GarageJob }
@@ -80,7 +81,7 @@ export function generateJob(state: GameState): GarageJob {
     paint: pick(state, PAINTS),
     fault,
     work: ECON.garage.faults[fault].work,
-    fee: garageFee(family, fault, g.levels.rep),
+    fee: Math.round(garageFee(family, fault, g.levels.rep) * legacyMultiplier(state)),
   };
 }
 
@@ -200,7 +201,7 @@ export function garageIdleIncome(state: GameState): number {
   const workTime = faultAverages().work / foremanRate(state);
   const arrival = ECON.garage.arrivalInterval;
   const cycle = state.garage.bays > 1 ? Math.max(workTime, arrival) : workTime + arrival;
-  return (expectedGarageFee(state) * (1 - ECON.garage.partsBill)) / cycle;
+  return (expectedGarageFee(state) * legacyMultiplier(state) * (1 - ECON.garage.partsBill)) / cycle;
 }
 
 /** Offline garage earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */

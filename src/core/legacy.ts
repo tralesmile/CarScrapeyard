@@ -1,0 +1,101 @@
+// Prestige "Sell Empire" (P1.3a): sell every business for Legacy Points and start again in a fresh scrapyard. Points
+// come from the square root of everything ever earned (all sold empires plus this run), so each restart rewards more
+// play with diminishing returns. Each point adds 2% to all income, forever. Pure rules; the UI is P1.3b.
+
+import { ECON } from './config';
+import { newGame, type GameState, type Legacy } from './state';
+
+export { newLegacy, type Legacy } from './state';
+
+/** Total Legacy Points that `allTimeEarnings` is worth: floor(sqrt(earnings / scale)). */
+export function legacyPointsFor(allTimeEarnings: number): number {
+  if (!(allTimeEarnings > 0)) return 0;
+  return Math.floor(Math.sqrt(allTimeEarnings / ECON.legacy.pointScale) + 1e-9);
+}
+
+/** Everything earned, sold empires included. */
+export function allTimeEarnings(state: GameState): number {
+  return state.legacy.allTime + state.lifetimeEarnings + Math.max(0, state.pendingOffline);
+}
+
+/** Points selling the empire now would add. */
+export function pendingLegacyPoints(state: GameState): number {
+  return Math.max(0, legacyPointsFor(allTimeEarnings(state)) - state.legacy.points);
+}
+
+/** Lifetime earnings this run needs for the next sale to reach `points` new points. */
+export function earningsForPoints(state: GameState, points: number): number {
+  const total = state.legacy.points + Math.max(1, points);
+  return Math.max(0, total * total * ECON.legacy.pointScale - state.legacy.allTime);
+}
+
+/** The Sell Empire button shows once a sale would give at least `minPoints`. */
+export function canSellEmpire(state: GameState): boolean {
+  return pendingLegacyPoints(state) >= ECON.legacy.minPoints;
+}
+
+/** It glows when the new points would be at least half of the points already owned. */
+export function sellEmpireGlows(state: GameState): boolean {
+  const p = pendingLegacyPoints(state);
+  return p >= ECON.legacy.minPoints && p >= state.legacy.points * ECON.legacy.glowFrac;
+}
+
+/** Income multiplier from Legacy Points: 1 + 2% per point. Every business's payouts and idle income use it. */
+export function legacyMultiplier(state: Pick<GameState, 'legacy'>): number {
+  return 1 + ECON.legacy.incomePerPoint * Math.max(0, state.legacy.points);
+}
+
+/** The multiplier the next empire will have. */
+export function nextLegacyMultiplier(state: GameState): number {
+  return legacyMultiplier({ legacy: { ...state.legacy, points: state.legacy.points + pendingLegacyPoints(state) } });
+}
+
+export interface SoldEmpire {
+  points: number;
+  earned: number;
+  seconds: number;
+}
+
+/**
+ * Sell the empire: bank its points and start a fresh scrapyard (cash, upgrades, crew, cars, every business and the
+ * barn reset). Kept: Legacy Points, settings, tutorial flags, the collection book, lifetime stats, the clock and the
+ * RNG stream. Offline cash waiting to be collected is paid in first, so it counts. Mutates `state` in place.
+ * Returns null (and changes nothing) when the sale isn't allowed yet.
+ */
+export function sellEmpire(state: GameState, now: number): SoldEmpire | null {
+  if (!canSellEmpire(state)) return null;
+  state.lifetimeEarnings += Math.max(0, state.pendingOffline);
+  state.pendingOffline = 0;
+  const points = pendingLegacyPoints(state);
+  const earned = state.lifetimeEarnings;
+  const seconds = state.legacy.runSeconds;
+  const fresh = newGame(Math.max(now, state.lastSeen), state.rng);
+  fresh.createdAt = state.createdAt;
+  fresh.lastSeen = Math.max(state.lastSeen, now);
+  fresh.settings = { ...state.settings };
+  fresh.tutorial = { ...state.tutorial };
+  fresh.collection = { sold: { ...state.collection.sold } };
+  fresh.stats = { ...state.stats };
+  fresh.legacy = {
+    points: state.legacy.points + points,
+    allTime: state.legacy.allTime + earned,
+    sold: state.legacy.sold + 1,
+    lastRunSeconds: seconds,
+    bestRunSeconds: state.legacy.bestRunSeconds > 0 ? Math.min(state.legacy.bestRunSeconds, seconds) : seconds,
+    runSeconds: 0,
+  };
+  for (const k of Object.keys(state) as (keyof GameState)[]) delete state[k];
+  Object.assign(state, fresh);
+  return { points, earned, seconds };
+}
+
+/** Save repair: whole, non-negative numbers, and never more points than the sold empires are worth. */
+export function sanitizeLegacy(l: Legacy): void {
+  const num = (x: number) => (Number.isFinite(x) && x > 0 ? x : 0);
+  l.allTime = num(l.allTime);
+  l.points = Math.min(Math.floor(num(l.points)), legacyPointsFor(l.allTime));
+  l.sold = Math.floor(num(l.sold));
+  l.lastRunSeconds = num(l.lastRunSeconds);
+  l.bestRunSeconds = num(l.bestRunSeconds);
+  l.runSeconds = num(l.runSeconds);
+}

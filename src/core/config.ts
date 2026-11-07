@@ -405,6 +405,16 @@ export const ECON = {
     /** Seconds until the next barn find after one is sold (runs offline too). */
     nextFindSeconds: 300,
   },
+  /** Prestige "Sell Empire" (P1.3a). Points = floor(sqrt(all-time earnings / pointScale)). */
+  legacy: {
+    pointScale: 5_000_000,
+    /** The sale is offered once it would give at least this many points. */
+    minPoints: 10,
+    /** Income bonus per Legacy Point (+2%). */
+    incomePerPoint: 0.02,
+    /** The button glows when new points >= this share of the points already owned. */
+    glowFrac: 0.5,
+  },
 } as const;
 
 export const PAINTS = [

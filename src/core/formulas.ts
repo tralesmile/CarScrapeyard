@@ -1,6 +1,7 @@
 import type { CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
+import { legacyMultiplier } from './legacy';
 
 /** cost(n) = base * growth^(n-1), where n is the level being bought FROM (level 1 -> 2 costs base). */
 export function upgradeCost(kind: UpgradeKind, currentLevel: number): number {
@@ -127,7 +128,7 @@ export function idleIncomePerSecond(state: GameState): number {
   const stages = [washTime, repairTime, ECON.sellerDelay, ECON.arrivalInterval];
   const cycle = stages.reduce((s, t) => s + t, 0);
   const carsPerSecond = Math.min(1 / Math.max(...stages), state.slots / cycle);
-  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold);
+  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold) * legacyMultiplier(state);
 }
 
 /** Offline earnings for a gap of `seconds`, using the cap and efficiency. */

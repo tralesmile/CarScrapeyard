@@ -26,6 +26,7 @@ import { barnStageCost, barnUnlocked, nextBarnStage, revealBarn, sellBarnCar, st
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
+import { canSellEmpire, legacyMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
 import { canOpenBusiness, openBusiness, switchBusiness } from '../src/core/businesses';
 import {
   buyCarLotUpgrade,
@@ -156,8 +157,8 @@ function earlyUpgrades(s: GameState): void {
   }
 }
 
-function run(profile: BotProfile, seconds: number, seed = 12345) {
-  const s = newGame(0, seed);
+function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameState) {
+  const s = start ?? newGame(0, seed);
   const marks: Record<string, number> = {};
   const dt = 0.1;
   let cooldown = 0;
@@ -287,6 +288,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (s.businesses.opened.garage && marks.garageOpen === undefined) marks.garageOpen = t;
     if (s.garage.foreman && marks.foreman === undefined) marks.foreman = t;
     if (s.garage.bays >= 2 && marks.bay2 === undefined) marks.bay2 = t;
+    if (canSellEmpire(s) && marks.legacy === undefined) marks.legacy = t;
   }
   return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes, lotTunes };
 }
@@ -528,4 +530,52 @@ describe('Paint & Tuning (P1.2d)', () => {
     expect(tuned.life).toBeGreaterThan(base.life * 1.01);
     expect(tuned.life).toBeLessThan(base.life * 1.15);
   });
+});
+
+describe('Sell Empire (P1.3a)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('the first sale comes after all four businesses, and the second empire grows faster', () => {
+    const rows: string[] = [];
+    const first: Record<string, number> = {};
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyPaint(() => run(profile, 7 * 3600));
+      first[profile.name] = marks.legacy ?? Infinity;
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      rows.push(
+        `${profile.name}: paint open ${fmt('paintOpen')}, Sell Empire offered ${fmt('legacy')} ` +
+          `(7 h: lifetime ${formatCash(s.lifetimeEarnings)}, ${pendingLegacyPoints(s)} points waiting)`,
+      );
+    }
+    // Second empire: sell as soon as it's offered, play the same bot again.
+    const one = withReadyPaint(() => run(ACTIVE, Math.min(first.active!, 7 * 3600) + 1));
+    const sold = sellEmpire(one.s, 0);
+    expect(sold?.points).toBeGreaterThanOrEqual(ECON.legacy.minPoints);
+    const two = withReadyPaint(() => run(ACTIVE, 7 * 3600, 999, one.s));
+    const base = withReadyPaint(() => run(ACTIVE, 7 * 3600, 999));
+    const fmt2 = (m: Record<string, number>, k: string) => (m[k] === undefined ? 'never' : formatDuration(m[k]!));
+    rows.push(
+      `active, 2nd empire (x${legacyMultiplier(one.s).toFixed(2)}): garage ${fmt2(two.marks, 'garageOpen')} vs ${fmt2(base.marks, 'garageOpen')}, ` +
+        `lot ${fmt2(two.marks, 'lotOpen')} vs ${fmt2(base.marks, 'lotOpen')}, paint ${fmt2(two.marks, 'paintOpen')} vs ${fmt2(base.marks, 'paintOpen')}, ` +
+        `next sale ${fmt2(two.marks, 'legacy')} (${pendingLegacyPoints(two.s)} points waiting at 7 h)`,
+    );
+    console.log(['--- Sell Empire ---', ...rows].join('\n'));
+    // Pacing: the plan wants the first prestige on day 2-3 for a casual player; for the always-tapping bot that is
+    // after the fourth business is running, between 3 and 5 hours of play.
+    expect(first.active!).toBeGreaterThan(3 * 3600);
+    expect(first.active!).toBeLessThan(5 * 3600);
+    expect(first.relaxed!).toBeGreaterThan(first.active!);
+    // The second empire opens every business sooner.
+    expect(two.marks.paintOpen!).toBeLessThan(base.marks.paintOpen!);
+    expect(two.marks.lotOpen!).toBeLessThan(base.marks.lotOpen!);
+  }, 60_000);
 });

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 18; next run is run 19). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 19; next run is run 20). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -74,7 +74,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       out again (backdrop, slots, bay) when the HUD changes height, e.g. when the customer strip appears.
 - [x] P1.1y SUV redrawn (run 12): high ground clearance, raked D-pillar, tailgate spare wheel; van/SUV 0.81 -> 0.74,
       every family pair under 0.75 (asserted in families-art.test.ts).
-- [ ] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
+- [x] P1.2 Business 3 Used Car Lot (buy at auction, refurbish, sell) and Business 4 Paint & Tuning
   - [x] P1.2a Used Car Lot core (run 14): `src/core/carlot.ts` (auction board of 3 lots with condition shown up front,
         45 s per lot, refurbish by tap or Detailer, walk-up buyers at list price, haggled manual sales with a hold,
         Valet Bay / Showroom / spots 2-4, Auction Agent with a 2x cash reserve, idle and offline income, save repair),
@@ -100,12 +100,27 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         booth for the one service that suits its family; no fee, its sticker rises by the shop's fee for that service
         (walk-up bonuses and haggling apply on top), once per car; away cars can't be sold or picked by buyers; save
         links repaired; tuned with a with/without bot run (+8% lifetime at 3 h).
-  - [ ] P1.2g Paint shop polish (found in run 17): the customer says what they want as they step out ("Make it pop!",
-        like the garage's speech bubble); on very short phones (560 CSS px tall) the ticket covers the sign strip and
-        could touch the booth row with 2+ booths, so move the ticket beside the car there. Design note (run 18): the
-        tip clock starts on arrival, so the speech bubble must not hide the ticket (a 1-service order has only 3 s);
-        show both at once, the bubble clear of the ticket on every phone size (unit-test the geometry like the sign).
+  - [x] P1.2g Paint shop polish (run 19): the customer says what they want as they step out (by the first service,
+        "The full works, please!" for three); the bubble is laid out clear of the ticket (above the head, right of the
+        ticket, or beside the customer under it; unit-tested on 7 screens x 1-3 services x 2 line widths). Short phones:
+        `boothStage` moves the car down, lets the ticket cover a little more roof and on a 560 px phone draws the car
+        smaller, so the sign keeps its lettering and the ticket clears the booth row (e2e at 375x560 with 2 booths).
 - [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
+  - [x] P1.3a Prestige core (run 19): `src/core/legacy.ts`: Legacy Points = floor(sqrt(all-time earnings / $5M)), the
+        sale is offered at 10 new points and glows at >= half the points owned, +2% income per point on every payout
+        and idle/offline income (yard cars, scrap, contracts, barn, garage fees, paint fees and lot tune stickers, lot
+        auction and list prices so lot profit scales too), `sellEmpire` resets the run and keeps settings, tutorial,
+        collection, stats, clock and RNG; run timer; save repair. Sim: offered at 3h28m (active) / 4h20m (relaxed);
+        a second empire with x1.24 opens the paint shop at 1h19m instead of 1h35m.
+  - [ ] P1.3b Sell Empire UI: a "Sell Empire" row on the city map once offered (glowing per `sellEmpireGlows`), a
+        preview modal (what you keep, what resets, +points, the new income multiplier, the run time), confirm, a
+        celebration and Grandpa Joe's line, a Legacy badge in the HUD/settings with the multiplier, e2e. Shown prices
+        already include the multiplier (it is applied where values are made).
+  - [ ] P1.3c Legacy tree: spend points on Mechanic, Dealer and Racer branches (design the nodes in GDD first; spent
+        points keep their +2%).
+  - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
+- [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
+      passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano

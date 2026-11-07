@@ -324,3 +324,28 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **`page.isHidden` is false for our `.hidden` buttons.** They fade with `opacity: 0` (for the transition), which
   Playwright still counts as visible. Check `classList.contains('hidden')` for those. Also read a value shown only
   after an animation (the FOR SALE tag after the drive-in) with a wait on its visibility, not a fixed 300 ms.
+
+
+## 2026-11-07 (run 19)
+
+- **A unit test's "screen" must use the scene's real insets, not a guess.** The paint-art tests assumed the space below
+  the car ends 264 px above the bottom; the scene's `insets().bottom` is the panel's height **plus 64 px of hint room**,
+  and on the e2e's 375x560 phone the panel was 223 px, so the real space was 23 px shorter. The geometry passed in
+  Vitest while the screenshot showed the sign gone. Fix: test the layout function with the inset the e2e logs
+  (`boothStage(375, 60, 560 - 287)`), and expose layout facts (`sign`, `carW`, ticket box) in `debugView` so the e2e
+  asserts them instead of me squinting at a screenshot.
+- **Pull a layout rule out of the scene before fixing it.** `boothStage` (where the car, roof and ticket sit) and
+  `speechBox` (where the bubble goes) are pure functions used by both the scene and the tests; a mutation run (bubble
+  always above the head, no extra overlap) broke 23 and 2 tests, so the tests really guard the rules.
+- **Assert the set of lines, not one line.** A line picked by job id changes when the e2e's job ids shift; the first
+  run failed only because I expected "The full works, please!" and got "Make it a show car!".
+- **Apply a global multiplier where values are made, not where cash is paid.** Prestige's +2%/point goes into car
+  values, fees, prices and the idle formulas (12 call sites), so every price the UI shows is already right and the
+  lot's profit (sale minus auction price) scales with both. Paying it at credit time would have left the tickets,
+  stickers and offline estimates wrong. A test with 50 points checks every business doubles; a mutation (auction
+  price without it) fails it.
+- **Avoid import cycles by putting the type with the state.** `legacy.ts` needs `newGame`, and `state.ts` needs the
+  Legacy default; the type and `newLegacy` live in `state.ts` and `legacy.ts` re-exports them.
+- **One e2e flake this run: the lot's FOR SALE tag took over 3 s to show after a car was injected** (passed on the
+  re-run with the same build). Waits on animated scene state get 6 s now; if it flakes again, log `arriving`, `bigId`
+  and the texture key in the failure message instead of re-running blind.

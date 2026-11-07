@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.19.0 - 2026-11-07 (run 19)
+
+- **Paint shop customers speak (P1.2g):** as the customer steps out of their car they say what they want in a speech
+  bubble ("Make it pop!", "Bling it up!", "Stripes! Lots of stripes!", "Make it roar!", or "The full works, please!"
+  for a three-service order). The tip clock is already running, so the bubble is laid out beside the order ticket,
+  never on top of it.
+- **Short phones:** on screens about 560 px tall the car stands lower and is drawn a little smaller, so the purple
+  "PAINT & TUNING" sign keeps its lettering and the ticket no longer touches the booth row with two or more booths.
+- **Prestige core (P1.3a, no button yet):** Legacy Points from the square root of everything you have ever earned,
+  +2% to all income per point, and the rules for selling the empire (what resets, what you keep). The button and the
+  preview screen come next (P1.3b). Old saves start with no points.
+- Tests: 13 prestige unit tests (points, offer and glow rules, the sale, a second sale, the multiplier in every
+  business, saves and repair) and a 7-hour sim of a first and second empire.
+- Tests: speech-bubble and stage geometry unit-tested on 7 screen sizes (bubble never covers the ticket, stays on
+  screen, tail at the head; ticket clears the booth row with room for the sign; the customer stands above the panel);
+  e2e checks the bubble on the iPhone and on a 375x560 phone with two booths (new screenshot e2e-20f).
+
 ## 0.18.0 - 2026-11-07 (run 18)
 
 - **Lot cars through the paint shop (P1.2f):** once Paint & Tuning is open, a refurbished car on the Used Car Lot shows

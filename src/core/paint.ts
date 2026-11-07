@@ -9,6 +9,7 @@ import { carlotOpen, ensureLotFocus, findLotCar, lotCarHere, lotCarReady } from 
 import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { GameState, LotCar, PaintJob } from './state';
+import { legacyMultiplier } from './legacy';
 
 export type PaintEvent =
   | { type: 'paintArrived'; job: PaintJob }
@@ -126,7 +127,7 @@ export function generatePaintJob(state: GameState): PaintJob {
     services,
     step: 0,
     work: ECON.paint.services[services[0]!].work,
-    fee: paintFee(family, services, p.levels.hype),
+    fee: Math.round(paintFee(family, services, p.levels.hype) * legacyMultiplier(state)),
     age: 0,
   };
 }
@@ -191,7 +192,7 @@ export function lotCarService(car: { family: CarFamily }): PaintService {
 
 /** What the service adds to the car's sticker price at today's Hype level. */
 export function lotTuneValue(state: GameState, car: { family: CarFamily }): number {
-  return Math.round(paintFee(car.family, [lotCarService(car)], state.paint.levels.hype) * ECON.paint.lotCars.valueMult);
+  return Math.round(paintFee(car.family, [lotCarService(car)], state.paint.levels.hype) * legacyMultiplier(state) * ECON.paint.lotCars.valueMult);
 }
 
 export type LotSendBlock = 'closed' | 'missing' | 'notReady' | 'tuned' | 'away' | 'haggling' | 'boothsFull';
@@ -338,7 +339,7 @@ export function paintIdleIncome(state: GameState): number {
   const workTime = o.work / painterRate(state);
   const arrival = ECON.paint.arrivalInterval;
   const cycle = state.paint.booths > 1 ? Math.max(workTime, arrival) : workTime + arrival;
-  return o.fee / cycle;
+  return (o.fee * legacyMultiplier(state)) / cycle;
 }
 
 /** Offline shop earnings for a gap of `seconds`, using the same cap and efficiency as the yard. */

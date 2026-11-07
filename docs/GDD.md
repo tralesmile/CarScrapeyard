@@ -131,6 +131,12 @@ to automate it, open new car businesses, then sell your empire and start again i
   service). Finish an order yourself within 3 s per service of the car arriving and the customer tips +25%, so active
   play pays and the Painter (idle and offline) never tips. Upgrades: Spray Booth (speed, x2 at milestones), Hype
   (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths).
+  **Customer speech (P1.2g):** as the customer steps out they say what they want in a speech bubble, by the first
+  service ordered ("Make it pop!", "Bling it up!", "Stripes! Lots of stripes!", "Make it roar!") or "The full works,
+  please!" for three services. The tip clock is already running, so the bubble never covers the order ticket: above
+  the customer's head when there is room, else right of the ticket, else beside the customer under the ticket with
+  the tail pointing at them. On short phones the car stands lower (and on a 560 px phone it is drawn a little smaller)
+  so the sign keeps its lettering between the booth row and the ticket.
   **Lot cars through the shop (P1.2f):** on the lot, a refurbished car shows a purple Tune button beside Sell (e.g.
   "⚙️ Tune +$180K"), once Paint & Tuning is open. It takes a free booth (greyed "Booths busy" otherwise) for one service
   that suits it: respray for sedans and vans, rims for hatches, pickups and SUVs, a wrap for sports cars, an engine
@@ -178,3 +184,19 @@ to automate it, open new car businesses, then sell your empire and start again i
 - First 5 cars are always Common so the tutorial pacing is predictable.
 - UI is DOM over the Phaser canvas (crisp text, accessibility, translation).
 - Phaser 3.90 for now (stable, well known); Phaser 4 upgrade is a later decision.
+
+## Prestige: Sell Empire (P1.3)
+
+- **Legacy Points** come from everything you have ever earned, sold empires included: `floor(sqrt(all-time / $5M))`.
+  Selling adds the difference to what you already own, so each restart rewards more play with diminishing returns.
+  Each point adds **+2% to all income forever** (every car value, fee, price, reward and idle/offline rate). Points
+  spent in the Legacy tree (P1.3c) keep their +2%.
+- The **Sell Empire** button appears once a sale would give at least 10 points and glows when the new points are at
+  least half of the points you own.
+- **Resets:** cash, upgrades, crew, lot slots, cars, parts, contracts, the barn, every business (back to the scrapyard).
+  **Kept:** Legacy Points, settings, tutorial progress, the collection book, lifetime stats. Offline cash still
+  waiting is paid in first and counts toward the points.
+- Pacing (sim, P1.3a): the always-tapping bot is offered the first sale at 3h28m (after Paint & Tuning opens at
+  1h35m), the relaxed bot at 4h20m; the plan's target for a casual player is day 2-3. With x1.24 the second empire opens
+  the Used Car Lot at 39m (was 45m) and Paint & Tuning at 1h19m (was 1h35m).
+

@@ -263,3 +263,18 @@ Bots are faster than first-time humans (no reading, perfect swipes), so bot time
 Cosmetic only (no income effect): `ECON.businesses.tiers` gives the size for tier 2 and 3. Scrapyard: lot slots 3 / 4
 (slot 3 costs $150K, slot 4 $900K, so tier 2 lands around the garage opening and tier 3 later in the first hour).
 Garage: repair bays 2 / 3. Shown as stars on the map so buying slots and bays has a visible reward on the map too.
+
+## Prestige (P1.3a)
+
+| Item | Value |
+| --- | --- |
+| Legacy Points (total) | `floor(sqrt(all-time earnings / $5M))`; 10 points at $500M, 20 at $2B |
+| Sale offered | new points >= 10; glows when new points >= 50% of owned points |
+| Income bonus | `1 + 0.02 x points`, applied where values are made: yard car value, Scrapper scrap cash, contract rewards, barn sale value, garage fees, paint fees and lot tune stickers, lot auction **and** list prices (so lot profit scales by the same factor), and every idle/offline rate |
+| Kept on a sale | points, settings, tutorial, collection, stats, clock, RNG |
+
+Run 19 sim (`Sell Empire` in balance.test.ts): active bot offered the sale at 3h28m, relaxed at 4h20m (7 h: $2.44B and
+$1.75B lifetime). After selling at 12 points (x1.24) the same bot opens the garage 13m02s (13m27s), lot 39m32s
+(45m39s) and paint 1h19m (1h35m); its next sale (10 more points, $2B in total) comes at 4h43m. The tree (P1.3c) and
+city 2 (P1.3d) should make later runs faster; check the second-run time again then.
+

@@ -8,6 +8,7 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
+import { legacyMultiplier } from './legacy';
 
 export type CarLotEvent =
   | { type: 'lotListed'; lot: AuctionLot; index: number }
@@ -68,7 +69,7 @@ export function baseRetail(family: CarFamily): number {
 
 /** What a buyer pays for a refurbished car today (list price, before haggling); a paint shop service adds its value. */
 export function listPrice(state: GameState, car: { family: CarFamily; tuneValue?: number }): number {
-  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) + (car.tuneValue ?? 0));
+  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) * legacyMultiplier(state) + (car.tuneValue ?? 0));
 }
 
 export function auctionPrice(family: CarFamily, condition: Condition): number {
@@ -119,7 +120,7 @@ export function generateLot(state: GameState): AuctionLot {
     model: pick(state, MODEL_NAMES[family]),
     paint: pick(state, PAINTS),
     condition,
-    price: auctionPrice(family, condition),
+    price: Math.max(1, Math.round(auctionPrice(family, condition) * legacyMultiplier(state))),
     timeLeft: ECON.carlot.lotSeconds,
   };
 }
@@ -422,7 +423,7 @@ export function carlotIdleIncome(state: GameState): number {
   const l = state.carlot;
   if (!carlotOpen(state) || !l.crew.detailer || !l.crew.agent) return 0;
   const avg = conditionAverages();
-  const retail = averageRetail(state);
+  const retail = averageRetail(state) * legacyMultiplier(state);
   const profit = retail * (showroomMultiplier(l.levels.showroom) * averageBuyerMultiplier(state) - avg.priceFrac);
   const workTime = avg.work / detailerRate(state);
   const cycle = l.spots > 1 ? Math.max(workTime, ECON.carlot.buyerInterval) : workTime + ECON.carlot.buyerInterval;

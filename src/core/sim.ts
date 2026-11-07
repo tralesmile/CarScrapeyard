@@ -37,6 +37,7 @@ import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './ba
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
 import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
+import { legacyMultiplier } from './legacy';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -89,7 +90,7 @@ export function generateCar(state: GameState): Car {
   const rolled = weighted(state, weights);
   const rarity = state.nextCarId <= ECON.tutorialCommonCars ? 'common' : rolled;
   const spread = 1 + ECON.valueSpread * (2 * nextRandom(state) - 1);
-  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread));
+  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * legacyMultiplier(state)));
   const car: Car = {
     id: state.nextCarId++,
     family,
@@ -160,6 +161,7 @@ export function canCrush(state: GameState, car: Car | undefined): car is Car {
 
 function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
+  state.legacy.runSeconds += dt;
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
@@ -392,7 +394,7 @@ export function offlineScrapper(state: GameState, seconds: number): { crushes: n
   const need = Math.max(0, scrapperTarget(state) - state.parts);
   const crushes = Math.min(maxCrushes, Math.ceil(need / per));
   if (crushes <= 0) return none;
-  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * c.scrapFraction);
+  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * legacyMultiplier(state) * c.scrapFraction);
   return { crushes, parts: crushes * per, cash };
 }
 
