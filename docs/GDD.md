@@ -241,5 +241,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   Its businesses have city names on the map, in the list, in the drive wipe and on the scene signs: **Salvage Yard,
   Midtown Garage, Auto Mall, Neon Customs** (`ECON.cities.list.*.names`, each at most as long as "Paint & Tuning" so
   the signs keep their lettering). The 🗺 button carries the city's icon on its corner and is labelled "Motor City
-  map". Still to come: a steel-blue / neon palette for the scenes (P1.3d3). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
+  map". **Motor City yard (run 24):** a dusk steel-blue sky with a two-row skyline instead of the hills, asphalt
+  instead of dirt and a chain-link fence (`YARD_THEMES`). Still to come: the garage, lot and paint shop in city colours
+  (P1.3d3b) and a night-time neon variant (P1.3d3c). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 

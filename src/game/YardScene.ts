@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { currentCity } from '../core/cities';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
 import { barnHasAction } from '../core/barn';
@@ -350,7 +351,7 @@ export class YardScene extends Phaser.Scene {
     if (this.textures.exists('backdrop')) this.textures.remove('backdrop');
     const tex = this.textures.createCanvas('backdrop', W, H);
     if (!tex) return;
-    paintBackdrop(tex.getContext(), { w: W, h: H, horizon, s: this.dpr, bay });
+    paintBackdrop(tex.getContext(), { w: W, h: H, horizon, s: this.dpr, bay, city: currentCity(this.bridge.state) });
     tex.refresh();
     this.bg.setTexture('backdrop').setOrigin(0, 0).setPosition(0, 0).setVisible(true);
   }

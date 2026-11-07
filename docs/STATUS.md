@@ -142,6 +142,12 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
           map, list, drive wipe, toasts and the garage / lot / paint scene signs; the 🗺 button is labelled with the
           city and wears its icon outside Rust Valley. e2e: map, names, button and the Midtown Garage (e2e-22d).
     - [ ] P1.3d3 Motor City art: a city palette (steel blue by day / night-time neon backdrop variants for each scene).
+      - [x] P1.3d3a Yard (run 24): `YARD_THEMES` per city in backdropArt.ts; Motor City paints a dusk steel-blue sky, a
+            two-row skyline (`skylineTowers`, lit windows, antenna light) instead of hills, asphalt instead of dirt and a
+            chain-link fence. Unit-tested on 4 screens; e2e samples the backdrop's ground colour in both cities.
+      - [ ] P1.3d3b Garage, lot and paint shop in Motor City colours (theme objects like `YARD_THEMES`, e.g. a
+            steel-blue garage wall, a city skyline behind the lot's showroom, cooler booth panels).
+      - [ ] P1.3d3c Night-time neon variant (maybe tied to the real clock; check readability of signs and text first).
     - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
           first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule

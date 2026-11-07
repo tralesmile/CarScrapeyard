@@ -96,6 +96,11 @@ async function waitForServer(url, ms = 15000) {
     assert(art14h.aa, 'textures use smooth (linear) filtering, not pixel-art mode');
     assert(art14h.mip, 'bay car texture is mipmapped (trilinear)');
     assert(art14h.backdrop === 'backdrop' && art14h.canvas && art14h.full, 'backdrop is one Canvas 2D texture the size of the game');
+    const rvGround = await page.evaluate(() => {
+      const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+      return Array.from(img.getContext('2d').getImageData(4, img.height - 4, 1, 1).data.slice(0, 3));
+    });
+    assert(rvGround[0] > rvGround[2], `the Rust Valley yard is warm dirt (ground rgb ${rvGround.join(',')})`);
 
     console.log('wash by swiping');
     await page.mouse.move(geo.x - geo.w * 0.35, geo.y);
@@ -1574,6 +1579,16 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
       const mcs = await mp.evaluate(() => ({ city: window.__jye.state.legacy.city, pts: window.__jye.state.legacy.points, car: window.__jye.state.cars[0].value }));
       assert(mcs.city === 'motorCity' && mcs.pts === 22, `Motor City survives the reload (${JSON.stringify(mcs)})`);
+      // P1.3d3: the yard is painted in Motor City's colours: asphalt (blue over red) and a skyline in the sky.
+      await mp.waitForTimeout(600);
+      const mYard = await mp.evaluate(() => {
+        const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+        const ctx = img.getContext('2d');
+        const px = (x, y) => Array.from(ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3));
+        return { ground: px(4, img.height - 4), w: img.width, h: img.height };
+      });
+      assert(mYard.ground[2] > mYard.ground[0], `the Motor City yard is asphalt, not dirt (ground rgb ${mYard.ground.join(',')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b2-motor-city-yard.png') });
       // Prices are x5: the Wash Bay's first level costs $750 instead of $150.
       await mp.click('.tab:nth-child(1)');
       const washBtn = await mp.textContent('.cards .card:first-child .buy');

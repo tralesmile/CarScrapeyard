@@ -7,9 +7,13 @@
   businesses have city names on the map, in the list, in the drive wipe, in toasts and on the scene signs: **Salvage
   Yard, Midtown Garage, Auto Mall, Neon Customs**. The 🗺 button is labelled with the city and wears a small 🏙️ outside
   Rust Valley.
+- **Motor City yard (P1.3d3a):** in Motor City the scrapyard sits under a dusk steel-blue sky with a two-row skyline
+  (lit windows, a red antenna light) where Rust Valley has hills, on asphalt instead of dirt, behind a chain-link fence.
 - Tests: 4 new unit tests (Motor City ground and plots, rooftops kept off plots and roads, city names everywhere and
   back to the defaults after a save repair, every name short enough for the signs and map labels); e2e checks the
-  Motor City map, its list names, the map button and the drive to the Midtown Garage (e2e-22d).
+  Motor City map, its list names, the map button and the drive to the Midtown Garage (e2e-22d). 5 more for the
+  skyline (covers the width in two layered rows, leaves sky above, on 4 screens) and the yard themes; e2e samples the
+  yard's ground colour in both cities (e2e-22b2).
 
 ## 0.23.0 - 2026-11-07 (run 23)
 

@@ -436,3 +436,19 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   meant the Painter paid its fee 2 minutes later, inside the "Skip haggling" check (cash delta must equal the car's
   value). That check already turned off every other earner; the Painter is now off too, and the assertion prints the
   numbers. When a test asserts an exact cash delta, list every earner the earlier sections left running.
+
+## 2026-11-07 (run 24)
+
+- **Render Canvas 2D art in isolation with rolldown, not the 17-minute e2e.** There is no esbuild binary in
+  node_modules (Vite here bundles with rolldown), so `node_modules/.bin/rolldown entry.ts --file out.js --format iife`
+  plus a 6-line Playwright page that adds the script and screenshots it shows a backdrop in under 10 seconds, for
+  several cities and phone sizes side by side. The first look at the Motor City yard came from this, before any e2e.
+- **A "covers the whole width" loop can stop one gap short.** `while (x < w) { push; x += width + gap }` left the last
+  tower ending 0.3 px before the right edge at 1440 px (the gap pushed x past w). A unit test asserting the row reaches
+  `w` on four screen sizes caught it; the fix stretches the last tower to the edge.
+- **Commit a green slice before starting the next one in the same tree.** I edited the yard art while the check for the
+  map was running, so that green run covered only the map files. Staging just those files for the first commit kept
+  "never commit unchecked code" true; the yard got its own full check before its commit.
+- **Put player-facing names behind one helper as soon as a second value exists.** Three scenes read their sign from
+  `ECON.businesses.list.x.name` directly; adding `businessName(state, id)` and grepping for `.name.toUpperCase()` and
+  hard-coded "Paint & Tuning" strings found every place a city name must show (signs, toasts, the lot's label).
