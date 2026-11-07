@@ -17,7 +17,9 @@ import {
   managerRate,
   offlineEarnings,
   repairPerTap,
+  rarityWeights,
   slotCost,
+  managerCost,
   washPerPixel,
 } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
@@ -36,6 +38,10 @@ import type { BuyerKind } from './config';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
+import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
+import { incomeMultiplier } from './legacy';
+import { cityScale } from './cities';
+import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
@@ -63,7 +69,8 @@ export type GameEvent =
   | BuyerEvent
   | BarnEvent
   | GarageEvent
-  | CarLotEvent;
+  | CarLotEvent
+  | PaintEvent;
 
 /** Largest step the simulation takes at once; longer gaps are split. */
 const MAX_STEP = 0.25;
@@ -81,13 +88,10 @@ export function carStage(car: Car): 'dirty' | 'damaged' | 'ready' {
 
 export function generateCar(state: GameState): Car {
   const family = weighted(state, familyWeights(state.carsSold));
-  const weights = Object.fromEntries(
-    Object.entries(ECON.rarity).map(([k, v]) => [k, v.weight]),
-  ) as Record<keyof typeof ECON.rarity, number>;
-  const rolled = weighted(state, weights);
+  const rolled = weighted(state, rarityWeights(rarePerk(state)));
   const rarity = state.nextCarId <= ECON.tutorialCommonCars ? 'common' : rolled;
   const spread = 1 + ECON.valueSpread * (2 * nextRandom(state) - 1);
-  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread));
+  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state)));
   const car: Car = {
     id: state.nextCarId++,
     family,
@@ -158,12 +162,14 @@ export function canCrush(state: GameState, car: Car | undefined): car is Car {
 
 function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
+  state.legacy.runSeconds += dt;
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
   tickBarn(state, dt, events);
   tickGarage(state, dt, events);
   tickCarLot(state, dt, events);
+  tickPaint(state, dt, events);
 
   // Arrivals.
   if (state.cars.length < state.slots) {
@@ -212,7 +218,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
     const car = state.cars.find((c) => carStage(c) === 'ready');
     if (car) {
       car.sellProgress += dt;
-      if (car.sellProgress >= ECON.sellerDelay) sellInternal(state, car, true, events);
+      if (car.sellProgress >= sellerDelay(state)) sellInternal(state, car, true, events);
     }
   }
 }
@@ -277,7 +283,7 @@ export function holdForHaggle(state: GameState, id: number): void {
 }
 
 function crushInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[]): void {
-  const parts = crushParts(car.rarity, state.levels.press);
+  const parts = crushParts(car.rarity, state.levels.press, partsPerk(state));
   const cash = Math.floor(car.value * ECON.crusher.scrapFraction);
   state.cars = state.cars.filter((c) => c.id !== car.id);
   state.parts += parts;
@@ -329,7 +335,7 @@ export function rerollContract(state: GameState, id: number): GameEvent[] {
 }
 
 export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 'max' = 1): boolean {
-  const { levels, cost } = bulkCost(kind, state.levels[kind], count, state.cash);
+  const { levels, cost } = bulkCost(kind, state.levels[kind], count, state.cash, cityScale(state));
   if (levels === 0 || cost > state.cash) return false;
   state.cash -= cost;
   state.levels[kind] += levels;
@@ -338,7 +344,7 @@ export function buyUpgrade(state: GameState, kind: UpgradeKind, count: number | 
 }
 
 export function buySlot(state: GameState): boolean {
-  const cost = slotCost(state.slots);
+  const cost = slotCost(state.slots, cityScale(state));
   if (cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.slots += 1;
@@ -346,7 +352,7 @@ export function buySlot(state: GameState): boolean {
 }
 
 export function hireManager(state: GameState, kind: ManagerKind): boolean {
-  const cost = ECON.managers[kind].cost;
+  const cost = managerCost(state, kind);
   if (state.managers[kind] || cost > state.cash) return false;
   state.cash -= cost;
   state.managers[kind] = true;
@@ -370,6 +376,8 @@ export interface ElapsedResult {
   garage: number;
   /** Part of `earned` that came from the Used Car Lot's crew. */
   carlot: number;
+  /** Part of `earned` that came from the Paint & Tuning shop's Painter. */
+  paint: number;
 }
 
 /**
@@ -380,19 +388,19 @@ export interface ElapsedResult {
 export function offlineScrapper(state: GameState, seconds: number): { crushes: number; parts: number; cash: number } {
   const none = { crushes: 0, parts: 0, cash: 0 };
   if (!state.managers.scrapper || !crusherUnlocked(state) || idleIncomePerSecond(state) <= 0) return none;
-  const counted = Math.max(0, Math.min(seconds, ECON.offline.capSeconds)) * ECON.offline.efficiency;
+  const counted = Math.max(0, Math.min(seconds, offlineCap(state))) * ECON.offline.efficiency;
   const c = ECON.crusher;
   const maxCrushes = Math.floor(counted / (c.scrapperRest + ECON.arrivalInterval));
-  const per = crushParts('common', state.levels.press);
+  const per = crushParts('common', state.levels.press, partsPerk(state));
   const need = Math.max(0, scrapperTarget(state) - state.parts);
   const crushes = Math.min(maxCrushes, Math.ceil(need / per));
   if (crushes <= 0) return none;
-  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * c.scrapFraction);
+  const cash = crushes * Math.floor(expectedCommonValue(state.levels.quality, state.carsSold) * incomeMultiplier(state) * c.scrapFraction);
   return { crushes, parts: crushes * per, cash };
 }
 
 export function applyElapsed(state: GameState, now: number): ElapsedResult {
-  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0 };
+  if (!Number.isFinite(now) || now <= state.lastSeen) return { seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0, paint: 0 };
   const seconds = (now - state.lastSeen) / 1000;
   state.lastSeen = now;
   const scrap = offlineScrapper(state, seconds);
@@ -400,10 +408,11 @@ export function applyElapsed(state: GameState, now: number): ElapsedResult {
   state.stats.carsCrushed += scrap.crushes;
   const garage = garageOfflineEarnings(state, seconds);
   const carlot = carlotOfflineEarnings(state, seconds);
-  const earned = offlineEarnings(state, seconds) + scrap.cash + garage + carlot;
+  const paint = paintOfflineEarnings(state, seconds);
+  const earned = offlineEarnings(state, seconds) + scrap.cash + garage + carlot + paint;
   // The barn restoration keeps going while you're away (one stage at most).
-  tickBarn(state, Math.min(seconds, ECON.offline.capSeconds), []);
-  return { seconds, earned, parts: scrap.parts, garage, carlot };
+  tickBarn(state, Math.min(seconds, offlineCap(state)), []);
+  return { seconds, earned, parts: scrap.parts, garage, carlot, paint };
 }
 
 /** Mark the game as running at `now`. Never moves lastSeen backwards. */

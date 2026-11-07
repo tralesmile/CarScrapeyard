@@ -8,6 +8,9 @@ import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
 import { sanitizeCarLot } from './carlot';
+import { sanitizeLotShopLinks, sanitizePaint } from './paint';
+import { sanitizeLegacy } from './legacy';
+import { cityPrice } from './cities';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
@@ -103,7 +106,9 @@ const BARN_STATUS: GameState['barn']['status'][] = ['locked', 'covered', 'workin
 /** Reject values no honest game can reach. */
 function sane(state: GameState): boolean {
   if (state.cash < 0 || state.lifetimeEarnings < 0) return false;
-  if (state.cash > state.lifetimeEarnings + 1) return false;
+  // Head Start (legacy tree) hands a new empire some cash before it has earned anything (even if respecced after).
+  const gift = state.legacy.sold > 0 ? cityPrice(state, ECON.legacy.tree.headStartCash) : 0;
+  if (state.cash > state.lifetimeEarnings + gift + 1) return false;
   if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;
   return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l < 100_000);
@@ -134,6 +139,9 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);
+    sanitizePaint(state.paint);
+    sanitizeLotShopLinks(state);
+    sanitizeLegacy(state.legacy);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

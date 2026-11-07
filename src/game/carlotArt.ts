@@ -3,7 +3,7 @@
 // white bay lines, and a round display platform the car being refurbished stands on. Pure apart from the canvas
 // context; the layout helpers are unit-tested.
 
-import type { Condition } from '../core/config';
+import type { Condition, LotBuyerKind } from '../core/config';
 import { BUYER_W, OUTLINE, person } from './buyerArt';
 
 export interface LotLayout {
@@ -38,6 +38,21 @@ export const CONDITION_RUST: Record<Condition, { patches: number; dents: number 
   4: { patches: 3, dents: 1 },
   5: { patches: 1, dents: 0 },
 };
+
+/** What a walk-up buyer says while looking a car over (P1.2c): a happy line when it is their kind of car. */
+export const LOT_BUYER_LINES: Record<LotBuyerKind, { likes: readonly string[]; plain: readonly string[] }> = {
+  family: { likes: ['Room for the kids!', 'Perfect for school runs!'], plain: ['Hmm, does it fit a pram?', 'Looks tidy enough.'] },
+  collector: { likes: ['All original? Marvellous!', 'Factory paint! I must have it.'], plain: ['Hmm, a few new parts…', 'It will do, I suppose.'] },
+  speed: { likes: ['Ooh, listen to that engine!', 'How fast does it go?'], plain: ['Bit slow for me…', 'It runs, right?'] },
+  tradie: { likes: ['Plenty of room for tools!', 'She will haul a load!'], plain: ['Where do the ladders go?', 'Fair enough, mate.'] },
+  influencer: { likes: ['My followers will love this!', 'Selfie with it first!'], plain: ['Not very photogenic…', 'Hmm, filter it later.'] },
+};
+
+/** The buyer's line for this car; `bonus > 0` means they like it. Stable per car so it doesn't flicker. */
+export function lotBuyerLine(kind: LotBuyerKind, bonus: number, carId: number): string {
+  const set = bonus > 0 ? LOT_BUYER_LINES[kind].likes : LOT_BUYER_LINES[kind].plain;
+  return set[Math.abs(carId * 7) % set.length] ?? set[0]!;
+}
 
 /** "★★★☆☆" for a condition grade. */
 export function conditionStars(c: Condition): string {

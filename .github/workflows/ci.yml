@@ -1,9 +1,17 @@
 name: CI
 
+# Runs on pull requests into main and on main itself, not on every push to dev (dev gets a push every 3 hours and
+# the PR would run the same code again). A newer push cancels the older run. Saves Actions minutes on the free plan.
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:

@@ -244,3 +244,195 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   then start one clean run.
 - **Paint decorations before the sign they could cover.** The bunting hung over the "USED CAR LOT" lettering in the
   first screenshot; drawing the flags first and stringing them above the band keeps the sign readable on any height.
+
+## 2026-11-06 (run 15)
+
+- **`overflow: hidden` on a grid or flex item changes its size, not just its painting.** It drops the item's
+  automatic minimum size to 0, so the auction cards shrank to their grid row and clipped their Buy button. I only
+  wanted a stamp to stay inside the card; it didn't need clipping at all. The screenshot showed it at once, and the
+  e2e now asserts that each auction card holds its text and button. Check a screenshot after any CSS change to a card.
+- **Every cash check in the e2e must silence all businesses.** The "skip haggling pays the asking price" check
+  switched off the yard's Salesperson, the Scrapper and the garage Foreman, but not the lot's crew, so a walk-up sale
+  landed in the 200 ms window. When a new business earns on its own, search the e2e for `cash -` checks and quiet it there.
+- **Give a timed state its own field instead of reading it off a timer.** The walk-up buyer is `carlot.buyer`
+  (kind + car), set when they arrive and cleared when they pay or leave. The scene, the spot icons, the save and the
+  tests all read that one field; deriving "a buyer is looking" from `buyerTimer > 3.5` in four places would drift.
+- **Expose the UI object on the debug hook** (`__jye.ui`) so the e2e can hold a short-lived UI state (the 1.6 s
+  stamp) for its screenshot, the same "find it and hold it" rule as for scene states.
+- **Check CI on `main` before blaming the code.** PR #6 went red, but the job ended in 2 s with `runner_id 0` and no
+  logs, and the main-branch run before this run's commit had failed the same way. A job that never gets a runner is
+  an account or billing problem: re-run once to confirm, then hand it to the owner instead of changing code.
+
+
+## 2026-11-06 (run 16)
+
+- **A block-sliced sweep still clobbered another block because the anchor wasn't unique.** I sliced from `'  paint: {'`
+  to `'  barn: {'`, but that string also matched `      paint: { name: 'Paint & Tuning'` in the businesses list, so the
+  slice covered the garage and its `baseFee` became $55K (the sim's garage share jumped and the timeline went silly).
+  `git diff ... | grep '^-'` showed it at once. Anchor block slices with the newline and exact indent
+  (`'\n  paint: {\n'`), and always grep the removed lines after a sweep, before reading the sim output.
+- **Mutation-test each rule against the test meant for it.** Letting the Painter earn tips only broke the idle-income
+  test, not the tip test: the Painter was too slow to beat the deadline, so the "no tip" check passed for the wrong
+  reason. A fast Painter (booth level 200) plus an assertion that it did beat the deadline makes the tip test catch it.
+- **Compute expected values exactly when the draw is small.** The idle formula enumerates every ordered draw of 1-3
+  services by weight (a few dozen paths) instead of guessing an average; a test compares it with 4,000 generated orders.
+- **`git pull --rebase` flattens a merge of `origin/main` into `dev`.** Step 1 merged main into dev, but the rebase
+  before the push replayed only my commit and dropped the merge, so main was no longer an ancestor of dev. Check with
+  `git merge-base --is-ancestor origin/main origin/dev` after pushing; if it fails, merge main again and push without
+  rebasing (or use `git pull --rebase=merges`).
+- **Public repos get free Actions minutes.** The runner block was the private-repo minute quota; making the repo public
+  fixed it at once (the re-run went green in 25 s). Keep secrets out of the repo: it is public now.
+
+
+## 2026-11-07 (run 17)
+
+- **A green e2e can still hide the business's name.** The first Paint & Tuning run passed every assertion, but the
+  screenshot showed the order ticket sitting right on top of the "PAINT & TUNING" sign. A new overlay must be part of
+  the backdrop's layout, not drawn over it: `ticketTop()` now lives in `paintArt.ts`, the scene passes it to the
+  backdrop as the lowest point the sign may reach, and a unit test checks sign bottom <= ticket top on four screens.
+- **Then check the fix on the phone the e2e uses, not just the maths.** Moving the ticket above the sign's space left
+  only 12 px on an iPhone 13, so the band dropped its lettering (the "too small" rule). A 6 px slimmer ticket that
+  overlaps the roof 4 px more gave the sign room; only the screenshot showed the lettering had gone.
+- **Layered images + `setCrop` make a cheap "spray it on" effect.** The old car, the new-colour car cropped to the
+  service's progress, and transparent overlays (stripes, rims, flames) cost three textures per car and no per-frame
+  canvas work. A pure `serviceReveal(job)` drives all layers, so the reveal is unit-tested without Phaser, and the
+  scene exposes what it last applied (`debugView().shown`) for the e2e.
+- **Flip a "coming soon" test, don't delete it.** Making the last business `ready: true` broke the only test of the
+  "soon" rule; switching the flag off inside that test (and back in `finally`) keeps the rule covered.
+- **Old fixed waits keep flaking.** "Wait 1200 ms, then the yard shows the focused car" failed once this run: the
+  Salesperson sold a car and the drive-off (0.5 s, `bigCarId = null`) overlapped the check. Replaced with a predicate
+  wait. When a check flakes, grep the e2e for other `waitForTimeout` + assert pairs on animated state.
+
+
+## 2026-11-07 (run 18)
+
+- **Compare a bot with and without a new choice, not just "does pacing still pass".** The first valueMult (1.2) passed
+  every old pacing check because the old bots never used the feature; only an A/B run (same bot, `tuneLotCars` on vs
+  off, 180 min) showed +18% lifetime and the paint shop's own fees halved. A sweep of 0.6/0.8/1.0 in one loop then
+  showed where it stops being a free win (0.8 ~ break-even, 1.0 +8%). Bake the A/B into `npm run sim` with bounds.
+- **When two businesses share an object, repair the links after both are repaired.** A lot car marked "at the shop"
+  and the booth job pointing at it are saved in different blocks; `sanitizeLotShopLinks` runs after `sanitizeCarLot`
+  and `sanitizePaint` and fixes either side missing. A one-sided repair would strand a car off the market forever.
+- **Put mutable looks into texture keys.** The lot keyed car textures by id; a respray changes the colour, so the old
+  key would have shown the old paint forever. `lcar-<id>-<paint>` plus a prefix release on sale fixes it without
+  freeing a texture an image still uses.
+- **The e2e runs ~8 minutes; the tool call limit is 2.** Start it in the background with `&` and an EXIT marker in the
+  log, then do docs while it runs (and never rebuild meanwhile). A foreground run just times out and wastes the call.
+- **Assert UI text with the exact label you mean to ship.** "⚙️ tune" (from stripping "Engine " off the name) passed
+  typecheck and unit tests; only the e2e regex for "Tune" caught the lowercase label.
+
+- **`page.isHidden` is false for our `.hidden` buttons.** They fade with `opacity: 0` (for the transition), which
+  Playwright still counts as visible. Check `classList.contains('hidden')` for those. Also read a value shown only
+  after an animation (the FOR SALE tag after the drive-in) with a wait on its visibility, not a fixed 300 ms.
+
+
+## 2026-11-07 (run 19)
+
+- **A unit test's "screen" must use the scene's real insets, not a guess.** The paint-art tests assumed the space below
+  the car ends 264 px above the bottom; the scene's `insets().bottom` is the panel's height **plus 64 px of hint room**,
+  and on the e2e's 375x560 phone the panel was 223 px, so the real space was 23 px shorter. The geometry passed in
+  Vitest while the screenshot showed the sign gone. Fix: test the layout function with the inset the e2e logs
+  (`boothStage(375, 60, 560 - 287)`), and expose layout facts (`sign`, `carW`, ticket box) in `debugView` so the e2e
+  asserts them instead of me squinting at a screenshot.
+- **Pull a layout rule out of the scene before fixing it.** `boothStage` (where the car, roof and ticket sit) and
+  `speechBox` (where the bubble goes) are pure functions used by both the scene and the tests; a mutation run (bubble
+  always above the head, no extra overlap) broke 23 and 2 tests, so the tests really guard the rules.
+- **Assert the set of lines, not one line.** A line picked by job id changes when the e2e's job ids shift; the first
+  run failed only because I expected "The full works, please!" and got "Make it a show car!".
+- **Apply a global multiplier where values are made, not where cash is paid.** Prestige's +2%/point goes into car
+  values, fees, prices and the idle formulas (12 call sites), so every price the UI shows is already right and the
+  lot's profit (sale minus auction price) scales with both. Paying it at credit time would have left the tickets,
+  stickers and offline estimates wrong. A test with 50 points checks every business doubles; a mutation (auction
+  price without it) fails it.
+- **Avoid import cycles by putting the type with the state.** `legacy.ts` needs `newGame`, and `state.ts` needs the
+  Legacy default; the type and `newLegacy` live in `state.ts` and `legacy.ts` re-exports them.
+- **One e2e flake this run: the lot's FOR SALE tag took over 3 s to show after a car was injected** (passed on the
+  re-run with the same build). Waits on animated scene state get 6 s now; if it flakes again, log `arriving`, `bigId`
+  and the texture key in the failure message instead of re-running blind.
+
+
+## 2026-11-07 (run 20)
+
+- **A `.hidden` class needs a CSS rule for every element that uses it.** The 🗺 map button had `hidden` toggled since
+  run 10, but only `.hint.hidden`, `.sell.hidden`, ... had `display: none`; `.icon-btn` had none, so the map button
+  showed from the first second. The e2e waited for `.map-btn:not(.hidden)` (the class), so it passed. Checking
+  `getComputedStyle(e).display` in the e2e caught it at once. Assert what the player sees, not the class we set.
+- **`overflow: hidden` boxes can still be scrolled by `focus()`.** A modal's button focus slid the whole #app 83 px
+  left (it is wider than a 320 px phone because the panel head overflowed), flakily. Fixes: `overflow: clip` on #app,
+  `focus({ preventScroll: true })`, and fix the real overflow. When a screenshot looks shifted, log every element with a
+  non-zero `scrollLeft`.
+- **A media query placed before the rule it overrides does nothing.** Same specificity, later wins: my narrow-phone
+  `.tab` sizes sat above the base `.tab, .mode` rule. Put responsive overrides at the end of the stylesheet.
+- **Iterate on one feature with a scratch Playwright script, not the 8-minute e2e.** A 60-line copy of the new e2e
+  section run against `vite preview` took 15 s per try and found three layout bugs before the full run.
+- **Reset-everything features: reload instead of rebuilding scenes in place.** Selling the empire restarts car ids at
+  1 while textures are keyed by id (`car-1`), so an in-place restart would show old art. Pause the scenes, apply the
+  sale, save, show the celebration, then `location.reload()`: every scene and texture is rebuilt from the save.
+- **The e2e log is block-buffered; the failure line is not where it stopped.** `console.log` to a file buffers while
+  `console.error` doesn't, so "E2E FAILED" printed before the last few "ok" lines. Read the assertion text, not the
+  position. The full e2e took ~17 minutes this run (headless GL at ~10 fps); run the new section alone first.
+
+
+## 2026-11-07 (run 21)
+
+- **A percentage `max-height` inside a grid backdrop limits nothing.** The Legacy tree's modal had
+  `max-height: calc(100% - 8px)`, but `.modal-back` is a `display: grid` with an auto row, so 100% resolved against the
+  content and the Done button fell below a 568 px screen. `grid-template-rows: minmax(0, 1fr)` on the backdrop makes
+  the row the screen's height. The e2e checked the modal box on the first screenshot only, when it still fit: assert
+  "fits" again after the content grows (respec line, more owned rows), and include the last button in the check.
+- **Wire a cross-cutting perk through one small module of helpers.** All 12 tree effects are functions in
+  `legacyTree.ts` that return the plain ECON value when the node isn't owned (`tapPerk`, `offlineCap`, ...), and the
+  module only imports config and state types, so every business file can use it without an import cycle. Functions
+  without state (`crushParts`, `haggleMultiplier`, `tipDeadline`, `expectedCarValue`) got an optional parameter that
+  defaults to today's value, so old call sites and tests stayed valid. A mutation run (two perks returning 1) failed
+  exactly those two tests.
+- **Points bank on the sale, so a sim that "buys before selling" can't.** My first branch A/B called `buyNode` before
+  `sellEmpire` and every buy failed (0 points). Buy right after the sale; effects that only act at the next sale
+  (Head Start) need their own unit test, not the sim.
+- **A gift must not break the save's sanity checks.** Head Start gives cash before any earnings, and `sane()` rejects
+  `cash > lifetimeEarnings + 1`. Allow the gift whenever an empire has been sold (not only while the node is owned:
+  a respec right after the sale would otherwise make the save unloadable). Unit-tested with a respec.
+- **Read the sim before shipping a design number.** Rare Finds at x1.5 (the GDD draft) made Racer +19% vs +6-7% for
+  the others; x1.3 brings it to +12%. A tested probability bound must come from the config (`expectA/expectB`), not a
+  hand-typed window, or the next tweak breaks the test for the wrong reason.
+
+
+## 2026-11-07 (run 22)
+
+- **A save repair can silently undo an e2e's injected state.** My Night Shift test set `legacy.points = 40` in the save,
+  but load repair re-derives points from all-time earnings (12), so the tree was cut back and the perk vanished; the
+  test timed out waiting for a line that never came. Inject *consistent* state (points and the earnings that back them),
+  and when an injected save "does nothing", dump the loaded state first (one `console.log` found it in a minute).
+- **Run the baseline check in the background and iterate on a scratch e2e at the same time.** The full check takes
+  ~17 minutes; `nohup npm run check > log &` at the start, then build to a separate `--outDir` and serve it with
+  `vite preview --outDir` on another port, so the scratch run (1 minute, only the Legacy section) never overwrites
+  the `dist/` the baseline is testing.
+- **Writing a "what changed" note exposed a real bug.** The welcome-back popup reported the raw time away ("worked for
+  5h") although every business stops at the offline cap. Showing a perk's effect forces you to compute the number the
+  rules use (`offlineCap`), so check each existing text against the rule while you are there.
+- **Reuse keyframes only when their transforms match.** `stamp-in` and the second `pop` both carry
+  `translate(-50%, …)` for centred elements; reusing them on a row would have shifted it. Give new animations their own
+  keyframes when the element isn't centred the same way.
+
+
+
+## 2026-11-07 (run 23)
+
+- **The baseline check is worth starting first: it found a flake before my change could be blamed.** The paint shop's
+  560 px check lost its ticket because the Painter finished a "held" 3-unit order in the 700 ms resize. A hold set in a
+  `waitForFunction` only lasts until that function returns; re-apply it right before the step that needs it.
+- **To thread a new multiplier through ~60 call sites, make the parameter required.** Every cost function got a
+  required `scale` argument, so `tsc` listed each caller (UI, rules, the balance bot); an optional one would have
+  silently left the UI showing Rust Valley prices. Crew costs read straight from `ECON` became small `xxxCost(state)`
+  helpers for the same reason.
+- **A codemod that "fixes the arity" can be wrong for the sim.** My script appended `, 1` to the bot's cost calls, so in
+  Motor City the bot would have judged prices at x1. Review what an automatic fix did in the sim before trusting a
+  balance number; the invariance check (Motor City lifetime = x5 of Rust Valley ±15%) is what catches this class.
+- **`run()` in balance.test.ts mutates the state it is given.** Branching a sim (stay vs move) needs a JSON clone of the
+  state at the branch point, or the second branch starts hours later.
+- **Screenshot before the layout assertion, not after.** When "fits the screen" failed there was no picture to look at;
+  the screenshot now comes first. And a modal that slides in needs ~700 ms before its screenshot.
+- **Fixing one e2e step's state can break a later step that measures cash exactly.** Holding the paint order longer
+  meant the Painter paid its fee 2 minutes later, inside the "Skip haggling" check (cash delta must equal the car's
+  value). That check already turned off every other earner; the Painter is now off too, and the assertion prints the
+  numbers. When a test asserts an exact cash delta, list every earner the earlier sections left running.

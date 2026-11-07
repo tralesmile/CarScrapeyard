@@ -1,5 +1,154 @@
 # Changelog
 
+## 0.23.0 - 2026-11-07 (run 23)
+
+- **Motor City (P1.3d1):** the second city. From your **second** Sell Empire on, the preview asks "Where next?": stay in
+  Rust Valley or move to Motor City. Motor City runs the same four businesses with every price and every payout x5 (a
+  Wash Bay level costs $750 instead of $150, the Repair Garage unlocks at $1M, a wreck sells for five times as much),
+  so a run feels the same but the bigger dollars bring Legacy Points much faster. The first sale shows
+  "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" and Grandpa Joe has a new line;
+  the city map is titled with your city. Motor City's own map and art come next (P1.3d2/3).
+- Balance: in the sim the third empire is offered the next sale at 2h28m in Motor City, against more than 5 hours in
+  Rust Valley (x10 was tried: 1h51m and 51 points waiting, too generous).
+- Fix (e2e flake): the short-phone paint shop check could lose its order ticket when the Painter finished the order
+  during the resize.
+- Tests: 8 new unit tests (`cities.test.ts`: unlock and picking rules, every price and every value x scale, Head Start
+  and the save allowance, save repair, preview texts), a Motor City balance run, and e2e: the picker on an iPhone SE,
+  picking both cities, the celebration line, the reload into Motor City, x5 prices and the map title (e2e-22a to 22c).
+
+## 0.22.0 - 2026-11-07 (run 22)
+
+- **Legacy perks show where they act (P1.3e):** owned Legacy tree upgrades appear as small gold chips on the screens
+  they change: "👐 +25% taps" and "💎 rares x1.3" above the Upgrades cards, "👷 crew +30%" on the Crew tabs,
+  "🔨 auctions −10%" on the auction board, a "🗣️ zone +30%" badge on the haggle slider, "🏢 opening −25%" on the city
+  map's open line and "🌙 4h cap" in the welcome-back popup.
+- **Node-bought animation:** buying a Legacy node pops its row with a gold glow, stamps "✓ Owned", floats "−3 🏛" up and
+  pulses the free-points header (a static highlight with Reduce motion).
+- **Fix:** the welcome-back popup said "Your crew kept working for 5h" even though crews stop at the offline cap (2 h,
+  4 h with Night Shift). It now shows the time actually worked and adds "You were away 5h 0m; crews work up to 2h 0m
+  while you're gone."
+- Tests: 7 new unit tests (labels from the config, chips per tab, every perk named on some screen, the Franchise map
+  line, the away-time lines with and without Night Shift); e2e buys a node and checks the animation, the Upgrades chip
+  row on an iPhone SE, the Night Shift welcome-back after 3 hours away and the Silver Tongue haggle badge
+  (screenshots e2e-21g to e2e-21j).
+
+## 0.21.0 - 2026-11-07 (run 21)
+
+- **Legacy tree (P1.3c):** tap the gold 🏛 Legacy chip to spend Legacy Points on three branches of four upgrades,
+  bought in order. **Mechanic:** Quick Hands (+25% tap work everywhere), Head Start (new empires start with $5K and the
+  Mechanic), Parts Hoarder (+50% crusher parts), Master Crew (all crew 30% faster). **Dealer:** Silver Tongue (wider
+  PERFECT haggle zone, drawn on the slider), Regulars (buyers 25% more often), Insider (auctions 10% cheaper),
+  Franchise (businesses 25% cheaper to open). **Racer:** Quick Tips (+1 s per service on the paint tip), Rare Finds
+  (rarer cars x1.3 as often), Barn Scout (barn finds twice as often, stages 20% faster), Night Shift (offline cap
+  +2 h). Costs 2/3/5/8 points per branch. Spending never lowers your income bonus: spent points keep their +2%.
+  One free respec per empire. A red dot on the chip and the branch tabs shows when something is affordable.
+- Balance: every branch makes the second empire faster (+6% to +12% earnings at 4 hours with the first 10 points);
+  Rare Finds was cut from x1.5 to x1.3 so the Racer branch doesn't dominate.
+- Tests: 17 unit tests for the tree (buying in order, costs, respec once per empire, save repair and round trip, each
+  of the 12 effects in the rules that use it, Head Start saves loading), 3 for the tree screen texts, a branch A/B in
+  the balance sim; e2e opens the tree on a 320 px iPhone SE, checks it fits, buys nodes, respecs and reloads
+  (screenshots e2e-21e/f).
+
+## 0.20.0 - 2026-11-07 (run 20)
+
+- **Sell Empire (P1.3b):** once selling would give 10 or more Legacy Points, an "EMPIRE FOR SALE!" banner shows and
+  the city map gets a gold, glowing "🏛 Sell Empire" row ("+12 Legacy Points · income x1.00 → x1.24"). Its preview
+  shows the points, the new income multiplier, what you keep (Legacy Points, the Collection book, stats and settings),
+  what starts over (cash, upgrades, crew, every business and car, parts, jobs, the barn) and how long this empire took.
+  Confirming plays a confetti celebration with a line from Grandpa Joe, then a fresh scrapyard starts.
+- A gold **Legacy chip** ("🏛 x1.24") sits in the top bar once you own points; tap it for your points, the fastest
+  empire and how much more you need to earn for the next sale. After a sale the map shows that goal too.
+- **Fixes:** the 🗺 map button no longer shows before 30 sales (it was always drawn; only its dot was hidden). On
+  320 px-wide phones the panel's tabs and x1/x10/Max buttons fit again, and opening a popup no longer slides the whole
+  game sideways.
+- Tests: 10 unit tests for the Sell Empire texts (row threshold, offline cash counts, glow, preview, badge, next-sale
+  line, save round trip, old saves); e2e plays a full sale on an iPhone SE (banner, map dot, map row, preview fits the
+  screen, "Not yet", the sale, celebration, reload into the new empire, HUD chip fits, chip info), screenshots e2e-21a-d.
+
+## 0.19.0 - 2026-11-07 (run 19)
+
+- **Paint shop customers speak (P1.2g):** as the customer steps out of their car they say what they want in a speech
+  bubble ("Make it pop!", "Bling it up!", "Stripes! Lots of stripes!", "Make it roar!", or "The full works, please!"
+  for a three-service order). The tip clock is already running, so the bubble is laid out beside the order ticket,
+  never on top of it.
+- **Short phones:** on screens about 560 px tall the car stands lower and is drawn a little smaller, so the purple
+  "PAINT & TUNING" sign keeps its lettering and the ticket no longer touches the booth row with two or more booths.
+- **Prestige core (P1.3a, no button yet):** Legacy Points from the square root of everything you have ever earned,
+  +2% to all income per point, and the rules for selling the empire (what resets, what you keep). The button and the
+  preview screen come next (P1.3b). Old saves start with no points.
+- Tests: 13 prestige unit tests (points, offer and glow rules, the sale, a second sale, the multiplier in every
+  business, saves and repair) and a 7-hour sim of a first and second empire.
+- Tests: speech-bubble and stage geometry unit-tested on 7 screen sizes (bubble never covers the ticket, stays on
+  screen, tail at the head; ticket clears the booth row with room for the sign; the customer stands above the panel);
+  e2e checks the bubble on the iPhone and on a 375x560 phone with two booths (new screenshot e2e-20f).
+
+## 0.18.0 - 2026-11-07 (run 18)
+
+- **Lot cars through the paint shop (P1.2f):** once Paint & Tuning is open, a refurbished car on the Used Car Lot shows
+  a purple Tune button beside Sell ("⚙️ Tune +$151K"). It drives to a free booth for one service that suits it (respray
+  for sedans and vans, rims for hatches, pickups and SUVs, a wrap for sports cars, an engine tune for muscle cars and
+  hypercars). In the shop it has no customer and its ticket reads "🏷️ +$151K sticker"; tap it or let the Painter.
+  It comes back with the service on its FOR SALE tag and a higher price (a respray or wrap in the new colour). While
+  it's away its thumbnail fades ("At the shop"), walk-up buyers pick another car and it can't be sold. Once per car.
+- Balance: the sticker bonus is the shop's fee for that service (with Hype) x 1.0. An active bot that sends a lot car
+  into every free booth ends 3 hours with +8% lifetime earnings (0.8 gave +3%, 0.6 lost money), so it's a choice
+  between tipped customers and a fatter sticker.
+- Saves: lot cars and booth jobs that point at each other are repaired on load (a car marked away without its job
+  comes back; a lot job without its car goes).
+- Tests: 8 new unit tests (when a car can go, the booth it takes, the sticker it gets back, respray colour, the Painter,
+  walk-up buyers leaving it alone, save round-trip and repair, old saves), a 180-minute sim comparing bots with and
+  without tuning, and an e2e section (Tune button beside Sell, send, the shop's lot ticket with no customer, back on
+  the lot with the higher tag, no shop charge).
+
+## 0.17.0 - 2026-11-07 (run 17)
+
+- **Paint & Tuning is open for business (P1.2e), business 4:** earn $50M in total, open it on the map for $25M and
+  tap "Go". A spray booth with a purple sign, fans, paint cans and a floor grate. Customers drive in with an order
+  ticket on the roof: an icon per service, the current one ringed, a progress bar and a "⚡ +$30K tip · 8s" timer.
+  Tap the car: a respray or wrap sweeps the new colour across the car with coloured mist, custom rims (black and
+  gold, red calipers) fade in, an engine tune adds a flame decal and shoots fire from a chrome exhaust. "✓ Respray"
+  floats up after each service; the finished car drives off with coins and a gold "Quick tip" when you were fast.
+- Shop and Crew tabs (Spray Booth, Hype, Extra Booth; the Painter in white overalls with a spray gun, who works on his
+  own and offline), booth thumbnails for 2-3 booths, tap hints for the first orders, a first-tip toast, a welcome-back
+  line ("🎨 The Painter finished paint and tuning orders"), "Back to the paint shop" on the map, and map art that grows
+  with booths (a second door with a fresh car at 2, a neon spray can on the roof at 3).
+- Sound: a spray-gun hiss and an engine rev.
+- Tests: 10 new unit tests (booth layout on 4 screen sizes with the sign above the ticket, service reveal per layer,
+  reveal never goes backwards over a real order, wrap stripe contrast, exhaust spot on every car, map tier art), and an
+  e2e section (open and go, tabs, a three-service order tapped through with every layer checked, the tip paid,
+  upgrades, booth 2, the Painter finishing an order alone, reload, map tier, offline line).
+
+## 0.16.0 - 2026-11-06 (run 16)
+
+- **Paint & Tuning rules (P1.2d), business 4:** customers bring an order of one to three services (Respray, Custom
+  rims, Vinyl wrap, Engine tune) that the booth works through in order. Bigger orders pay a combo bonus (+15% per extra
+  service), and finishing an order yourself quickly (3 s per service) earns a +25% tip. Upgrades: Spray Booth (speed),
+  Hype (fees), up to 3 paint booths; the Painter works on his own and while you're away. The shop stays "coming soon"
+  on the map until its scene arrives in the next update.
+- CI: GitHub Actions runs only on pull requests into `main` and on `main`, cancelling superseded runs (saves free
+  minutes; every change is still fully checked locally before each push).
+- Balance: fees tuned with a new 3-hour bot run (an active player opens the shop at about 1h35m; it makes 41% of all
+  earnings by 3 h, the lot still 20%).
+- Tests: 18 new unit tests (orders, combo fee, step-by-step work, tips only for quick hand-finished orders, upgrades,
+  booths, Painter, exact expected order vs 4,000 real ones, idle vs real income, offline, map tiers, saves and repair),
+  and a 180-minute pacing check in the balance simulator.
+
+## 0.15.0 - 2026-11-06 (run 15)
+
+- **Auction feel (P1.2c):** every auction card counts down its bid ("⏱ 32s"), says "🔨 Going… 5s" with a red,
+  pulsing timer in the last 8 seconds, and gets a rubber stamp when it goes: a red "SOLD!" when another bidder wins it,
+  a green "YOURS!" (or "AGENT WON!") with a gavel knock when you buy it. A soft "aww" plays when you miss a lot.
+- **Walk-up buyers with personalities:** Family, Collector, Speed Freak, Tradie and Influencer buyers now visit the lot.
+  Each walks up to a car, leans in to look it over, says what they think ("All original? Marvellous!", "Plenty of room
+  for tools!") and pays a bonus for the cars they like: the Collector +30% for cars you bought in Good or Mint
+  condition, the Influencer +40% for sports cars and hypercars. A "Collector paid +30%" note and a ding show the bonus.
+  The buyer's icon shows on a spot thumbnail when they look at a car that isn't on the platform.
+- Fix: the auction cards no longer clip their Buy button.
+- Balance: idle lot income includes the average buyer bonus (about +6-9%); pacing unchanged (sim run 15).
+- Tests: 8 new unit tests (buyer bonuses, unlocks, arrive-look-pay timing, best-car choice, buyer leaves when the car
+  is sold, idle bonus, save repair, buyer lines). E2e: bid countdown, "Going…", SOLD! and YOURS! stamps, auction
+  cards hold their button, a buyer looks a car over with a speech bubble and then buys it.
+
 ## 0.14.0 - 2026-11-06 (run 14)
 
 - **Used Car Lot (P1.2a/b), business 3:** earn $5M in total, open it on the map for $2.5M and tap "Go". Buy used cars

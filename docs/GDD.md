@@ -114,6 +114,47 @@ to automate it, open new car businesses, then sell your empire and start again i
   backwards cap, spray bottle) refurbishes on his own; the Auction Agent bids on the best-value lot when cash covers 2x
   its price. With both, the lot earns while you're away. Map tiers: 3 / 4 forecourt spots (a second row of cars, then a
   gold balloon and price tags).
+- **Used Car Lot polish** (P1.2c): each auction card counts down ("⏱ 32s"); in the last 8 s it says "🔨 Going… 5s" and
+  the timer bar turns red and pulses. A lot that runs out gets a red "SOLD!" rubber stamp (another bidder won it); one you
+  buy gets a green "YOURS!" (or "AGENT WON!") stamp and a two-knock gavel sound. Walk-up buyers come in five types
+  that share the yard buyers' looks: Family (sedan/van/SUV +15%), Collector (cars bought Good or Mint, "all original",
+  +30%), Speed Freak (muscle/sports/hyper +20%), Tradie (pickup/van +20%, after 20 yard sales) and Influencer
+  (sports/hyper +40%, after 100 yard sales). 3.5 s after a car is ready a buyer walks up, picks the waiting car they
+  like best, stands by it leaning in to look it over and says a line ("All original? Marvellous!" when they like it,
+  "Bit slow for me…" when not); 2.5 s later they pay the list price plus their bonus ("Collector paid +30%") and drive
+  it away. A buyer looking at a car in the spot row shows as their icon on its thumbnail. If you sell that car first,
+  they pick another ready car or walk off.
+- **Paint & Tuning** (business 4, P1.2d core, P1.2e scene): goal $50M earned in total, then $25M to open.
+  Customers drive in with an order of one to three services from the menu: Respray, Custom rims, Vinyl wrap, Engine
+  tune. The booth works through them in order (tap the car, or hire the Painter) and each finished service shows on the
+  car (new colour, new rims, a wrap pattern, a tune). Orders with more services pay a combo bonus (+15% per extra
+  service). Finish an order yourself within 3 s per service of the car arriving and the customer tips +25%, so active
+  play pays and the Painter (idle and offline) never tips. Upgrades: Spray Booth (speed, x2 at milestones), Hype
+  (+10% fees per level), Paint Booths 1 -> 3 (map tiers at 2 and 3 booths).
+  **Customer speech (P1.2g):** as the customer steps out they say what they want in a speech bubble, by the first
+  service ordered ("Make it pop!", "Bling it up!", "Stripes! Lots of stripes!", "Make it roar!") or "The full works,
+  please!" for three services. The tip clock is already running, so the bubble never covers the order ticket: above
+  the customer's head when there is room, else right of the ticket, else beside the customer under the ticket with
+  the tail pointing at them. On short phones the car stands lower (and on a 560 px phone it is drawn a little smaller)
+  so the sign keeps its lettering between the booth row and the ticket.
+  **Lot cars through the shop (P1.2f):** on the lot, a refurbished car shows a purple Tune button beside Sell (e.g.
+  "⚙️ Tune +$180K"), once Paint & Tuning is open. It takes a free booth (greyed "Booths busy" otherwise) for one service
+  that suits it: respray for sedans and vans, rims for hatches, pickups and SUVs, a wrap for sports cars, an engine
+  tune for muscle cars and hypercars. While away it is off the market: its thumbnail fades with "At the shop", walk-up
+  buyers pick another car, and the platform says "Your car is at Paint & Tuning 🎨". In the shop it drives in with no
+  customer and the ticket's tip column reads "🏷️ +$180K sticker". Tap it (or let the Painter) and it goes back with
+  "🏷️ Back to the lot" (a toast when you're elsewhere). Its FOR SALE tag shows the service icon and the higher price;
+  a respray or wrap brings it back in the new colour. Once per car; the shop charges and pays nothing.
+  The scene (P1.2e) is a spray booth: slate wall panels, ceiling light strips, two extraction fans, a shelf of paint
+  cans, a colour-swatch fan, a floor grate with overspray and a purple "PAINT & TUNING" band with paint drips. The car
+  drives in from the left and the customer waits on the right. An order ticket sits on the car's roof: one slot per
+  service (ticked green when done, ringed orange while worked on), a progress bar for the whole order and a tip column
+  ("⚡ +$30K, tip · 8s") with a draining gold bar. Each tap shows the work: a respray or wrap sweeps the new colour
+  from the back of the car to the front with mist in the new colour, custom rims (black spokes, gold lip, red caliper)
+  fade in with glints, a tune brings a flame decal and spits fire from a new chrome exhaust tip. A finished service
+  floats "✓ Respray"; the paid order drives away with coins and a gold "⚡ Quick tip" note. The Painter (white overalls,
+  goggles, respirator, spray gun) stands left of the car and sprays the oldest order. With 2-3 booths a thumbnail row
+  shows each car and its current service. Tabs: Shop (Spray Booth, Hype, Extra Booth) and Crew (Painter).
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
@@ -143,3 +184,57 @@ to automate it, open new car businesses, then sell your empire and start again i
 - First 5 cars are always Common so the tutorial pacing is predictable.
 - UI is DOM over the Phaser canvas (crisp text, accessibility, translation).
 - Phaser 3.90 for now (stable, well known); Phaser 4 upgrade is a later decision.
+
+## Prestige: Sell Empire (P1.3)
+
+- **Legacy Points** come from everything you have ever earned, sold empires included: `floor(sqrt(all-time / $5M))`.
+  Selling adds the difference to what you already own, so each restart rewards more play with diminishing returns.
+  Each point adds **+2% to all income forever** (every car value, fee, price, reward and idle/offline rate). Points
+  spent in the Legacy tree (P1.3c) keep their +2%.
+- The **Sell Empire** button appears once a sale would give at least 10 points and glows when the new points are at
+  least half of the points you own.
+- **Resets:** cash, upgrades, crew, lot slots, cars, parts, contracts, the barn, every business (back to the scrapyard).
+  **Kept:** Legacy Points, settings, tutorial progress, the collection book, lifetime stats. Offline cash still
+  waiting is paid in first and counts toward the points.
+- Pacing (sim, P1.3a): the always-tapping bot is offered the first sale at 3h28m (after Paint & Tuning opens at
+  1h35m), the relaxed bot at 4h20m; the plan's target for a casual player is day 2-3. With x1.24 the second empire opens
+  the Used Car Lot at 39m (was 45m) and Paint & Tuning at 1h19m (was 1h35m).
+- **UI (P1.3b):** an "EMPIRE FOR SALE!" banner and a dot on the map button the first time the sale is offered; a gold
+  "Sell Empire" row at the bottom of the city map's list (glows per the rule above); a preview (points, income
+  multiplier now and next, what you keep and what starts over, this empire's earnings and time) with "Not yet"; a
+  confetti celebration with Grandpa Joe; then the game reloads into the fresh scrapyard (no intro). A gold chip in the
+  top bar shows the multiplier ("🏛 x1.24"); tapping it shows the points, the fastest empire and the next sale goal.
+- **Legacy tree (P1.3c, built run 21):** three branches of four nodes, bought in order within a branch with
+  Legacy Points. Spending a point does **not** remove its +2% income (the multiplier counts points earned, not points
+  held), so the tree is pure upside and the choice is only *which* node first. Costs 2 / 3 / 5 / 8 per branch (54 for
+  everything; the first sale gives ~12, so 2-4 nodes per empire early on). Every effect is a number in `ECON.legacy.tree`.
+  - **Mechanic** (work faster): Quick Hands (2) +25% tap work in every business · Head Start (3) each new empire starts
+    with $5K and the Mechanic hired · Parts Hoarder (5) +50% parts from the crusher · Master Crew (8) every crew member
+    and the Foreman/Detailer/Painter work +30% faster.
+  - **Dealer** (sell better): Silver Tongue (2) haggle "perfect" zone 30% wider · Regulars (3) buyers arrive 25% more
+    often in the yard and the lot · Insider (5) auction prices -10% · Franchise (8) opening a business costs 25% less.
+  - **Racer** (luck and time): Quick Tips (2) +1 s per service on the paint shop tip timer · Rare Finds (3) Rare, Epic and
+    Legendary chances x1.3 (x1.5 in the draft; cut after the sim) · Barn Scout (5) barn finds come twice as often and stages take 20% less time · Night Shift
+    (8) the offline earnings cap is 2 hours longer.
+  - Respec: free once per empire (refund all spent points), so an early wrong pick never hurts. No paid respec.
+  - **Screen:** tap the gold Legacy chip in the top bar (it shows a red dot while a node is affordable). Header with
+    free points and the multiplier, three branch tabs (dot when that branch has a buyable node), four node rows with a
+    connector, gold when owned, Buy button with the cost; the free respec link; the fastest empire and next sale goal.
+    Effects apply at once (no reload); Head Start applies from the next empire.
+  - **Where you see a perk (P1.3e, run 22):** every owned node shows where it acts, as a small gold chip with a short
+    label built from the config ("👐 +25% taps"): a chip row above the panel cards on the tabs it changes (Upgrades:
+    Quick Hands, Rare Finds; Crew tabs: Master Crew; Yard: Parts Hoarder, Barn Scout; Auction: Insider; lot Upgrades:
+    Quick Hands, Regulars; paint Shop: Quick Hands, Quick Tips; at most two per tab), a badge on the haggle box (Silver
+    Tongue), the map's "Ready to open · 🏢 opening −25%" line (Franchise) and the welcome-back popup (Night Shift,
+    "🌙 4h cap"). The welcome-back popup now says how long the crew really worked (up to the cap) and, when you were away
+    longer, "You were away 5h 0m; crews work up to 2h 0m while you're gone." Buying a node pops its row with a gold
+    glow and stamp, floats "−3 🏛" up and pulses the points header (static highlight with reduce motion).
+- **Cities (P1.3d, core and picker in run 23):** an empire is built in one city. The first empires are in **Rust
+  Valley**; from the **second sale** on, the preview asks "Where next?" with two cards: stay in Rust Valley or go to
+  **Motor City** (picked by default, steel blue). Motor City runs the same four businesses with every price and every
+  payout x5, so a run plays at the same pace but earns five times the dollars, and Legacy Points (which count dollars)
+  come faster: the sim's third empire is offered the sale at 2h28m in Motor City and not within 5 h in Rust Valley.
+  The first preview shows "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" with a
+  Grandpa Joe line; the map is titled with the city. Still to come: Motor City's own map art (P1.3d2) and a steel-blue
+  / neon palette for the scenes (P1.3d3). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
+

@@ -46,7 +46,7 @@ describe('Hydraulic Press', () => {
     crushCar(s, car.id);
     expect(s.parts).toBe(crushParts(car.rarity, 6));
     expect(s.crusherCooldown).toBeCloseTo(crusherCooldown(6));
-    expect(upgradeCost('press', 1)).toBe(ECON.upgrades.press.baseCost);
+    expect(upgradeCost('press', 1, 1)).toBe(ECON.upgrades.press.baseCost);
   });
 
   it('old saves without the press get level 1 and no Scrapper', () => {
@@ -169,7 +169,7 @@ describe('Scrapper while away', () => {
 
   it('gives nothing when the clock goes backwards', () => {
     const s = crewYard();
-    expect(applyElapsed(s, T0 - 3600_000)).toEqual({ seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0 });
+    expect(applyElapsed(s, T0 - 3600_000)).toEqual({ seconds: 0, earned: 0, parts: 0, garage: 0, carlot: 0, paint: 0 });
     expect(s.parts).toBe(0);
   });
 });

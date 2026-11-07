@@ -101,3 +101,19 @@ describe('car lot on the city map', () => {
     expect(plot(cityMapSvg(s))).toContain('class="t3"');
   });
 });
+
+describe('walk-up buyer lines (P1.2c)', () => {
+  it('every buyer type has short happy and plain lines, picked stably per car', async () => {
+    const { LOT_BUYER_LINES, lotBuyerLine } = await import('../src/game/carlotArt');
+    for (const kind of Object.keys(ECON.carlot.buyers) as (keyof typeof LOT_BUYER_LINES)[]) {
+      const set = LOT_BUYER_LINES[kind];
+      expect(set.likes.length).toBeGreaterThan(0);
+      expect(set.plain.length).toBeGreaterThan(0);
+      // Short enough for a speech bubble on a 360 px phone.
+      for (const line of [...set.likes, ...set.plain]) expect(line.length).toBeLessThanOrEqual(30);
+      expect(set.likes).toContain(lotBuyerLine(kind, 0.2, 3));
+      expect(set.plain).toContain(lotBuyerLine(kind, 0, 3));
+      expect(lotBuyerLine(kind, 0.2, 3)).toBe(lotBuyerLine(kind, 0.2, 3));
+    }
+  });
+});

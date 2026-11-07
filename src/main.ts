@@ -9,13 +9,15 @@ import { haptics } from './platform/haptics';
 import { sfx } from './audio/sfx';
 import { ECON } from './core/config';
 import { SaveManager } from './core/save';
-import { setNumberFormat } from './core/format';
+import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
+import { sellEmpire } from './core/legacy';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { CarLotScene } from './game/CarLotScene';
+import { PaintScene } from './game/PaintScene';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
@@ -85,7 +87,25 @@ function onEvents(events: GameEvent[]) {
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
-    if (e.type.startsWith('garage') || e.type.startsWith('lot')) dirty = true;
+    // Auction feel (P1.2c): stamps on the board; sounds only while the Auction tab is on screen.
+    if (e.type === 'lotBought') {
+      ui.auctionStamp(e.index, 'won', e.auto);
+      if (!e.auto || ui.auctionShown()) sfx.gavel();
+    }
+    if (e.type === 'lotExpired') {
+      ui.auctionStamp(e.index, 'lost');
+      if (ui.auctionShown()) sfx.lotLost();
+    }
+    if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();
+    if (e.type === 'paintDone') {
+      sales.push({ t: performance.now(), amount: e.amount });
+      if (e.tip > 0 && state.paint.tips === 1) ui.toast(`⚡ Quick tip! Finish an order fast yourself and the customer tips +${Math.round(ECON.paint.tip * 100)}%`, 4000);
+    }
+    if (e.type === 'paintLotCarDone' && state.businesses.active !== 'paint') {
+      const car = state.carlot.cars.find((c) => c.id === e.carId);
+      if (car) ui.toast(`🏷️ ${car.model} is back on the lot: +${formatCash(e.value)} on the sticker`, 3000);
+    }
+    if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
   ui.render();
@@ -109,6 +129,22 @@ const ui = new Ui(document.getElementById('ui')!, {
     return sc.barnReveal(shown);
   },
   onSwitchBusiness: () => showBusiness(),
+  sellEmpire: (city) => {
+    // Freeze every scene first: their cars and textures belong to the empire being sold.
+    for (const key of Object.values(SCENE_KEYS)) if (game.scene.isActive(key)) game.scene.pause(key);
+    const sold = sellEmpire(state, platform.now(), city);
+    if (!sold) {
+      showBusiness();
+      return null;
+    }
+    saveNow();
+    return sold;
+  },
+  restart: () => {
+    saveNow();
+    resetting = true;
+    location.reload();
+  },
   resetProgress: () => {
     resetting = true;
     saves.wipe();
@@ -148,24 +184,25 @@ const game = new Phaser.Game({
 game.scene.add('yard', YardScene, true, { bridge });
 game.scene.add('garage', GarageScene, false, { bridge });
 game.scene.add('carlot', CarLotScene, false, { bridge });
+game.scene.add('paint', PaintScene, false, { bridge });
 
 function yardScene(): YardScene | undefined {
   return game.scene.getScene('yard') as YardScene | undefined;
 }
 
-/** Scene key per business (Paint & Tuning has no scene yet and never becomes active). */
-const SCENE_KEYS = { garage: 'garage', carlot: 'carlot' } as const;
+/** Scene key per business. */
+const SCENE_KEYS = { scrapyard: 'yard', garage: 'garage', carlot: 'carlot', paint: 'paint' } as const;
+type SceneKey = (typeof SCENE_KEYS)[keyof typeof SCENE_KEYS];
 
-function activeSceneKey(): 'yard' | 'garage' | 'carlot' {
-  const a = state.businesses.active;
-  return a === 'garage' || a === 'carlot' ? SCENE_KEYS[a] : 'yard';
+function activeSceneKey(): SceneKey {
+  return SCENE_KEYS[state.businesses.active];
 }
 
 /** The scene on screen (it runs the simulation tick and gets the player's events). */
-function scene(): YardScene | GarageScene | CarLotScene | undefined {
+function scene(): YardScene | GarageScene | CarLotScene | PaintScene | undefined {
   const key = activeSceneKey();
   if (key === 'yard') return yardScene();
-  return game.scene.getScene(key) as GarageScene | CarLotScene | undefined;
+  return game.scene.getScene(key) as GarageScene | CarLotScene | PaintScene | undefined;
 }
 
 /**
@@ -176,7 +213,7 @@ function scene(): YardScene | GarageScene | CarLotScene | undefined {
 function showBusiness() {
   const m = game.scene;
   const want = activeSceneKey();
-  for (const key of ['yard', 'garage', 'carlot'] as const) {
+  for (const key of Object.values(SCENE_KEYS)) {
     if (key === want || !m.isActive(key)) continue;
     m.sleep(key);
   }
@@ -202,7 +239,7 @@ setInterval(() => {
 }, 5000);
 
 // ---- offline earnings -----------------------------------------------------
-function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0) {
+function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint = 0) {
   if (state.pendingOffline <= 0) return;
   ui.offlineModal(
     seconds,
@@ -214,6 +251,7 @@ function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0) {
     },
     garage,
     carlot,
+    paint,
   );
 }
 
@@ -226,7 +264,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     sfx.resume();
     const r = queueOffline(state, platform.now());
-    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot);
+    if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot, r.paint);
   }
 });
 window.addEventListener('pagehide', () => saveNow());
@@ -234,7 +272,7 @@ window.addEventListener('pagehide', () => saveNow());
 // ---- first launch / returning player --------------------------------------
 if (loaded) {
   const r = queueOffline(state, platform.now());
-  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage, r.carlot);
+  if (state.pendingOffline > 0) offerOffline(Math.max(r.seconds, 0), r.parts, r.garage, r.carlot, r.paint);
 }
 if (!state.tutorial.introSeen) {
   ui.modal({
@@ -256,6 +294,6 @@ ui.render();
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }

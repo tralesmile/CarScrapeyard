@@ -2,21 +2,31 @@
 // Every lot shows its condition and price before you buy (no blind boxes). Pure rules, ticked from sim.ts once the
 // lot is open, whichever business is on screen.
 
-import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition } from './config';
+import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, LotBuyerKind, PaintService } from './config';
 import { ECON, MODEL_NAMES, PAINTS } from './config';
 import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
+import { incomeMultiplier } from './legacy';
+import { cityPrice, cityScale } from './cities';
+import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type CarLotEvent =
-  | { type: 'lotListed'; lot: AuctionLot }
+  | { type: 'lotListed'; lot: AuctionLot; index: number }
   /** A lot left the board unsold (someone else won it). */
-  | { type: 'lotExpired'; lot: AuctionLot }
-  | { type: 'lotBought'; car: LotCar; auto: boolean }
+  | { type: 'lotExpired'; lot: AuctionLot; index: number }
+  | { type: 'lotBought'; car: LotCar; auto: boolean; index: number }
   | { type: 'lotRefurbished'; car: LotCar }
-  /** A car was sold. `auto` = a walk-up buyer paid the list price; otherwise the player sold it with `haggle`. */
-  | { type: 'lotSold'; car: LotCar; amount: number; profit: number; haggle: number; auto: boolean };
+  /** A walk-up buyer stepped up to a car and looks it over; `bonus` is what they will add if they like it. */
+  | { type: 'lotBuyerArrived'; kind: LotBuyerKind; car: LotCar; bonus: number }
+  /** The buyer's car went (sold by the player) and no other car was ready: they walked off. */
+  | { type: 'lotBuyerLeft'; kind: LotBuyerKind }
+  /**
+   * A car was sold. `auto` = a walk-up buyer (`buyer`) paid the list price plus their `bonus`; otherwise the player
+   * sold it with `haggle`.
+   */
+  | { type: 'lotSold'; car: LotCar; amount: number; profit: number; haggle: number; auto: boolean; buyer: LotBuyerKind | null; bonus: number };
 
 export interface CarLotSink {
   push(e: CarLotEvent): void;
@@ -25,14 +35,15 @@ export interface CarLotSink {
 export const CONDITIONS = [1, 2, 3, 4, 5] as const satisfies readonly Condition[];
 export const CARLOT_UPGRADES = Object.keys(ECON.carlot.upgrades) as CarLotUpgradeKind[];
 export const CARLOT_CREW = Object.keys(ECON.carlot.crew) as CarLotCrewKind[];
+export const LOT_BUYERS = Object.keys(ECON.carlot.buyers) as LotBuyerKind[];
 
 export function carlotOpen(state: GameState): boolean {
   return state.businesses.opened.carlot === true;
 }
 
-export function carlotUpgradeCost(kind: CarLotUpgradeKind, level: number): number {
+export function carlotUpgradeCost(kind: CarLotUpgradeKind, level: number, scale: number): number {
   const u = ECON.carlot.upgrades[kind];
-  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1));
+  return Math.ceil(u.baseCost * Math.pow(u.growth, level - 1) * scale);
 }
 
 export function showroomMultiplier(level: number): number {
@@ -45,11 +56,11 @@ export function valetPower(state: GameState): number {
 }
 
 export function refurbPerTap(state: GameState): number {
-  return ECON.carlot.workPerTap * valetPower(state);
+  return ECON.carlot.workPerTap * valetPower(state) * tapPerk(state);
 }
 
 export function detailerRate(state: GameState): number {
-  return state.carlot.crew.detailer ? ECON.carlot.crew.detailer.workPerSec * valetPower(state) : 0;
+  return state.carlot.crew.detailer ? ECON.carlot.crew.detailer.workPerSec * valetPower(state) * crewPerk(state) : 0;
 }
 
 /** Retail value at Showroom level 1 (what a buyer pays before the Showroom multiplier). */
@@ -58,9 +69,14 @@ export function baseRetail(family: CarFamily): number {
   return Math.round(c.retailBase * (ECON.families[family].baseValue / c.feeFamilyRef));
 }
 
-/** What a buyer pays for a refurbished car today (list price, before haggling). */
-export function listPrice(state: GameState, car: { family: CarFamily }): number {
-  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom));
+/** What a buyer pays for a refurbished car today (list price, before haggling); a paint shop service adds its value. */
+export function listPrice(state: GameState, car: { family: CarFamily; tuneValue?: number }): number {
+  return Math.round(baseRetail(car.family) * showroomMultiplier(state.carlot.levels.showroom) * incomeMultiplier(state) + (car.tuneValue ?? 0));
+}
+
+/** Seconds between walk-up buyers while a refurbished car waits (Regulars makes them come more often). */
+export function lotBuyerInterval(state: Pick<GameState, 'legacy'>): number {
+  return ECON.carlot.buyerInterval / buyerRatePerk(state);
 }
 
 export function auctionPrice(family: CarFamily, condition: Condition): number {
@@ -72,8 +88,13 @@ export function lotProfit(state: GameState, lot: AuctionLot): number {
   return listPrice(state, lot) - lot.price;
 }
 
-export function spotCost(spots: number): number | null {
-  return ECON.carlot.spots.costs[spots - ECON.carlot.spots.start] ?? null;
+export function spotCost(spots: number, scale: number): number | null {
+  const c = ECON.carlot.spots.costs[spots - ECON.carlot.spots.start];
+  return c === undefined ? null : Math.round(c * scale);
+}
+
+export function lotCrewCost(state: Pick<GameState, 'legacy'>, kind: CarLotCrewKind): number {
+  return cityPrice(state, ECON.carlot.crew[kind].cost);
 }
 
 export function findLotCar(state: GameState, id: number | null): LotCar | undefined {
@@ -85,13 +106,20 @@ export function lotCarReady(car: LotCar): boolean {
   return car.work <= 0;
 }
 
-function ensureFocus(state: GameState): void {
+/** On the forecourt (not away in a Paint & Tuning booth). */
+export function lotCarHere(car: LotCar): boolean {
+  return car.atShop !== true;
+}
+
+/** Keep the focus on a car that is here, preferring one that still needs work. */
+export function ensureLotFocus(state: GameState): void {
   const l = state.carlot;
   const cur = findLotCar(state, l.focusedId);
-  if (cur && !lotCarReady(cur)) return;
-  // Prefer a car that still needs work, then any car.
-  l.focusedId = (l.cars.find((c) => !lotCarReady(c)) ?? l.cars[0])?.id ?? null;
+  if (cur && lotCarHere(cur) && !lotCarReady(cur)) return;
+  const here = l.cars.filter(lotCarHere);
+  l.focusedId = (here.find((c) => !lotCarReady(c)) ?? here[0])?.id ?? null;
 }
+const ensureFocus = ensureLotFocus;
 
 export function generateLot(state: GameState): AuctionLot {
   const l = state.carlot;
@@ -104,7 +132,7 @@ export function generateLot(state: GameState): AuctionLot {
     model: pick(state, MODEL_NAMES[family]),
     paint: pick(state, PAINTS),
     condition,
-    price: auctionPrice(family, condition),
+    price: Math.max(1, Math.round(auctionPrice(family, condition) * incomeMultiplier(state) * auctionPerk(state))),
     timeLeft: ECON.carlot.lotSeconds,
   };
 }
@@ -116,6 +144,75 @@ export function hasFreeSpot(state: GameState): boolean {
 export function canBuyLot(state: GameState, lotId: number): boolean {
   const lot = state.carlot.board.find((b) => b?.id === lotId);
   return carlotOpen(state) && !!lot && hasFreeSpot(state) && state.cash >= lot.price;
+}
+
+// ---- Walk-up buyers (P1.2c) ------------------------------------------------
+
+/** Buyer types that show up at the lot today (some wait for more yard sales, like the yard's buyers). */
+export function lotBuyerKinds(state: GameState): LotBuyerKind[] {
+  return LOT_BUYERS.filter((k) => state.carsSold >= ECON.carlot.buyers[k].unlockCarsSold);
+}
+
+/** Bonus fraction a buyer adds for this car (0 when it is not their kind of car). */
+export function lotBuyerBonus(kind: LotBuyerKind, car: { family: CarFamily; condition: Condition }): number {
+  const b = ECON.carlot.buyers[kind];
+  const famOk = b.families === null || (b.families as readonly CarFamily[]).includes(car.family);
+  return famOk && car.condition >= b.minCondition ? b.bonus : 0;
+}
+
+/** Refurbished cars a walk-up buyer may take (not the one the player is haggling over). */
+function buyableCars(state: GameState): LotCar[] {
+  const l = state.carlot;
+  return l.cars.filter((c) => lotCarReady(c) && lotCarHere(c) && c.id !== l.holdId);
+}
+
+/** The car a buyer of this kind picks: the one they like best, the oldest on a tie. */
+export function lotBuyerChoice(state: GameState, kind: LotBuyerKind): LotCar | undefined {
+  let best: LotCar | undefined;
+  let bestBonus = -1;
+  for (const c of buyableCars(state)) {
+    const b = lotBuyerBonus(kind, c);
+    if (b > bestBonus) {
+      best = c;
+      bestBonus = b;
+    }
+  }
+  return best;
+}
+
+/** What the walk-up buyer would pay for this car (list price plus their bonus). */
+export function lotBuyerPrice(state: GameState, kind: LotBuyerKind, car: LotCar): number {
+  return Math.round(listPrice(state, car) * (1 + lotBuyerBonus(kind, car)));
+}
+
+function tickBuyer(state: GameState, dt: number, events: CarLotSink): void {
+  const l = state.carlot;
+  const c = ECON.carlot;
+  if (buyableCars(state).length === 0) {
+    if (l.buyer) events.push({ type: 'lotBuyerLeft', kind: l.buyer.kind });
+    l.buyer = null;
+    l.buyerTimer = 0;
+    return;
+  }
+  l.buyerTimer += dt;
+  const interval = lotBuyerInterval(state);
+  if (!l.buyer && l.buyerTimer >= interval - c.buyerLookSeconds) {
+    const kinds = lotBuyerKinds(state);
+    const kind = weighted(state, Object.fromEntries(kinds.map((k) => [k, c.buyers[k].weight])) as Record<LotBuyerKind, number>);
+    const car = lotBuyerChoice(state, kind)!;
+    l.buyer = { kind, carId: car.id };
+    events.push({ type: 'lotBuyerArrived', kind, car, bonus: lotBuyerBonus(kind, car) });
+  }
+  if (l.buyer && l.buyerTimer >= interval) {
+    const { kind } = l.buyer;
+    // Their car may have been sold or held since they arrived: they take the best one still there.
+    let car = findLotCar(state, l.buyer.carId);
+    if (!car || !lotCarReady(car) || !lotCarHere(car) || car.id === l.holdId) car = lotBuyerChoice(state, kind)!;
+    l.buyer = null;
+    l.buyerTimer = 0;
+    const bonus = lotBuyerBonus(kind, car);
+    finishSale(state, car, lotBuyerPrice(state, kind, car), 1, { kind, bonus }, events);
+  }
 }
 
 function takeLot(state: GameState, index: number, auto: boolean, events: CarLotSink): LotCar {
@@ -134,12 +231,19 @@ function takeLot(state: GameState, index: number, auto: boolean, events: CarLotS
     work: ECON.carlot.conditions[lot.condition].work,
   };
   l.cars.push(car);
-  events.push({ type: 'lotBought', car, auto });
+  events.push({ type: 'lotBought', car, auto, index });
   ensureFocus(state);
   return car;
 }
 
-function finishSale(state: GameState, car: LotCar, amount: number, haggle: number, auto: boolean, events: CarLotSink): void {
+function finishSale(
+  state: GameState,
+  car: LotCar,
+  amount: number,
+  haggle: number,
+  buyer: { kind: LotBuyerKind; bonus: number } | null,
+  events: CarLotSink,
+): void {
   const l = state.carlot;
   const profit = amount - car.paid;
   state.cash += amount;
@@ -150,7 +254,7 @@ function finishSale(state: GameState, car: LotCar, amount: number, haggle: numbe
   l.sold += 1;
   l.earned += amount;
   l.profit += profit;
-  events.push({ type: 'lotSold', car, amount, profit, haggle, auto });
+  events.push({ type: 'lotSold', car, amount, profit, haggle, auto: buyer !== null, buyer: buyer?.kind ?? null, bonus: buyer?.bonus ?? 0 });
   ensureFocus(state);
 }
 
@@ -187,7 +291,7 @@ export function tickCarLot(state: GameState, dt: number, events: CarLotSink): vo
       if (lot.timeLeft <= 0) {
         l.board[i] = null;
         l.refill[i] = ECON.carlot.refillSeconds;
-        events.push({ type: 'lotExpired', lot });
+        events.push({ type: 'lotExpired', lot, index: i });
       }
     } else {
       l.refill[i] = (l.refill[i] ?? 0) - dt;
@@ -195,7 +299,7 @@ export function tickCarLot(state: GameState, dt: number, events: CarLotSink): vo
         l.refill[i] = 0;
         const fresh = generateLot(state);
         l.board[i] = fresh;
-        events.push({ type: 'lotListed', lot: fresh });
+        events.push({ type: 'lotListed', lot: fresh, index: i });
       }
     }
   }
@@ -214,15 +318,8 @@ export function tickCarLot(state: GameState, dt: number, events: CarLotSink): vo
       }
     }
   }
-  // Walk-up buyers take the oldest refurbished car at the list price.
-  const ready = l.cars.find((c) => lotCarReady(c) && c.id !== l.holdId);
-  if (ready) {
-    l.buyerTimer += dt;
-    if (l.buyerTimer >= ECON.carlot.buyerInterval) {
-      l.buyerTimer = 0;
-      finishSale(state, ready, listPrice(state, ready), 1, true, events);
-    }
-  } else l.buyerTimer = 0;
+  // Walk-up buyers look a refurbished car over, then pay the list price plus their bonus.
+  tickBuyer(state, dt, events);
 }
 
 // ---- Player actions -------------------------------------------------------
@@ -251,25 +348,27 @@ export function refurbTap(state: GameState, id: number): CarLotEvent[] {
 /** Sell a refurbished car now, at the list price x the haggle result (0.9..1.3). */
 export function sellLotCar(state: GameState, id: number, haggle = 1): CarLotEvent[] {
   const car = findLotCar(state, id);
-  if (!carlotOpen(state) || !car || !lotCarReady(car)) return [];
+  if (!carlotOpen(state) || !car || !lotCarReady(car) || !lotCarHere(car)) return [];
   const h = clampHaggle(haggle);
   const events: CarLotEvent[] = [];
-  finishSale(state, car, Math.round(listPrice(state, car) * h), h, false, events);
+  finishSale(state, car, Math.round(listPrice(state, car) * h), h, null, events);
   return events;
 }
 
 /** Keep walk-up buyers away from a car while the player haggles over it (cleared by the sale or `null`). */
 export function holdLotCar(state: GameState, id: number | null): void {
-  state.carlot.holdId = id !== null && findLotCar(state, id) ? id : null;
+  const car = findLotCar(state, id);
+  state.carlot.holdId = car && lotCarHere(car) ? car.id : null;
 }
 
 export function focusLotCar(state: GameState, id: number): void {
-  if (findLotCar(state, id)) state.carlot.focusedId = id;
+  const car = findLotCar(state, id);
+  if (car && lotCarHere(car)) state.carlot.focusedId = id;
 }
 
 export function buyCarLotUpgrade(state: GameState, kind: CarLotUpgradeKind): boolean {
   if (!carlotOpen(state)) return false;
-  const cost = carlotUpgradeCost(kind, state.carlot.levels[kind]);
+  const cost = carlotUpgradeCost(kind, state.carlot.levels[kind], cityScale(state));
   if (cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.levels[kind] += 1;
@@ -277,7 +376,7 @@ export function buyCarLotUpgrade(state: GameState, kind: CarLotUpgradeKind): boo
 }
 
 export function buySpot(state: GameState): boolean {
-  const cost = spotCost(state.carlot.spots);
+  const cost = spotCost(state.carlot.spots, cityScale(state));
   if (!carlotOpen(state) || cost === null || cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.spots += 1;
@@ -285,7 +384,7 @@ export function buySpot(state: GameState): boolean {
 }
 
 export function hireLotCrew(state: GameState, kind: CarLotCrewKind): boolean {
-  const cost = ECON.carlot.crew[kind].cost;
+  const cost = lotCrewCost(state, kind);
   if (!carlotOpen(state) || state.carlot.crew[kind] || cost > state.cash) return false;
   state.cash -= cost;
   state.carlot.crew[kind] = true;
@@ -304,6 +403,24 @@ function conditionAverages() {
   };
 }
 
+/**
+ * Average walk-up price multiplier: every unlocked buyer type (by weight) picking a random car from the board's mix
+ * (unlocked families, condition weights). Idle sales use it; with more than one car waiting a buyer can pick, so the
+ * real figure is a little higher.
+ */
+export function averageBuyerMultiplier(state: GameState): number {
+  const kinds = lotBuyerKinds(state);
+  const fams = unlockedFamilies(state.carsSold);
+  const conds = CONDITIONS.map((c) => ({ c, w: ECON.carlot.conditions[c].weight }));
+  const cw = conds.reduce((s, x) => s + x.w, 0);
+  const kw = kinds.reduce((s, k) => s + ECON.carlot.buyers[k].weight, 0);
+  let sum = 0;
+  for (const k of kinds)
+    for (const family of fams)
+      for (const { c, w } of conds) sum += (ECON.carlot.buyers[k].weight / kw) * (w / cw) * (1 / fams.length) * lotBuyerBonus(k, { family, condition: c });
+  return 1 + sum;
+}
+
 /** Average base retail value over the unlocked families. */
 function averageRetail(state: GameState): number {
   const fams = unlockedFamilies(state.carsSold);
@@ -319,16 +436,17 @@ export function carlotIdleIncome(state: GameState): number {
   const l = state.carlot;
   if (!carlotOpen(state) || !l.crew.detailer || !l.crew.agent) return 0;
   const avg = conditionAverages();
-  const retail = averageRetail(state);
-  const profit = retail * (showroomMultiplier(l.levels.showroom) - avg.priceFrac);
+  const retail = averageRetail(state) * incomeMultiplier(state);
+  const profit = retail * (showroomMultiplier(l.levels.showroom) * averageBuyerMultiplier(state) - avg.priceFrac * auctionPerk(state));
   const workTime = avg.work / detailerRate(state);
-  const cycle = l.spots > 1 ? Math.max(workTime, ECON.carlot.buyerInterval) : workTime + ECON.carlot.buyerInterval;
+  const buyer = lotBuyerInterval(state);
+  const cycle = l.spots > 1 ? Math.max(workTime, buyer) : workTime + buyer;
   return Math.max(0, profit) / cycle;
 }
 
 /** Offline lot profit for a gap of `seconds`, with the same cap and efficiency as the yard. */
 export function carlotOfflineEarnings(state: GameState, seconds: number): number {
-  const capped = Math.max(0, Math.min(seconds, ECON.offline.capSeconds));
+  const capped = Math.max(0, Math.min(seconds, offlineCap(state)));
   return Math.floor(carlotIdleIncome(state) * capped * ECON.offline.efficiency);
 }
 
@@ -358,6 +476,17 @@ function validLotCar(c: unknown): c is LotCar {
   return [o.paid, o.work].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
 }
 
+/** Paint shop fields of a lot car: a service and its value go together; `atShop` is checked against the shop later. */
+function repairTune(c: LotCar): void {
+  const services = Object.keys(ECON.paint.services) as PaintService[];
+  const value = c.tuneValue;
+  if (!services.includes(c.tuned as PaintService) || typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    delete c.tuned;
+    delete c.tuneValue;
+  }
+  if (c.atShop !== true || c.tuned !== undefined || c.work > 0) delete c.atShop;
+}
+
 /** Repair impossible lot data from a save. */
 export function sanitizeCarLot(l: GameState['carlot']): void {
   const c = ECON.carlot;
@@ -376,13 +505,22 @@ export function sanitizeCarLot(l: GameState['carlot']): void {
   l.board = board;
   l.refill = refill;
   l.cars = l.cars.filter(validLotCar).slice(0, l.spots);
+  for (const car of l.cars) repairTune(car);
   l.buyerTimer = Math.max(0, Math.min(l.buyerTimer, c.buyerInterval));
+  const b = l.buyer as unknown;
+  const bo = b && typeof b === 'object' ? (b as Record<string, unknown>) : null;
+  l.buyer =
+    bo && LOT_BUYERS.includes(bo.kind as LotBuyerKind) && l.cars.some((car) => car.id === bo.carId)
+      ? { kind: bo.kind as LotBuyerKind, carId: bo.carId as number }
+      : null;
+  // A buyer only stands there during the look; without one the wait starts that look again.
+  if (!l.buyer) l.buyerTimer = Math.min(l.buyerTimer, c.buyerInterval - c.buyerLookSeconds - 0.01);
   l.sold = Math.max(0, Math.floor(l.sold));
   l.earned = Math.max(0, l.earned);
   if (!Number.isFinite(l.profit)) l.profit = 0;
   // A haggle never survives a reload.
   l.holdId = null;
-  if (!l.cars.some((car) => car.id === l.focusedId)) l.focusedId = l.cars[0]?.id ?? null;
+  if (!l.cars.some((car) => car.id === l.focusedId && lotCarHere(car))) l.focusedId = l.cars.find(lotCarHere)?.id ?? null;
   const ids = [...l.cars.map((x) => x.id), ...board.filter((b): b is AuctionLot => !!b).map((b) => b.id)];
   l.nextId = Math.max(Math.floor(l.nextId) || 1, ...ids.map((id) => id + 1), 1);
 }

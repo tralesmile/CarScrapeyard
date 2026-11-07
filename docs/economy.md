@@ -114,7 +114,7 @@ first-15-minute earnings (active 12%, relaxed 8%). The active bot lands x1.2 hag
 | Scrapyard | - | - | open from the start |
 | Repair Garage | $200K | $100K | open (P1.1c, run 11) |
 | Used Car Lot | $5M | $2.5M | open (P1.2b, run 14) |
-| Paint & Tuning | $50M | $25M | later (P1.2) |
+| Paint & Tuning | $50M | $25M | open (P1.2e, run 17); lot cars through the shop (P1.2f, run 18) |
 
 The map button appears after 30 sales (between the crusher at 25 and contracts at 45). Run 10 sim: active bot reaches
 the garage goal at 12m35s (seed 12345), 12m12s on average over 12 seeds (worst 13m49s), matching the plan's "second
@@ -168,11 +168,66 @@ Buy at the auction board, refurbish, sell. Retail = $35,000 x (family base value
   (bids on the best profit per work when cash >= 2x the price). Offline needs both: profit per car over
   max(refurbish time, buyer interval), with the yard's 50% efficiency and 2 h cap.
 
+Walk-up buyer types (P1.2c): a buyer arrives 3.5 s into the 6 s wait and looks the car over for 2.5 s, then pays
+list x (1 + bonus) for a car they like. They choose the waiting car with the biggest bonus.
+
+| Buyer | Likes | Bonus | Weight | Shows up after |
+| --- | --- | --- | --- | --- |
+| Family | sedan, van, SUV | +15% | 3 | 0 yard sales |
+| Collector | bought Good or Mint (condition >= 4) | +30% | 2 | 0 |
+| Speed Freak | muscle, sports, hyper | +20% | 2 | 0 |
+| Tradie | pickup, van | +20% | 2 | 20 |
+| Influencer | sports, hyper | +40% | 1 | 100 |
+
+Idle and offline income use the average multiplier (every buyer type by weight x every unlocked family x the board's
+condition mix), about x1.06-1.09. Run 15 sim: lot profit by 2 h $83.6M -> $84.8M active (55%), $25.0M -> $25.7M relaxed
+(35%): active bots haggle most sales by hand, so the bonus mostly helps idle play. No other milestone moved.
+
 Run 14 sim (120 minutes, `Used Car Lot (P1.2a)`): retailBase $90K first gave the lot 81% of all earnings ($434M by 2 h),
 far too strong; $45K 61%, $35K 55% (chosen), $28K 48%. With $35K the active bot reaches the goal at 39m30s, opens at
 45m30s, hires the Detailer at 50m and the Agent at 58m, the lot makes 55% of earnings by 2 h and Paint & Tuning's $50M
 goal arrives at 1h22m (relaxed: opens 52m43s, 34%, goal 1h45m). The garage keeps 17% (relaxed 25%). Asserted: opens
 between 30 and 75 min, lot share 15-65%, garage share > 5%.
+
+## Paint & Tuning (P1.2d, run 16)
+
+Customers order 1-3 different services (sizes by weight 3 / 3 / 1), worked one after another in menu order.
+Fee = $55,000 x sum of the services' fee multipliers x (1 + 15% per service beyond the first) x (family base value / 600)
+x Hype (1.10^(level-1)), fixed on arrival. Leftover tap work does not carry into the next service.
+
+| Service | Work | Fee mult | Weight |
+| --- | --- | --- | --- |
+| Respray | 8 | 1.0 | 3 |
+| Custom rims | 6 | 0.8 | 3 |
+| Vinyl wrap | 12 | 1.5 | 2 |
+| Engine tune | 16 | 2.2 | 1.5 |
+
+- A new customer every 4 s while a booth is free. Booths 1 -> 3 ($25M, $200M).
+- Tip: +25% of the fee when the player finishes the order by hand within 3 s per service of the car arriving
+  (the Painter never earns tips). Active bot: 538 of 708 orders tipped; relaxed bot (2 taps/s): 84 of 288.
+- Spray Booth $3M x1.17^n (work per tap and Painter speed, station curve), Hype $6M x1.35^n.
+  Painter $60M (1.2 work/s x booth power), works offline with the yard's 50% efficiency and 2 h cap; no tips idle.
+- Idle income = expected fee / cycle, where the expected order is enumerated exactly over the weighted draw
+  (unit test: within 4% of 4,000 generated orders).
+
+Run 16 sim (180 minutes, `Paint & Tuning (P1.2d)`, shop forced `ready`): baseFee $90K gave the shop 52% of all earnings
+by 3 h, $70K 46%, $55K 41% (chosen; relaxed 29%). The active bot reaches the $50M goal at 1h22m, opens at 1h35m and
+hires the Painter at 2h0m; the lot keeps 20% (relaxed 21%). Asserted: opens between 70 and 140 min, shop share 12-60%,
+lot share > 10%, some but not all orders tipped. The bot buys only the cheapest upgrade each time, so it rarely buys Hype
+or a second booth in this window; that is a bot habit, not a price problem.
+
+## Lot cars through the shop (P1.2f, run 18)
+
+A refurbished Used Car Lot car can take a free paint booth for one service that suits its family (sedan and van:
+respray; hatch, pickup and SUV: rims; sports: wrap; muscle and hyper: engine tune). The shop charges nothing and pays
+nothing; the car's sticker price goes up by the shop's fee for that service (Hype included, no combo, no tip) x
+`valueMult`, fixed when the car drives in. Walk-up buyer bonuses and haggling then apply to the whole sticker; only the
+profit counts as earnings. Once per car. The Painter works lot cars like any order; crews never send cars on their own.
+
+Run 18 sim (`sending lot cars through the shop`, 180 minutes, active bot that sends a ready lot car into every free
+booth vs the same bot without): valueMult 0.6 -> lifetime -4% (the booth time is worth more on customers), 0.8 -> +3%,
+1.0 -> +8% (chosen: $387M vs $357M; 788 lot cars tuned, lot profit $72M -> $172M, paint fees $147M -> $72M). So it is
+a real choice between tipped customers and a fatter sticker, not a new economy. Asserted: lifetime +1% to +15%.
 
 ## Pacing targets (checked by `npm run sim`)
 
@@ -191,8 +246,11 @@ between 30 and 75 min, lot share 15-65%, garage share > 5%.
 | Repair Garage opened ($100K) | < 17 min for active players (every seed) | 14m 24s | 19m 1s |
 | Garage share of earnings at 40 min | 15-60% | 35% | 33% |
 | Used Car Lot opened ($2.5M) | 30-75 min | 45m 30s | 52m 43s |
-| Lot share of earnings at 2 h | 15-65% | 55% | 34% |
+| Lot share of earnings at 2 h | 15-65% | 55% | 35% |
 | Paint & Tuning goal ($50M) | - | 1h 22m | 1h 45m |
+| Paint & Tuning opened ($25M) | 70-140 min | 1h 35m | 2h 7m |
+| Paint share of earnings at 3 h | 12-60% | 41% | 29% |
+| Lot cars through the shop (active bot that always sends) | +1% to +15% lifetime at 3 h | +8% | - |
 
 The bots claim every finished contract, crush an unfinished wreck when a crush order is open or the barn needs
 parts, and save up for the next barn stage once the crew is hired.
@@ -205,3 +263,66 @@ Bots are faster than first-time humans (no reading, perfect swipes), so bot time
 Cosmetic only (no income effect): `ECON.businesses.tiers` gives the size for tier 2 and 3. Scrapyard: lot slots 3 / 4
 (slot 3 costs $150K, slot 4 $900K, so tier 2 lands around the garage opening and tier 3 later in the first hour).
 Garage: repair bays 2 / 3. Shown as stars on the map so buying slots and bays has a visible reward on the map too.
+
+## Prestige (P1.3a)
+
+| Item | Value |
+| --- | --- |
+| Legacy Points (total) | `floor(sqrt(all-time earnings / $5M))`; 10 points at $500M, 20 at $2B |
+| Sale offered | new points >= 10; glows when new points >= 50% of owned points |
+| Income bonus | `1 + 0.02 x points`, applied where values are made: yard car value, Scrapper scrap cash, contract rewards, barn sale value, garage fees, paint fees and lot tune stickers, lot auction **and** list prices (so lot profit scales by the same factor), and every idle/offline rate |
+| Kept on a sale | points, settings, tutorial, collection, stats, clock, RNG |
+
+Run 19 sim (`Sell Empire` in balance.test.ts): active bot offered the sale at 3h28m, relaxed at 4h20m (7 h: $2.44B and
+$1.75B lifetime). After selling at 12 points (x1.24) the same bot opens the garage 13m02s (13m27s), lot 39m32s
+(45m39s) and paint 1h19m (1h35m); its next sale (10 more points, $2B in total) comes at 4h43m. The tree (P1.3c) and
+city 2 (P1.3d) should make later runs faster; check the second-run time again then.
+
+## Legacy tree (P1.3c)
+
+Bought with free Legacy Points (points earned minus points spent); the income multiplier always counts points earned.
+Nodes are bought in order per branch for 2 / 3 / 5 / 8 points (54 for all twelve). One free respec per empire.
+All numbers are in `ECON.legacy.tree`.
+
+| Branch | Node (cost) | Effect |
+| --- | --- | --- |
+| Mechanic | Quick Hands (2) | tap work x1.25 in every business (yard wash and repair, garage, lot, paint) |
+| | Head Start (3) | each new empire starts with $5K (a gift: not counted as earnings) and the Mechanic hired |
+| | Parts Hoarder (5) | crusher parts x1.5 (also the Scrapper, online and offline) |
+| | Master Crew (8) | Washer, Mechanic, Foreman, Detailer, Painter rates x1.3; Salesperson delay / 1.3 |
+| Dealer | Silver Tongue (2) | haggle PERFECT half-width 0.12 -> 0.156 (the slider draws it) |
+| | Regulars (3) | yard buyer gap and lot walk-up interval / 1.25 (6 s -> 4.8 s; the 2.5 s look stays) |
+| | Insider (5) | auction prices x0.9 (also in the lot's idle profit) |
+| | Franchise (8) | business open costs x0.75 |
+| Racer | Quick Tips (2) | paint tip window +1 s per service |
+| | Rare Finds (3) | Rare/Epic/Legendary weights x1.3 (non-Common share 22% -> 26.8%; expected yard value used by idle income) |
+| | Barn Scout (5) | next barn find 300 s -> 150 s; stage times x0.8 |
+| | Night Shift (8) | offline cap 2 h -> 4 h in every business |
+
+Run 21 sim (`Legacy tree` in balance.test.ts): the active bot sells at its first offer (10 points, x1.20), buys 10 points of one branch, then plays 4 hours. Lifetime at 4 h: none $1.04B, Mechanic (Quick
+Hands, Head Start, Parts Hoarder) $1.10B (+6%), Dealer (Silver Tongue, Regulars, Insider) $1.11B (+7%), Racer (Quick
+Tips, Rare Finds, Barn Scout) $1.16B (+12%). Rare Finds was x1.5 in the design draft; at x1.5 Racer was +19%, so it was
+cut to x1.3. Every branch opens the paint shop no later than without the tree; the test caps a branch at +60%.
+
+
+## Cities (P1.3d1, run 23)
+
+| City | Scale | Opens | Notes |
+| --- | --- | --- | --- |
+| Rust Valley | x1 | the start | the tuned base game |
+| Motor City | x5 | can be picked from the 2nd empire sale | every value and every price x5 |
+
+`ECON.cities.list`. A city's `scale` multiplies **every value** (`incomeMultiplier = legacyMultiplier x scale`, used at
+all the call sites that used the Legacy multiplier) **and every price**: upgrade, slot, bay, spot and booth costs (a
+required `scale` argument, so the compiler finds every caller), crew hires (`managerCost`, `foremanCost`,
+`lotCrewCost`, `painterCost`), business open costs and unlock goals (`unlockGoal`), barn stage cash, Head Start cash
+(and the save's sanity allowance for it). Pacing inside a run is therefore the tuned one; what changes is that
+Legacy Points count real dollars, so a bigger city earns them faster (x5 earnings ~ x2.2 points).
+
+Run 23 sim (`Motor City` in balance.test.ts, active bot): 1st empire offered the sale at 3h28m, 2nd (x1.20) at 4h43m.
+Third empire from the same state: in **Rust Valley** paint opens at 1h07m and no sale is offered within 5 h (9 points
+waiting; $2.28B); in **Motor City** paint opens at 1h07m too, the sale is offered at **2h28m** and 5 h earn $11.8B
+(x5.19) with 32 points waiting. x10 offered it at 1h51m (51 points at 5 h: too generous), x4 at 2h47m, x6 at 2h20m.
+Finding: without a new city the 2nd and 3rd empires get *slower* (each sale needs 20P + 100 more points-squared), so the
+city is what keeps prestige moving. Tests: Motor City's lifetime is x scale ±15% of Rust Valley's, paint opens within
+15 min of it, and its sale comes before the first Rust Valley run's and after 1.5 h.

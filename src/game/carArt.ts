@@ -278,7 +278,7 @@ export function seeded(seed: number): () => number {
 }
 
 /** Trace a polygon with rounded corners (radius clamped to half of each edge). */
-function roundedPath(ctx: CanvasRenderingContext2D, pts: Pt[], r: number): void {
+export function roundedPath(ctx: CanvasRenderingContext2D, pts: Pt[], r: number): void {
   const n = pts.length;
   const len = (a: Pt, b: Pt) => Math.hypot(b[0] - a[0], b[1] - a[1]);
   ctx.beginPath();

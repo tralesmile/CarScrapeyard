@@ -4,7 +4,8 @@
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
-import { bulkCost, crusherCooldown, crushParts, nextMilestone, qualityMultiplier, slotCost, stationPower } from '../core/formulas';
+import { bulkCost, crusherCooldown, crushParts, managerCost, nextMilestone, qualityMultiplier, slotCost, stationPower, upgradeCost } from '../core/formulas';
+import { cityInfo, cityScale, currentCity } from '../core/cities';
 import { formatCash, formatDuration, setNumberFormat, type NumberFormat } from '../core/format';
 import { version } from '../../package.json';
 import { canRerollContract, claimContract, contractLabel, contractsUnlocked } from '../core/contracts';
@@ -22,11 +23,13 @@ import {
   sellCar,
   type GameEvent,
 } from '../core/sim';
-import type { Car, GameState } from '../core/state';
+import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
+import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
+import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import {
   buyGarageBay,
   buyGarageUpgrade,
@@ -34,17 +37,20 @@ import {
   foremanRate,
   garageBayCost,
   garageUpgradeCost,
+  foremanCost,
   garageWorkPerTap,
   hireForeman,
   repMultiplier,
 } from '../core/garage';
-import type { BusinessId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind } from '../core/config';
+import type { BusinessId, CityId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, LegacyBranch, PaintUpgradeKind } from '../core/config';
+import { boothCost, painterCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, lotCarService, lotSendBlock, lotTuneValue, paintUpgradeCost, paintWorkPerTap, painterRate, sendLotCarToShop } from '../core/paint';
 import {
   buyCarLotUpgrade,
   buyLot,
   buySpot,
   canBuyLot,
   carlotUpgradeCost,
+  lotCrewCost,
   detailerRate,
   findLotCar,
   hasFreeSpot,
@@ -60,14 +66,15 @@ import {
 } from '../core/carlot';
 import { conditionStars } from '../game/carlotArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
+import { barnStageSeconds, buyNode, offlineCap, perfectZone, respecTree } from '../core/legacyTree';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
-type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew';
+type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
 const BUSINESS_TABS: Record<BusinessId, Tab[]> = {
   scrapyard: ['upgrades', 'crew', 'yard', 'jobs'],
   garage: ['gupgrades', 'gcrew'],
   carlot: ['auction', 'lupgrades', 'lcrew'],
-  paint: [],
+  paint: ['pupgrades', 'pcrew'],
 };
 type BuyMode = 1 | 10 | 'max';
 
@@ -82,6 +89,10 @@ export interface UiDeps {
   resetProgress: () => void;
   /** The business on screen changed (city map "Go"): swap the Phaser scene. */
   onSwitchBusiness: () => void;
+  /** Sell the empire (P1.3b): stop the scenes, apply the sale and save it. Null when not allowed. */
+  sellEmpire: (city: CityId) => SoldEmpire | null;
+  /** Start the new empire's scenes fresh (a reload: every scene and texture is rebuilt from the saved game). */
+  restart: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -110,20 +121,32 @@ export class Ui {
   private rate!: HTMLElement;
   private partsEl!: HTMLElement;
   private crush!: HTMLButtonElement;
+  /** Used Car Lot: send the refurbished car to Paint & Tuning for one service (P1.2f). */
+  private tuneBtn!: HTMLButtonElement;
   private soundBtn!: HTMLButtonElement;
   private settingsBtn!: HTMLButtonElement;
   private mapBtn!: HTMLButtonElement;
   /** The map banner was shown this session (it repeats each session until the map is opened). */
   private mapAnnounced = false;
+  /** The "empire for sale" banner was shown this session (P1.3b). */
+  private legacyAnnounced = false;
+  /** The Legacy tree's open branch tab (kept while the game runs). */
+  private legacyTab: LegacyBranch = 'mechanic';
+  /** HUD chip with the Legacy income multiplier, once the player owns points (P1.3b). */
+  private legacyChip!: HTMLButtonElement;
   private hint!: HTMLElement;
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
   private cardsBox!: HTMLElement;
+  /** Owned Legacy perks that change this tab (P1.3e). */
+  private perkStrip!: HTMLElement;
   private tabButtons = new Map<Tab, HTMLButtonElement>();
   private modeButtons = new Map<string, HTMLButtonElement>();
   private banner!: HTMLElement;
   private cards: CardView[] = [];
   private tab: Tab = 'upgrades';
+  /** Auction card stamps (P1.2c): "SOLD!" when a lot went to another bidder, "YOURS!" when you won it. */
+  private stamps: ({ text: string; cls: 'won' | 'lost'; until: number } | null)[] = [];
   /** Business the panel was last built for; the tab set swaps when it changes. */
   private shownBiz: string = 'scrapyard';
   private mode: BuyMode = 1;
@@ -187,7 +210,9 @@ export class Ui {
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="dot"></span>') as HTMLButtonElement;
     this.mapBtn.setAttribute('aria-label', 'City map');
     this.mapBtn.onclick = () => this.openMap();
-    hud.append(this.cash, this.rate, el('div', 'spacer'), this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
+    this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
+    this.legacyChip.onclick = () => this.openLegacyInfo();
+    hud.append(this.cash, this.rate, el('div', 'spacer'), this.legacyChip, this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
@@ -195,6 +220,9 @@ export class Ui {
     this.crush = el('button', 'crush display hidden') as HTMLButtonElement;
     this.crush.setAttribute('aria-label', 'Crush this wreck for parts');
     this.crush.onclick = () => this.onCrush();
+    this.tuneBtn = el('button', 'crush tune display hidden') as HTMLButtonElement;
+    this.tuneBtn.setAttribute('aria-label', 'Send this car to Paint & Tuning');
+    this.tuneBtn.onclick = () => this.onTuneLotCar();
 
     this.banner = el('div', 'banner display');
 
@@ -229,6 +257,8 @@ export class Ui {
       ['auction', 'Auction'],
       ['lupgrades', 'Lot'],
       ['lcrew', 'Crew'],
+      ['pupgrades', 'Shop'],
+      ['pcrew', 'Crew'],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -253,9 +283,11 @@ export class Ui {
       head.append(b);
     }
     this.cardsBox = el('div', 'cards');
-    this.panel.append(head, this.cardsBox);
+    this.perkStrip = el('div', 'perk-strip hidden');
+    this.perkStrip.setAttribute('aria-label', 'Legacy perks here');
+    this.panel.append(head, this.perkStrip, this.cardsBox);
 
-    this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.banner, this.panel);
+    this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.tuneBtn, this.banner, this.panel);
     this.buildCards();
   }
 
@@ -298,9 +330,9 @@ export class Ui {
         bar.style.width = `${((level - prev) / (ms - prev)) * 100}%`;
         barWrap.style.visibility = 'visible';
       } else barWrap.style.visibility = 'hidden';
-      const { levels, cost } = bulkCost(kind, level, this.mode, s.cash);
+      const { levels, cost } = bulkCost(kind, level, this.mode, s.cash, cityScale(s));
       const n = Math.max(levels, 1);
-      const shownCost = levels === 0 ? bulkCost(kind, level, 1, 0).cost : cost;
+      const shownCost = levels === 0 ? bulkCost(kind, level, 1, 0, cityScale(s)).cost : cost;
       setText(btn, `${this.mode === 'max' ? `+${n} ` : this.mode === 10 ? '+10 ' : ''}${formatCash(shownCost)}`);
       const affordable = levels > 0 && cost <= s.cash;
       btn.disabled = !affordable;
@@ -337,9 +369,10 @@ export class Ui {
       const hired = s.managers[kind];
       setText(lvl, hired ? 'Hired' : '');
       btn.classList.toggle('done', hired);
-      setText(btn, hired ? 'Working' : `Hire ${formatCash(info.cost)}`);
-      btn.disabled = hired || s.cash < info.cost;
-      root.classList.toggle('ready', !hired && s.cash >= info.cost);
+      const cost = managerCost(s, kind);
+      setText(btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      btn.disabled = hired || s.cash < cost;
+      root.classList.toggle('ready', !hired && s.cash >= cost);
     };
     return { root, lvl, desc, btn, update };
   }
@@ -361,7 +394,7 @@ export class Ui {
       } else sfx.denied();
     };
     const update = (s: GameState) => {
-      const cost = slotCost(s.slots);
+      const cost = slotCost(s.slots, cityScale(s));
       setText(lvl, `${s.slots} / ${ECON.slots.start + ECON.slots.costs.length}`);
       btn.classList.toggle('done', cost === null);
       setText(btn, cost === null ? 'Full' : formatCash(cost));
@@ -502,7 +535,7 @@ export class Ui {
       } else if (b.status === 'working') {
         const st = ECON.barn.stages[b.stage]!;
         setText(desc, `${st.name}… ${formatDuration(Math.ceil(b.timeLeft))} left (keeps going while you're away)`);
-        bar.style.width = `${((b.stage + 1 - b.timeLeft / st.seconds) / stages) * 100}%`;
+        bar.style.width = `${((b.stage + 1 - b.timeLeft / Math.max(1e-6, barnStageSeconds(s, b.stage))) / stages) * 100}%`;
         setText(btn, 'Working…');
         btn.disabled = true;
       } else if (b.status === 'finished') {
@@ -566,7 +599,7 @@ export class Ui {
         const ms = nextMilestone(level);
         setText(v.desc, `${garageWorkPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
       } else setText(v.desc, `Fees x${repMultiplier(level).toFixed(2)} for new customers`);
-      const cost = garageUpgradeCost(kind, level);
+      const cost = garageUpgradeCost(kind, level, cityScale(s));
       setText(v.btn, formatCash(cost));
       v.btn.disabled = s.cash < cost;
       v.root.classList.toggle('ready', s.cash >= cost);
@@ -577,7 +610,7 @@ export class Ui {
   private garageBayCard(): CardView {
     const v = this.simpleCard('garage-bay', 'Repair Bay', 'Room for one more customer car', (s) => buyGarageBay(s), () => sfx.buy());
     const update = (s: GameState) => {
-      const cost = garageBayCost(s.garage.bays);
+      const cost = garageBayCost(s.garage.bays, cityScale(s));
       setText(v.lvl, `${s.garage.bays} / ${ECON.garage.bays.start + ECON.garage.bays.costs.length}`);
       v.btn.classList.toggle('done', cost === null);
       setText(v.btn, cost === null ? 'Full' : formatCash(cost));
@@ -595,9 +628,10 @@ export class Ui {
       setText(v.lvl, hired ? 'Hired' : '');
       setText(v.desc, hired ? `Fixing ${foremanRate(s).toFixed(1)} work/s, even offline` : 'Fixes customer cars for you, even offline');
       v.btn.classList.toggle('done', hired);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(f.cost)}`);
-      v.btn.disabled = hired || s.cash < f.cost;
-      v.root.classList.toggle('ready', !hired && s.cash >= f.cost);
+      const cost = foremanCost(s);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      v.btn.disabled = hired || s.cash < cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
     return { ...v, update };
   }
@@ -616,14 +650,17 @@ export class Ui {
     const fill = el('i');
     bar.append(fill);
     const btn = el('button', 'buy') as HTMLButtonElement;
-    root.append(title, desc, bar, btn);
+    const stamp = el('div', 'stamp display hidden');
+    stamp.setAttribute('aria-live', 'polite');
+    root.append(title, desc, bar, btn, stamp);
+    let stampKey = '';
     btn.onclick = () => {
       const s = this.deps.state();
       const lot = s.carlot.board[index];
       if (!lot) return;
       const events = buyLot(s, lot.id);
       if (events.length) {
-        sfx.buy();
+        // The gavel sound plays from the lotBought event (also when the Auction Agent bids).
         this.deps.onEvents(events);
         this.deps.onChange();
       } else sfx.denied();
@@ -631,7 +668,17 @@ export class Ui {
     };
     const update = (s: GameState) => {
       const lot = s.carlot.board[index];
+      const st = this.stamps[index];
+      const key = st && st.until > performance.now() ? `${st.cls}|${st.until}` : '';
+      if (key !== stampKey) {
+        stampKey = key;
+        stamp.classList.toggle('hidden', !key);
+        stamp.classList.toggle('won', st?.cls === 'won');
+        stamp.classList.toggle('lost', st?.cls === 'lost');
+        if (st && key) setText(stamp, st.text);
+      }
       root.classList.toggle('empty', !lot);
+      root.classList.toggle('closing', !!lot && lot.timeLeft <= ECON.carlot.auctionClosingSeconds);
       if (!lot) {
         name.textContent = 'Next lot';
         setText(lvl, '');
@@ -644,7 +691,9 @@ export class Ui {
         return;
       }
       name.textContent = lot.model;
-      setText(lvl, '');
+      // Bid countdown: "Going, going…" in the last seconds.
+      const secs = Math.max(0, Math.ceil(lot.timeLeft));
+      setText(lvl, lot.timeLeft <= ECON.carlot.auctionClosingSeconds ? `🔨 Going… ${secs}s` : `⏱ ${secs}s`);
       const cond = ECON.carlot.conditions[lot.condition];
       const stars = conditionStars(lot.condition);
       const html =
@@ -670,7 +719,7 @@ export class Ui {
         const ms = nextMilestone(level);
         setText(v.desc, `${refurbPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
       } else setText(v.desc, `Sale prices x${showroomMultiplier(level).toFixed(2)}`);
-      const cost = carlotUpgradeCost(kind, level);
+      const cost = carlotUpgradeCost(kind, level, cityScale(s));
       setText(v.btn, formatCash(cost));
       v.btn.disabled = s.cash < cost;
       v.root.classList.toggle('ready', s.cash >= cost);
@@ -681,7 +730,7 @@ export class Ui {
   private spotCard(): CardView {
     const v = this.simpleCard('carlot-spot', 'Forecourt Spot', 'Room for one more car on the lot', (s) => buySpot(s), () => sfx.buy());
     const update = (s: GameState) => {
-      const cost = spotCost(s.carlot.spots);
+      const cost = spotCost(s.carlot.spots, cityScale(s));
       setText(v.lvl, `${s.carlot.spots} / ${ECON.carlot.spots.start + ECON.carlot.spots.costs.length}`);
       v.btn.classList.toggle('done', cost === null);
       setText(v.btn, cost === null ? 'Full' : formatCash(cost));
@@ -701,9 +750,60 @@ export class Ui {
       if (kind === 'detailer') setText(v.desc, hired ? `Polishing ${detailerRate(s).toFixed(1)} work/s, even offline` : blurb);
       else setText(v.desc, hired ? `Bids when you have ${ECON.carlot.agentReserve}x the price · with the Detailer the lot runs offline` : blurb);
       v.btn.classList.toggle('done', hired);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(info.cost)}`);
-      v.btn.disabled = hired || s.cash < info.cost;
-      v.root.classList.toggle('ready', !hired && s.cash >= info.cost);
+      const cost = lotCrewCost(s, kind);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      v.btn.disabled = hired || s.cash < cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  // ---- Paint & Tuning cards -------------------------------------------------
+
+  private paintUpgradeCard(kind: PaintUpgradeKind): CardView {
+    const info = ECON.paint.upgrades[kind];
+    const v = this.simpleCard(`paint-${kind}`, info.name, '', (s) => buyPaintUpgrade(s, kind), () => sfx.buy());
+    const update = (s: GameState) => {
+      const level = s.paint.levels[kind];
+      setText(v.lvl, `Lv ${level}`);
+      if (kind === 'booth') {
+        const ms = nextMilestone(level);
+        setText(v.desc, `${paintWorkPerTap(s).toFixed(2)} work per tap${ms ? ` · x2 at Lv ${ms}` : ''}`);
+      } else setText(v.desc, `Fees x${hypeMultiplier(level).toFixed(2)} for new customers`);
+      const cost = paintUpgradeCost(kind, level, cityScale(s));
+      setText(v.btn, formatCash(cost));
+      v.btn.disabled = s.cash < cost;
+      v.root.classList.toggle('ready', s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private boothCard(): CardView {
+    const v = this.simpleCard('paint-booths', 'Extra Booth', 'Room for one more customer car', (s) => buyBooth(s), () => sfx.buy());
+    const update = (s: GameState) => {
+      const cost = boothCost(s.paint.booths, cityScale(s));
+      setText(v.lvl, `${s.paint.booths} / ${ECON.paint.booths.start + ECON.paint.booths.costs.length}`);
+      v.btn.classList.toggle('done', cost === null);
+      setText(v.btn, cost === null ? 'Full' : formatCash(cost));
+      v.btn.disabled = cost === null || s.cash < cost;
+      v.root.classList.toggle('ready', cost !== null && s.cash >= cost);
+    };
+    return { ...v, update };
+  }
+
+  private painterCard(): CardView {
+    const f = ECON.paint.painter;
+    const blurb = 'Works through the orders for you, even offline (no quick tips)';
+    const v = this.simpleCard('paint-painter', f.name, blurb, (s) => hirePainter(s), () => sfx.fanfare());
+    const update = (s: GameState) => {
+      const hired = s.paint.painter;
+      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.desc, hired ? `Working ${painterRate(s).toFixed(1)} work/s, even offline` : blurb);
+      v.btn.classList.toggle('done', hired);
+      const cost = painterCost(s);
+      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      v.btn.disabled = hired || s.cash < cost;
+      v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
     return { ...v, update };
   }
@@ -714,6 +814,7 @@ export class Ui {
     this.shownBiz = s.businesses.active;
     this.root.classList.toggle('in-garage', this.shownBiz === 'garage');
     this.root.classList.toggle('in-carlot', this.shownBiz === 'carlot');
+    this.root.classList.toggle('in-paint', this.shownBiz === 'paint');
     this.tab = BUSINESS_TABS[s.businesses.active][0] ?? 'upgrades';
     this.buildCards();
   }
@@ -734,9 +835,19 @@ export class Ui {
     else if (this.tab === 'auction') this.cards = Array.from({ length: ECON.carlot.auctionLots }, (_, i) => this.auctionCard(i));
     else if (this.tab === 'lupgrades') this.cards = [this.carlotUpgradeCard('valet'), this.carlotUpgradeCard('showroom'), this.spotCard()];
     else if (this.tab === 'lcrew') this.cards = [this.lotCrewCard('detailer'), this.lotCrewCard('agent')];
+    else if (this.tab === 'pupgrades') this.cards = [this.paintUpgradeCard('booth'), this.paintUpgradeCard('hype'), this.boothCard()];
+    else if (this.tab === 'pcrew') this.cards = [this.painterCard()];
     else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
     for (const c of this.cards) this.cardsBox.append(c.root);
+    this.renderPerkStrip();
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
+  }
+
+  /** The chip row of owned Legacy perks that apply to the open tab (hidden when none). */
+  private renderPerkStrip() {
+    const chips = tabPerks(this.deps.state(), this.tab);
+    this.perkStrip.replaceChildren(...chips.map((c) => perkChipEl(c)));
+    this.perkStrip.classList.toggle('hidden', chips.length === 0);
   }
 
   // ---- actions -------------------------------------------------------------
@@ -771,6 +882,21 @@ export class Ui {
     this.haggleSlider(car.id, false, (mult) => this.finishLotSale(car.id, mult));
   }
 
+  /** Send the focused lot car to a free Paint & Tuning booth; it comes back with a higher sticker price. */
+  private onTuneLotCar() {
+    const s = this.deps.state();
+    const id = s.carlot.focusedId;
+    if (this.haggling !== null || id === null) return;
+    const svc = lotCarService(findLotCar(s, id) ?? { family: 'sedan' });
+    const events = sendLotCarToShop(s, id);
+    if (!events.length) return;
+    sfx.engine();
+    this.toast(`🎨 Off to Paint & Tuning for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
+    this.deps.onEvents(events);
+    this.deps.onChange();
+    this.render();
+  }
+
   private finishLotSale(carId: number, haggle: number) {
     const s = this.deps.state();
     const events = sellLotCar(s, carId, haggle);
@@ -780,6 +906,30 @@ export class Ui {
       this.deps.onChange();
     }
     this.render();
+  }
+
+  /**
+   * The Tune button beside Sell on the lot (P1.2f): shown for a refurbished car that hasn't been to the paint shop,
+   * once Paint & Tuning is open. Greyed out while every booth is busy.
+   */
+  private renderTune(s: GameState, car: LotCar | undefined) {
+    const block = car ? lotSendBlock(s, car.id) : 'missing';
+    const show = !!car && this.haggling === null && !this.modalOpen && (block === null || block === 'boothsFull');
+    this.tuneBtn.classList.toggle('hidden', !show);
+    this.sell.classList.toggle('beside-tune', show);
+    if (!show || !car) return;
+    this.tuneBtn.disabled = block !== null;
+    const svc = ECON.paint.services[lotCarService(car)];
+    const sub = block === 'boothsFull' ? 'Booths busy' : `+${formatCash(lotTuneValue(s, car))}`;
+    // Short names fit beside Sell: "Custom rims" -> "Rims", "Engine tune" -> "Tune".
+    const word = svc.name.split(' ').pop() ?? svc.name;
+    const html = `${svc.icon} ${word[0]!.toUpperCase()}${word.slice(1)}<small>${sub}</small>`;
+    if (this.tuneBtn.innerHTML !== html) this.tuneBtn.innerHTML = html;
+    if (!s.tutorial.lotTuneSeen) {
+      s.tutorial.lotTuneSeen = true;
+      this.toast('🎨 Your paint shop can tune lot cars: they sell for more', 4000);
+      this.deps.onChange();
+    }
   }
 
   /** Timing slider: a needle sweeps the bar; tapping stops it. The centre pays most. */
@@ -794,9 +944,18 @@ export class Ui {
     this.haggling = carId;
     sfx.tap();
     const hg = this.haggleEl;
+    // Silver Tongue (legacy tree) widens the PERFECT zone: draw what the rules pay.
+    const zone = perfectZone(this.deps.state());
+    const zoneEl = hg.querySelector<HTMLElement>('.zone-perfect');
+    if (zoneEl) {
+      zoneEl.style.width = `${zone * 100}%`;
+      zoneEl.style.left = `${50 - zone * 50}%`;
+    }
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
     hg.classList.toggle('lesson', lesson);
     setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
+    const tongue = perkChip(this.deps.state(), 'silverTongue');
+    if (tongue) this.haggleLabel.append(perkChipEl(tongue));
     const start = performance.now();
     let done = false;
     let raf = 0;
@@ -812,7 +971,7 @@ export class Ui {
       done = true;
       cancelAnimationFrame(raf);
       hg.onpointerdown = null;
-      const mult = pos === null ? 1 : haggleMultiplier(pos, lesson);
+      const mult = pos === null ? 1 : haggleMultiplier(pos, lesson, zone);
       const grade = haggleGrade(mult);
       hg.classList.add('stopped', grade);
       const words = { perfect: 'PERFECT!', great: 'Great deal!', good: 'Deal!', poor: 'Ouch…' } as const;
@@ -961,6 +1120,7 @@ export class Ui {
       if (this.sell.innerHTML !== html) this.sell.innerHTML = html;
       this.sell.classList.remove('match');
     }
+    this.renderTune(s, lotReady ? lotCar : undefined);
     if (ready && car) {
       const bm = buyerMultiplier(s, car);
       const who = bm > 1 && s.buyer ? ECON.buyers.kinds[s.buyer.kind] : null;
@@ -1008,7 +1168,19 @@ export class Ui {
 
     const mapOn = mapUnlocked(s);
     this.mapBtn.classList.toggle('hidden', !mapOn);
-    this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s)));
+    this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
+    const badge = legacyBadge(s);
+    this.legacyChip.classList.toggle('hidden', badge === null);
+    const chipHtml = badge === null ? '' : `${badge}${treeHasBuy(s) ? '<i class="dot on"></i>' : ''}`;
+    if (badge !== null && this.legacyChip.innerHTML !== chipHtml) {
+      this.legacyChip.innerHTML = chipHtml;
+      this.legacyChip.setAttribute('aria-label', `Legacy: income ${badge.split(' ')[1]}`);
+    }
+    if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
+      this.legacyAnnounced = true;
+      this.showBanner('EMPIRE FOR SALE!', 'Open the 🗺 map to sell it for Legacy Points');
+      sfx.fanfare();
+    }
     if (mapOn && !s.tutorial.mapSeen && !this.mapAnnounced && !this.modalOpen && s.tutorial.crusherSeen) {
       this.mapAnnounced = true;
       setTimeout(() => this.showBanner('CITY MAP!', 'Tap 🗺 to see what you can build next'), 2700);
@@ -1045,7 +1217,7 @@ export class Ui {
     return mapRows(s).some((r) => r.status === 'forSale' && canOpenBusiness(s, r.id));
   }
 
-  /** Rust Valley city map: the scrapyard, the next businesses and how far away they are. */
+  /** City map: the scrapyard, the next businesses and how far away they are. */
   openMap() {
     if (this.modalOpen) return;
     const s = this.deps.state();
@@ -1060,7 +1232,7 @@ export class Ui {
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
     box.setAttribute('aria-label', 'City map');
-    box.append(el('h2', 'display', 'Rust Valley'));
+    box.append(el('h2', 'display', cityInfo(currentCity(s)).name));
     const art = el('div', 'map-art');
     const list = el('div', 'map-list');
     let timer = 0;
@@ -1078,7 +1250,9 @@ export class Ui {
       const next = nextBusiness(st);
       const rows = mapRows(st).filter((r) => r.status === 'open' || r.id === next);
       // Rebuild only when something visible changed (progress is shown to the whole percent).
-      const key = JSON.stringify(rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id), r.tier]));
+      const sellRow = sellEmpireRow(st);
+      const teaser = nextSaleLine(st);
+      const key = JSON.stringify([rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id), r.tier]), sellRow, teaser]);
       if (key === lastKey) return;
       lastKey = key;
       art.innerHTML = cityMapSvg(st);
@@ -1132,6 +1306,32 @@ export class Ui {
           return row;
         }),
       );
+      // Prestige (P1.3b): the Sell Empire row once a sale is worth it, else how far the next one is.
+      if (sellRow) {
+        const row = el('div', `map-row legacy${sellRow.glow ? ' glow' : ''}`);
+        const text = el('div', 'map-text');
+        const name = el('div', 'map-name display');
+        name.textContent = 'Sell Empire';
+        const line = el('div', 'map-line');
+        line.textContent = sellRow.line;
+        text.append(name, line);
+        const b = el('button', 'buy small sell-empire') as HTMLButtonElement;
+        b.textContent = sellRow.action;
+        b.onclick = () => {
+          close();
+          this.openSellEmpire();
+        };
+        row.append(el('div', 'map-icon', LEGACY_ICON), text, b);
+        list.append(row);
+      } else if (teaser) {
+        const row = el('div', 'map-row legacy-next');
+        const text = el('div', 'map-text');
+        const line = el('div', 'map-line');
+        line.textContent = teaser;
+        text.append(line);
+        row.append(el('div', 'map-icon', LEGACY_ICON), text);
+        list.append(row);
+      }
     };
     paint();
     // Live progress while the yard keeps earning behind the map.
@@ -1139,7 +1339,7 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back' };
+    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back to the paint shop' };
     const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
@@ -1157,16 +1357,17 @@ export class Ui {
   private tabHasAction(s: GameState, t: Tab): boolean {
     if (t === 'crew')
       return (Object.keys(ECON.managers) as ManagerKind[]).some(
-        (k) => !s.managers[k] && s.cash >= ECON.managers[k].cost && (k !== 'scrapper' || crusherUnlocked(s)),
+        (k) => !s.managers[k] && s.cash >= managerCost(s, k) && (k !== 'scrapper' || crusherUnlocked(s)),
       );
     if (t === 'yard') {
-      const c = slotCost(s.slots);
+      const c = slotCost(s.slots, cityScale(s));
       return (c !== null && s.cash >= c) || this.barnHasAction(s);
     }
     if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
-    if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= ECON.garage.foreman.cost;
+    if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= foremanCost(s);
     if (t === 'auction') return s.businesses.opened.carlot && s.carlot.cars.length === 0 && s.carlot.board.some((b) => !!b && canBuyLot(s, b.id));
-    if (t === 'lcrew') return s.businesses.opened.carlot && (['detailer', 'agent'] as const).some((k) => !s.carlot.crew[k] && s.cash >= ECON.carlot.crew[k].cost);
+    if (t === 'pcrew') return s.businesses.opened.paint && !s.paint.painter && s.cash >= painterCost(s);
+    if (t === 'lcrew') return s.businesses.opened.carlot && (['detailer', 'agent'] as const).some((k) => !s.carlot.crew[k] && s.cash >= lotCrewCost(s, k));
     return false;
   }
 
@@ -1187,6 +1388,11 @@ export class Ui {
         if (l.cars.length === 0) text = '👇 Buy a car at the auction';
         else if (lc && !lotCarReady(lc)) text = '👆 Tap the car to refurbish it!';
       }
+    } else if (s.businesses.active === 'paint') {
+      const pj = findPaintJob(s, s.paint.focusedId);
+      const svc = pj ? currentService(pj) : null;
+      if (!pj && s.paint.jobsDone === 0) text = 'A customer is on the way...';
+      else if (pj && svc && s.paint.jobsDone < 3) text = `👆 Tap the car: ${ECON.paint.services[svc].name.toLowerCase()}!`;
     } else if (s.businesses.active === 'garage') {
       if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
       else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
@@ -1194,9 +1400,9 @@ export class Ui {
     else if (car && learning) {
       const stage = carStage(car);
       text = stage === 'dirty' ? '👆 Swipe to wash it!' : stage === 'damaged' ? '👆 Tap to fix it!' : '';
-    } else if (s.tutorial.firstSale && !s.tutorial.firstUpgrade && s.cash >= ECON.upgrades.wash.baseCost) {
+    } else if (s.tutorial.firstSale && !s.tutorial.firstUpgrade && s.cash >= upgradeCost('wash', 1, cityScale(s))) {
       text = '👇 Buy your first upgrade';
-    } else if (!s.managers.mechanic && s.cash >= ECON.managers.mechanic.cost) {
+    } else if (!s.managers.mechanic && s.cash >= managerCost(s, 'mechanic')) {
       text = '👇 Hire a Mechanic in Crew';
     }
     setText(this.hint, text);
@@ -1308,7 +1514,204 @@ export class Ui {
     }
     back.append(box);
     this.root.append(back);
-    btn.focus();
+    btn.focus({ preventScroll: true });
+  }
+
+  /** Sell Empire preview (P1.3b): what the sale gives, what is kept and what resets. Confirming sells at once. */
+  openSellEmpire() {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    if (!canSellEmpire(s)) return;
+    if (!s.tutorial.legacyOffered) {
+      s.tutorial.legacyOffered = true;
+      this.deps.onChange();
+    }
+    const p = sellEmpirePreview(s);
+    const li = (xs: string[]) => xs.map((x) => `<li>${x}</li>`).join('');
+    let city: CityId = p.cities.find((c) => c.picked)?.id ?? currentCity(s);
+    const picker = p.cities.length
+      ? `<div class="city-pick" role="radiogroup" aria-label="City for the next empire">` +
+        p.cities
+          .map(
+            (c) =>
+              `<button type="button" role="radio" class="city-opt${c.picked ? ' on' : ''}" data-city="${c.id}" aria-checked="${c.picked}">` +
+              `<span class="city-ic" aria-hidden="true">${c.icon}</span><b>${c.name}</b><small>${c.current ? 'Stay · ' : ''}${c.line}</small></button>`,
+          )
+          .join('') +
+        `</div>`
+      : '';
+    this.modal({
+      title: 'Sell your empire?',
+      cls: `sell-empire-preview${picker ? ' has-cities' : ''}`,
+      body:
+        `<p>Sell every business and start again in a fresh scrapyard, richer for good.</p>` +
+        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>Legacy Points</small></div>` +
+        `<p class="legacy-mult">All income <b>${p.multNow}</b> → <b class="next">${p.multNext}</b> forever</p>` +
+        (picker ? `<p class="city-q"><b>Where next?</b></p>${picker}` : '') +
+        `<div class="legacy-cols"><div class="keep"><b>You keep</b><ul>${li(p.keeps)}</ul></div><div class="lose"><b>Starts over</b><ul>${li(p.resets)}</ul></div></div>` +
+        `<p class="legacy-run">This empire: ${p.earned} earned in ${p.runTime}</p>` +
+        (p.cityTeaser ? `<p class="city-teaser">${p.cityTeaser}</p>` : ''),
+      button: `Sell for +${p.points} ${LEGACY_ICON}`,
+      secondary: 'Not yet',
+      onSecondary: () => {},
+      onClose: () => this.confirmSellEmpire(city),
+    });
+    const opts = Array.from(document.querySelectorAll<HTMLButtonElement>('.sell-empire-preview .city-opt'));
+    for (const b of opts) {
+      b.onclick = () => {
+        city = b.dataset.city as CityId;
+        sfx.tap();
+        for (const o of opts) {
+          const on = o === b;
+          o.classList.toggle('on', on);
+          o.setAttribute('aria-checked', String(on));
+        }
+      };
+    }
+  }
+
+  private confirmSellEmpire(city: CityId) {
+    const before = this.deps.state().legacy.sold;
+    const from = this.deps.state().legacy.city;
+    const sold = this.deps.sellEmpire(city);
+    if (!sold) {
+      sfx.denied();
+      return;
+    }
+    sfx.fanfare();
+    haptics.play('celebrate');
+    const s = this.deps.state();
+    // Scattered, not in a line: positions and delays step by coprime strides through the pieces.
+    const confetti = Array.from({ length: 18 }, (_, i) => `<i style="--i:${i};--x:${3 + ((i * 7) % 18) * 5.3}%;--d:${1.5 + ((i * 5) % 7) * 0.12}s;--w:${-((i * 11) % 17) * 0.11}s"></i>`).join('');
+    this.modal({
+      title: 'EMPIRE SOLD!',
+      cls: 'legacy-celebrate',
+      body:
+        `<div class="confetti" aria-hidden="true">${confetti}</div>` +
+        `<p>You sold an empire worth ${formatCash(sold.earned)} after ${formatDuration(sold.seconds)}.</p>` +
+        (sold.city !== from ? `<p class="city-next">Next stop: <b>${cityInfo(sold.city).icon} ${cityInfo(sold.city).name}</b></p>` : '') +
+        `<p class="note">${grandpaLine(before, sold.city, from)}<br>— Grandpa Joe</p>`,
+      big: `+${sold.points} ${LEGACY_ICON}`,
+      button: `Start again: income ${legacyBadge(s)?.split(' ')[1] ?? ''}`,
+      onClose: () => this.deps.restart(),
+    });
+  }
+
+  /**
+   * Tapping the HUD's Legacy chip: the Legacy tree (P1.3c). Points, the income multiplier, three branch tabs with four
+   * nodes each (bought in order), a free respec once per empire, and the old info lines (fastest empire, next sale).
+   */
+  openLegacyInfo() {
+    if (this.modalOpen) return;
+    this.modalOpen = true;
+    sfx.tap();
+    const back = el('div', 'modal-back legacy-tree');
+    const box = el('div', 'modal');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Legacy tree');
+    box.append(el('h2', 'display', `${LEGACY_ICON} Legacy`));
+    const header = el('p', 'tree-head');
+    const tabs = el('div', 'tree-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const list = el('div', 'tree-nodes');
+    const foot = el('div', 'tree-foot');
+    const close = () => {
+      if (!back.isConnected) return;
+      back.remove();
+      this.modalOpen = false;
+      this.renderPerkStrip();
+      this.render();
+    };
+    let branch = this.legacyTab;
+    const paint = () => {
+      const v = legacyTreeView(this.deps.state());
+      if (!v.branches.some((b) => b.id === branch)) branch = v.branches[0]!.id;
+      header.innerHTML = `<b>${v.header}</b><small>Spent points keep their +2% income</small>`;
+      tabs.replaceChildren(
+        ...v.branches.map((b) => {
+          const t = el('button', `tree-tab${b.id === branch ? ' on' : ''}`, `<span>${b.name}</span><small>${b.icon} ${b.owned}/4</small>${b.canBuy ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+          t.setAttribute('role', 'tab');
+          t.setAttribute('aria-selected', String(b.id === branch));
+          t.dataset.branch = b.id;
+          t.onclick = () => {
+            branch = b.id;
+            this.legacyTab = b.id;
+            sfx.tap();
+            paint();
+          };
+          return t;
+        }),
+      );
+      const bv = v.branches.find((b) => b.id === branch)!;
+      list.replaceChildren(
+        ...bv.nodes.map((n) => {
+          const row = el('div', `tree-node ${n.status}`);
+          row.dataset.node = n.id;
+          const text = el('div', 'tree-text', `<b>${n.name}</b><small>${n.desc}</small>`);
+          row.append(el('div', 'tree-icon', n.icon), text);
+          if (n.status === 'owned') row.append(el('span', 'tree-owned', '✓ Owned'));
+          else {
+            const b = el('button', 'tree-buy', n.action) as HTMLButtonElement;
+            b.disabled = !n.canBuy;
+            b.setAttribute('aria-label', `${n.name}: ${n.canBuy ? 'buy for' : 'costs'} ${n.cost} Legacy Points`);
+            b.onclick = () => {
+              if (!buyNode(this.deps.state(), n.id)) {
+                sfx.denied();
+                return;
+              }
+              sfx.fanfare();
+              haptics.play('celebrate');
+              this.deps.onChange();
+              paint();
+              this.nodeBought(list, header, n.id, n.cost);
+            };
+            row.append(b);
+          }
+          return row;
+        }),
+      );
+      foot.replaceChildren();
+      if (v.respec) {
+        const r = el('button', 'secondary tree-respec', v.respec) as HTMLButtonElement;
+        r.onclick = () => {
+          const st = this.deps.state();
+          if (respecTree(st) > 0) {
+            sfx.tap();
+            this.deps.onChange();
+            paint();
+          }
+        };
+        foot.append(r);
+      } else if (v.respecNote) foot.append(el('small', 'tree-note', v.respecNote));
+      const st = this.deps.state();
+      const best = st.legacy.bestRunSeconds > 0 ? `Fastest empire: ${formatDuration(st.legacy.bestRunSeconds)} · empires sold: ${st.legacy.sold}. ` : '';
+      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? 'Sell your empire on the city map for more points.'}`));
+    };
+    paint();
+    const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    ok.onclick = close;
+    box.append(header, tabs, list, foot, ok);
+    back.append(box);
+    this.root.append(back);
+    ok.focus({ preventScroll: true });
+  }
+
+  /**
+   * Node-bought animation (P1.3e): the row pops with a gold flash and a stamp, the points header pulses and a
+   * "-3 🏛" floats up from the row. Plain CSS animations (a reduce-motion rule turns them into a static highlight).
+   */
+  private nodeBought(list: HTMLElement, header: HTMLElement, node: string, cost: number) {
+    const row = list.querySelector<HTMLElement>(`.tree-node[data-node="${node}"]`);
+    if (row) {
+      row.classList.add('just-bought');
+      const f = el('span', 'tree-spend', `−${cost} ${LEGACY_ICON}`);
+      row.append(f);
+      setTimeout(() => f.remove(), 1200);
+    }
+    header.classList.remove('pulse');
+    void header.offsetWidth;
+    header.classList.add('pulse');
   }
 
   /** Settings sheet: sound, music, motion, number format, reset, credits. */
@@ -1420,20 +1823,45 @@ export class Ui {
     };
     back.append(box);
     this.root.append(back);
-    done.focus();
+    done.focus({ preventScroll: true });
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0) {
+  /** Stamp an auction card (P1.2c): `won` when you (or your Agent) bought the lot, `lost` when another bidder did. */
+  auctionStamp(index: number, cls: 'won' | 'lost', auto = false) {
+    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : 'SOLD!';
+    this.stamps[index] = { text, cls, until: performance.now() + ECON.carlot.stampSeconds * 1000 };
+    this.render();
+  }
+
+  /** True while the Auction tab is on screen (auction sounds only play then). */
+  auctionShown(): boolean {
+    return this.shownBiz === 'carlot' && this.tab === 'auction';
+  }
+
+  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0, paint = 0) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     const shop =
       (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
-      (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '');
+      (carlot > 0 ? `<p class="offline-carlot">🏷️ Your lot crew bought, polished and sold cars: ${formatCash(carlot)}</p>` : '') +
+      (paint > 0 ? `<p class="offline-paint">🎨 The Painter finished paint and tuning orders: ${formatCash(paint)}</p>` : '');
+    const away = awayText(this.deps.state(), seconds, offlineCap(this.deps.state()));
+    const capLine = away.capped ? `<p class="offline-cap">${away.capped}</p>` : '';
+    const perk = away.perk ? `<p class="offline-perk">${perkChipEl(away.perk).outerHTML} Night Shift: your crew works longer while you're away</p>` : '';
     this.modal({
       title: 'Welcome back!',
-      body: `<p>Your crew kept working for ${formatDuration(seconds)}.</p>${scrap}${shop}`,
+      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,
     });
   }
+}
+
+/** A small gold chip for an owned Legacy perk (P1.3e). */
+function perkChipEl(c: PerkChip): HTMLElement {
+  const e = el('span', 'perk-chip', c.label);
+  e.title = c.title;
+  e.setAttribute('aria-label', c.title);
+  e.dataset.perk = c.node;
+  return e;
 }
