@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 23; next run is run 24). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 24; next run is run 25). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -136,8 +136,11 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
           barn stages, Head Start). Sell preview "Where next?" picker (two cards, Motor City default, fits 320x568),
           a teaser on the first sale, "Next stop" in the celebration, the map titled by city. Sim: the third empire in
           Motor City is offered the sale at 2h28m vs never within 5 h in Rust Valley.
-    - [ ] P1.3d2 Motor City map: a second SVG map (downtown blocks, a highway, steel blue) chosen by `legacy.city`;
-          business names per city if wanted (e.g. "Downtown Garage"); the map's city name in the HUD/map button.
+    - [x] P1.3d2 Motor City map (run 24): `motorCityGround()` in cityMap.ts (steel-blue blocks with sidewalks, a highway
+          with traffic, rooftops kept off plots and roads, lamps, zebra crossing, harbour) chosen by `legacy.city`
+          (`data-city` on the SVG); city business names (`ECON.cities.list.*.names`, `businessName(state, id)`) on the
+          map, list, drive wipe, toasts and the garage / lot / paint scene signs; the 🗺 button is labelled with the
+          city and wears its icon outside Rust Valley. e2e: map, names, button and the Midtown Garage (e2e-22d).
     - [ ] P1.3d3 Motor City art: a city palette (steel blue by day / night-time neon backdrop variants for each scene).
     - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
           first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.

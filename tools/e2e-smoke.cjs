@@ -1588,6 +1588,47 @@ async function waitForServer(url, ms = 15000) {
       assert(mTitle === 'Motor City' && /\$1(\.0+)?M/.test(goal), `the map is titled Motor City and the garage goal is x5 (${mTitle}; ${goal.trim()})`);
       await mp.waitForTimeout(700); // the map slides in
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22c-motor-city-map.png') });
+      // P1.3d2: Motor City has its own map (highway, rooftops, no grass) and its own business names.
+      const mMap = await mp.evaluate(() => {
+        const svg = document.querySelector('.modal.city-map .city-svg');
+        return {
+          city: svg.dataset.city,
+          aria: svg.getAttribute('aria-label'),
+          highway: !!svg.querySelector('.highway'),
+          roofs: svg.querySelectorAll('.roof').length,
+          rows: [...document.querySelectorAll('.map-row .map-name')].map((n) => n.textContent.trim()),
+          w: svg.getBoundingClientRect().width,
+          vw: window.innerWidth,
+        };
+      });
+      assert(mMap.city === 'motorCity' && mMap.aria === 'Motor City city map' && mMap.highway && mMap.roofs >= 8, `Motor City draws its own map (${JSON.stringify(mMap)})`);
+      assert(/^Salvage Yard/.test(mMap.rows[0]) && /^Midtown Garage/.test(mMap.rows[1] || ''), `the map list uses Motor City's names (${mMap.rows.join(' | ')})`);
+      assert(mMap.w <= mMap.vw, `the Motor City map fits the phone (${mMap.w} <= ${mMap.vw})`);
+      await mp.click('.modal.city-map > .buy');
+      await mp.waitForSelector('.modal.city-map', { state: 'detached', timeout: 3000 });
+      const mBtn = await mp.evaluate(() => {
+        const b = document.querySelector('.map-btn');
+        const t = b.querySelector('.city-tag');
+        return { aria: b.getAttribute('aria-label'), tag: t.textContent, shown: getComputedStyle(t).display !== 'none' };
+      });
+      assert(mBtn.aria === 'Motor City map' && mBtn.shown && mBtn.tag === '🏙️', `the map button names the city and shows its icon (${JSON.stringify(mBtn)})`);
+      // Go to the garage: its sign carries the Motor City name and the drive wipe says so too.
+      await mp.evaluate(() => {
+        const s = window.__jye.state;
+        s.lifetimeEarnings += 1e7;
+        s.cash += 1e7;
+      });
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.map-row[data-biz="garage"] button:not([disabled])');
+      await mp.click('.map-row[data-biz="garage"] button');
+      await mp.waitForFunction(() => window.__jye.state.businesses.opened.garage);
+      await mp.click('.map-row[data-biz="garage"] button');
+      const mWipe = await mp.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+      assert(mWipe && mWipe.includes('Midtown Garage'), `"Go" drives to the Midtown Garage (${mWipe})`);
+      await mp.waitForFunction(() => window.__jye.game.scene.isActive('garage'), null, { timeout: 5000 });
+      await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+      await mp.waitForTimeout(800);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22d-midtown-garage.png') });
       await mc.close();
     }
 

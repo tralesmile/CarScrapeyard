@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.0 - 2026-11-07 (run 24)
+
+- **Motor City map (P1.3d2):** Motor City has its own map: steel-blue city blocks with pale sidewalks, a highway with
+  traffic along the top, rooftops between the plots, street lamps, a zebra crossing and a harbour corner. Its
+  businesses have city names on the map, in the list, in the drive wipe, in toasts and on the scene signs: **Salvage
+  Yard, Midtown Garage, Auto Mall, Neon Customs**. The 🗺 button is labelled with the city and wears a small 🏙️ outside
+  Rust Valley.
+- Tests: 4 new unit tests (Motor City ground and plots, rooftops kept off plots and roads, city names everywhere and
+  back to the defaults after a save repair, every name short enough for the signs and map labels); e2e checks the
+  Motor City map, its list names, the map button and the drive to the Midtown Garage (e2e-22d).
+
 ## 0.23.0 - 2026-11-07 (run 23)
 
 - **Motor City (P1.3d1):** the second city. From your **second** Sell Empire on, the preview asks "Where next?": stay in

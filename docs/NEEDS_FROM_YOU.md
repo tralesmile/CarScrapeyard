@@ -85,6 +85,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       pace but the bigger dollars give Legacy Points much faster (the next sale comes after ~2.5 h instead of 5+). Its
       own map and art come in the next runs. Is x5 a good jump, and should Motor City feel different to play (e.g. its
       own fifth business) rather than just bigger?
+      New since run 24: Motor City has its own map (city blocks, a highway, rooftops, a harbour) and its own business
+      names: Salvage Yard, Midtown Garage, Auto Mall and Neon Customs. Do the names fit, or would you rather keep the
+      Rust Valley names everywhere?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

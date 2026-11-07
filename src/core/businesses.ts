@@ -5,7 +5,7 @@ import type { BusinessId } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
 import { franchisePerk } from './legacyTree';
-import { cityPrice, cityScale } from './cities';
+import { cityInfo, cityPrice, cityScale, currentCity } from './cities';
 
 export const BUSINESS_IDS = Object.keys(ECON.businesses.list) as BusinessId[];
 
@@ -20,6 +20,12 @@ export type BusinessStatus =
 
 export function businessInfo(id: BusinessId) {
   return ECON.businesses.list[id];
+}
+
+/** The business's name in the current city (P1.3d2): Motor City has its own names, Rust Valley the defaults. */
+export function businessName(state: Pick<GameState, 'legacy'>, id: BusinessId): string {
+  const names: Partial<Record<BusinessId, string>> = cityInfo(currentCity(state)).names;
+  return names[id] ?? businessInfo(id).name;
 }
 
 export function mapUnlocked(state: GameState): boolean {

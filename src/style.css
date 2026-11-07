@@ -850,6 +850,20 @@ body {
   display: block;
 }
 
+/* The city's icon on the map button's corner outside Rust Valley (P1.3d2). */
+.map-btn .city-tag {
+  position: absolute;
+  bottom: -2px;
+  left: -3px;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.map-btn .city-tag.hidden {
+  display: none;
+}
+
 .modal.city-map {
   width: min(100%, 400px);
   max-height: calc(100% - 8px);

@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { businessName } from '../core/businesses';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
 import { findJob, focusJob, garageTap } from '../core/garage';
@@ -248,7 +249,7 @@ export class GarageScene extends Phaser.Scene {
       floorY,
       s: this.dpr,
       lift: { cx: W / 2, groundY, carW: this.px(a.carW) },
-      sign: ECON.businesses.list.garage.name.toUpperCase(),
+      sign: businessName(this.bridge.state, 'garage').toUpperCase(),
       // Keep the sign clear of the bay row even before a 2nd bay is bought.
       reservedTop: this.px(this.bridge.insets().top + BAY_ROW_BOTTOM),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2) - LIFT_RISE),

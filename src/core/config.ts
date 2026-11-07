@@ -211,9 +211,18 @@ export const ECON = {
    */
   cities: {
     list: {
-      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began' },
-      motorCity: { name: 'Motor City', icon: '🏙️', scale: 5, fromSale: 2, tagline: 'The big city: bigger prices, bigger payouts' },
-    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string }>,
+      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began', names: {} },
+      motorCity: {
+        name: 'Motor City',
+        icon: '🏙️',
+        scale: 5,
+        fromSale: 2,
+        tagline: 'The big city: bigger prices, bigger payouts',
+        // City names for the businesses (P1.3d2), shown on the map, in the list and on the scenes' signs. Keep each at
+        // most as long as the longest default name ("Paint & Tuning"), so the signs keep their lettering.
+        names: { scrapyard: 'Salvage Yard', garage: 'Midtown Garage', carlot: 'Auto Mall', paint: 'Neon Customs' },
+      },
+    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string; names: Partial<Record<BusinessId, string>> }>,
   },
 
   /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */

@@ -235,6 +235,11 @@ to automate it, open new car businesses, then sell your empire and start again i
   payout x5, so a run plays at the same pace but earns five times the dollars, and Legacy Points (which count dollars)
   come faster: the sim's third empire is offered the sale at 2h28m in Motor City and not within 5 h in Rust Valley.
   The first preview shows "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" with a
-  Grandpa Joe line; the map is titled with the city. Still to come: Motor City's own map art (P1.3d2) and a steel-blue
-  / neon palette for the scenes (P1.3d3). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
+  Grandpa Joe line; the map is titled with the city. **Motor City's map (run 24):** concrete city blocks with pale
+  sidewalks, a two-carriageway highway with traffic along the top, rooftops in the margins, street lamps, a zebra
+  crossing and a harbour corner, in steel blue (same plots as Rust Valley, so the business art and stars carry over).
+  Its businesses have city names on the map, in the list, in the drive wipe and on the scene signs: **Salvage Yard,
+  Midtown Garage, Auto Mall, Neon Customs** (`ECON.cities.list.*.names`, each at most as long as "Paint & Tuning" so
+  the signs keep their lettering). The 🗺 button carries the city's icon on its corner and is labelled "Motor City
+  map". Still to come: a steel-blue / neon palette for the scenes (P1.3d3). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 

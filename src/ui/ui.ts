@@ -26,7 +26,7 @@ import {
 import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
-import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
+import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
@@ -207,7 +207,7 @@ export class Ui {
     this.settingsBtn = el('button', 'icon-btn settings-btn', '☰') as HTMLButtonElement;
     this.settingsBtn.setAttribute('aria-label', 'Settings');
     this.settingsBtn.onclick = () => this.openSettings();
-    this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="dot"></span>') as HTMLButtonElement;
+    this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="city-tag hidden" aria-hidden="true"></span><span class="dot"></span>') as HTMLButtonElement;
     this.mapBtn.setAttribute('aria-label', 'City map');
     this.mapBtn.onclick = () => this.openMap();
     this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
@@ -891,7 +891,7 @@ export class Ui {
     const events = sendLotCarToShop(s, id);
     if (!events.length) return;
     sfx.engine();
-    this.toast(`🎨 Off to Paint & Tuning for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
+    this.toast(`🎨 Off to ${businessName(s, 'paint')} for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
     this.deps.onEvents(events);
     this.deps.onChange();
     this.render();
@@ -1168,6 +1168,16 @@ export class Ui {
 
     const mapOn = mapUnlocked(s);
     this.mapBtn.classList.toggle('hidden', !mapOn);
+    // The map button names the city (P1.3d2); outside Rust Valley a small city icon sits on its corner.
+    const city = cityInfo(currentCity(s));
+    if (this.mapBtn.dataset.city !== currentCity(s)) {
+      this.mapBtn.dataset.city = currentCity(s);
+      this.mapBtn.setAttribute('aria-label', `${city.name} map`);
+      this.mapBtn.title = `${city.name} map`;
+      const tag = this.mapBtn.querySelector('.city-tag')!;
+      tag.textContent = city.icon;
+      tag.classList.toggle('hidden', currentCity(s) === 'rustValley');
+    }
     this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);

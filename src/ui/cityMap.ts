@@ -1,9 +1,11 @@
-// Rust Valley city map (P1.1b): an inline SVG drawn in code, plus the list rows under it.
+// City maps (P1.1b, Motor City in P1.3d2): an inline SVG drawn in code, plus the list rows under it. Every city uses
+// the same plots; the ground (roads, grass or concrete, water, trees or towers) is drawn per city.
 // Pure string building (no DOM) so the art can be unit-tested and stays crisp at any size.
 
-import type { BusinessId } from '../core/config';
+import type { BusinessId, CityId } from '../core/config';
+import { cityInfo, currentCity } from '../core/cities';
 import { perkChip } from './legacyView';
-import { BUSINESS_IDS, MAX_TIER, unlockGoal, businessInfo, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
+import { BUSINESS_IDS, MAX_TIER, unlockGoal, businessInfo, businessName, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -74,6 +76,107 @@ function ground(): string {
   ] as const)
     parts.push(tree(x, y, 7));
   return parts.join('');
+}
+
+/** Motor City's steel-blue palette (P1.3d2). */
+const M = {
+  base: '#7f93a8',
+  block: '#93a7bb',
+  sidewalk: '#c3cfdb',
+  road: '#3c4350',
+  roadEdge: '#2c323c',
+  highway: '#323844',
+  barrier: '#d8dee6',
+  water: '#3f86b8',
+  waterLight: '#6fb0dc',
+  tower: ['#4c6a8a', '#5b7da0', '#3e5a78', '#6a8db0'],
+  window: '#ffe29a',
+  planter: '#5f9a4a',
+};
+
+/** A rooftop seen from above: a block with a parapet, an AC unit and a few lit windows. */
+function rooftop(x: number, y: number, w: number, h: number, i: number): string {
+  const col = M.tower[i % M.tower.length];
+  const o = [`<rect class="roof" x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${col}" stroke="${M.roadEdge}" stroke-width="1"/>`];
+  o.push(`<rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="1.5" fill="none" stroke="#ffffff33" stroke-width="1"/>`);
+  if (w >= 10 && h >= 10) o.push(`<rect x="${x + w / 2 - 3}" y="${y + h / 2 - 3}" width="6" height="6" rx="1" fill="${M.barrier}" opacity=".8"/>`);
+  if (i % 2 === 0) o.push(`<rect x="${x + 2}" y="${y + h - 4}" width="2.5" height="2" fill="${M.window}"/>`);
+  return o.join('');
+}
+
+function streetLamp(x: number, y: number): string {
+  return `<circle cx="${x}" cy="${y}" r="4.5" fill="${M.window}" opacity=".35"/><circle cx="${x}" cy="${y}" r="1.8" fill="${M.window}"/>`;
+}
+
+/** Motor City: concrete blocks, a highway along the top, a harbour corner, rooftops in the gaps (P1.3d2). */
+function motorCityGround(): string {
+  const parts: string[] = [];
+  parts.push(`<rect width="${MAP_W}" height="${MAP_H}" rx="18" fill="${M.base}"/>`);
+  // City blocks under the plots: a pale sidewalk ring around each quarter.
+  for (const [x, y, w, h] of [
+    [6, 24, 158, 114],
+    [190, 24, 164, 114],
+    [6, 170, 158, 124],
+    [190, 170, 164, 124],
+  ] as const)
+    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${M.sidewalk}"/><rect x="${x + 4}" y="${y + 4}" width="${w - 8}" height="${h - 8}" rx="6" fill="${M.block}"/>`);
+  // Harbour in the bottom-right corner, with a little pier.
+  parts.push(`<path d="M300 300 C 316 286, 340 284, 360 270 L360 300 Z" fill="${M.water}"/>`);
+  parts.push(`<path d="M318 296 C 330 290, 344 288, 356 282" stroke="${M.waterLight}" stroke-width="1.5" fill="none"/>`);
+  // Highway across the top: two carriageways, a barrier between them and white lane dashes.
+  parts.push(`<rect class="highway" x="0" y="2" width="${MAP_W}" height="20" fill="${M.highway}"/>`);
+  parts.push(`<rect x="0" y="2" width="${MAP_W}" height="1.5" fill="${M.barrier}"/><rect x="0" y="20.5" width="${MAP_W}" height="1.5" fill="${M.barrier}"/>`);
+  parts.push(`<rect x="0" y="11.2" width="${MAP_W}" height="1.6" fill="${M.barrier}"/>`);
+  parts.push(`<line x1="0" y1="7" x2="${MAP_W}" y2="7" stroke="#ffffffaa" stroke-width="1" stroke-dasharray="7 7"/>`);
+  parts.push(`<line x1="0" y1="16.5" x2="${MAP_W}" y2="16.5" stroke="#ffffffaa" stroke-width="1" stroke-dasharray="7 7"/>`);
+  // Traffic on the highway.
+  for (const [x, y, c] of [
+    [30, 4.5, '#e5484d'],
+    [120, 4.5, '#f2f4f7'],
+    [250, 4.5, '#f5b700'],
+    [80, 14, '#1f9e9a'],
+    [210, 14, '#8b5cf6'],
+    [320, 14, '#f2f4f7'],
+  ] as const)
+    parts.push(`<rect x="${x}" y="${y}" width="14" height="5" rx="2" fill="${c}"/>`);
+  // The avenue and the main street, with curbs, a centre line and a zebra crossing at the junction.
+  parts.push(`<rect x="0" y="140" width="${MAP_W}" height="28" fill="${M.road}"/>`);
+  parts.push(`<rect x="166" y="22" width="22" height="${MAP_H - 22}" fill="${M.road}"/>`);
+  parts.push(`<rect x="0" y="140" width="${MAP_W}" height="2" fill="${M.roadEdge}"/><rect x="0" y="166" width="${MAP_W}" height="2" fill="${M.roadEdge}"/>`);
+  parts.push(`<line x1="0" y1="154" x2="${MAP_W}" y2="154" stroke="${C.line}" stroke-width="2" stroke-dasharray="10 8"/>`);
+  parts.push(`<line x1="177" y1="22" x2="177" y2="130" stroke="${C.line}" stroke-width="2" stroke-dasharray="8 8"/>`);
+  parts.push(`<line x1="177" y1="178" x2="177" y2="${MAP_H}" stroke="${C.line}" stroke-width="2" stroke-dasharray="8 8"/>`);
+  for (let k = 0; k < 5; k++) {
+    parts.push(`<rect class="zebra" x="${168 + k * 4}" y="131" width="2.4" height="8" fill="#f2f4f7"/>`);
+    parts.push(`<rect x="${168 + k * 4}" y="169" width="2.4" height="8" fill="#f2f4f7"/>`);
+  }
+  // Rooftops in the margins around the plots.
+  [
+    [2, 26, 14, 30],
+    [2, 62, 14, 22],
+    [2, 90, 14, 38],
+    [344, 26, 14, 26],
+    [344, 58, 14, 36],
+    [344, 100, 14, 28],
+    [2, 178, 14, 34],
+    [2, 220, 14, 26],
+    [344, 178, 14, 28],
+    [344, 212, 14, 40],
+  ].forEach(([x, y, w, h], i) => parts.push(rooftop(x!, y!, w!, h!, i)));
+  // Street lamps along the avenue and planters at the corners.
+  for (const x of [40, 110, 230, 300]) parts.push(streetLamp(x, 138), streetLamp(x + 20, 170));
+  for (const [x, y] of [
+    [160, 134],
+    [194, 134],
+    [160, 174],
+    [194, 174],
+  ] as const)
+    parts.push(`<circle cx="${x}" cy="${y}" r="3.5" fill="${M.planter}"/>`);
+  return parts.join('');
+}
+
+function cityGround(city: CityId): string {
+  return city === 'motorCity' ? motorCityGround() : ground();
 }
 
 function mapCar(x: number, y: number, body: string, roof: string): string {
@@ -260,7 +363,8 @@ function youAreHere(p: { x: number; y: number; w: number; h: number }): string {
 
 /** The whole map as an SVG string. Plots carry `data-biz` so the UI can make them tappable. */
 export function cityMapSvg(state: GameState): string {
-  const parts: string[] = [ground()];
+  const city = currentCity(state);
+  const parts: string[] = [cityGround(city)];
   for (const id of BUSINESS_IDS) {
     const p = PLOTS[id];
     const status = businessStatus(state, id);
@@ -271,13 +375,13 @@ export function cityMapSvg(state: GameState): string {
     else if (id === 'garage') art = garageArt(p, lit, tier);
     else if (id === 'carlot') art = carLotArt(p, lit, tier);
     else art = paintShopArt(p, lit, tier);
-    const name = businessInfo(id).name;
+    const name = businessName(state, id);
     parts.push(
       `<g class="plot ${status}" data-biz="${id}" role="img" aria-label="${esc(name)}">${art}${badge(p, status, unlockProgress(state, id))}${label(p, name, lit || status !== 'locked')}${lit ? tierStars(p, tier) : ''}` +
         `${state.businesses.active === id ? youAreHere(p) : ''}</g>`,
     );
   }
-  return `<svg class="city-svg" viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" aria-label="Rust Valley city map">${parts.join('')}</svg>`;
+  return `<svg class="city-svg" data-city="${city}" viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(cityInfo(city).name)} city map">${parts.join('')}</svg>`;
 }
 
 export interface MapRow {
@@ -316,6 +420,6 @@ export function mapRows(state: GameState): MapRow[] {
       line = fr ? `Ready to open · ${fr.label}` : 'Ready to open';
       action = `Open ${formatCash(openCost(state, id))}`;
     }
-    return { id, icon: info.icon, name: info.name, status, active, line, progress: unlockProgress(state, id), action, tier: businessTier(state, id), nextTier: nextTierGoal(state, id) };
+    return { id, icon: info.icon, name: businessName(state, id), status, active, line, progress: unlockProgress(state, id), action, tier: businessTier(state, id), nextTier: nextTierGoal(state, id) };
   });
 }

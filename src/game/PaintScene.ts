@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { businessName } from '../core/businesses';
 import { ECON, type PaintService } from '../core/config';
 import { formatCash } from '../core/format';
 import { currentService, findPaintJob, focusPaintJob, paintTap, tipDeadline, tipFor } from '../core/paint';
@@ -242,7 +243,7 @@ export class PaintScene extends Phaser.Scene {
       floorY: this.px(a.top + (a.cy - a.top) * 0.62),
       s: this.dpr,
       stage: { cx: W / 2, groundY: this.px(a.cy + a.carW * 0.13), carW: this.px(a.carW) },
-      sign: ECON.businesses.list.paint.name.toUpperCase(),
+      sign: businessName(this.bridge.state, 'paint').toUpperCase(),
       reservedTop: this.px(a.hudTop + BOOTH_ROW.y + BOOTH_ROW.h / 2 + 4),
       // The sign hangs above the order ticket, which sits on the car's roof.
       roofY: this.px(a.ticketY - 4),

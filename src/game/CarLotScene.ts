@@ -5,6 +5,7 @@
 
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { businessName } from '../core/businesses';
 import { ECON, type BuyerKind, type LotBuyerKind } from '../core/config';
 import { findLotCar, focusLotCar, listPrice, lotBuyerBonus, lotCarHere, lotCarReady, refurbTap } from '../core/carlot';
 import { formatCash } from '../core/format';
@@ -192,7 +193,7 @@ export class CarLotScene extends Phaser.Scene {
       floorY,
       s: this.dpr,
       stage: { cx: W / 2, groundY, carW: this.px(a.carW) },
-      sign: ECON.businesses.list.carlot.name.toUpperCase(),
+      sign: businessName(this.bridge.state, 'carlot').toUpperCase(),
       reservedTop: this.px(this.bridge.insets().top + SPOT_ROW.y + SPOT_ROW.h / 2 + 4),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2)),
     });
@@ -272,7 +273,7 @@ export class CarLotScene extends Phaser.Scene {
       // The hint says it during the first sales; after that the empty platform says where to go.
       const l = this.bridge.state.carlot;
       const away = l.cars.some((c) => !lotCarHere(c));
-      if (!this.carLeaving) this.label.setText(away ? 'Your car is at Paint & Tuning 🎨' : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
+      if (!this.carLeaving) this.label.setText(away ? `Your car is at ${businessName(this.bridge.state, 'paint')} 🎨` : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
       return;
     }
     if (car.id !== this.bigId || this.bigCar.texture.key !== this.ensureTextures(car)) {
