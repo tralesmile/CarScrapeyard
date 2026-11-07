@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 19; next run is run 20). Runs now start every 3 hours.
+Last updated: 2026-11-07 (run 20; next run is run 21). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -112,13 +112,20 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         auction and list prices so lot profit scales too), `sellEmpire` resets the run and keeps settings, tutorial,
         collection, stats, clock and RNG; run timer; save repair. Sim: offered at 3h28m (active) / 4h20m (relaxed);
         a second empire with x1.24 opens the paint shop at 1h19m instead of 1h35m.
-  - [ ] P1.3b Sell Empire UI: a "Sell Empire" row on the city map once offered (glowing per `sellEmpireGlows`), a
-        preview modal (what you keep, what resets, +points, the new income multiplier, the run time), confirm, a
-        celebration and Grandpa Joe's line, a Legacy badge in the HUD/settings with the multiplier, e2e. Shown prices
-        already include the multiplier (it is applied where values are made).
-  - [ ] P1.3c Legacy tree: spend points on Mechanic, Dealer and Racer branches (design the nodes in GDD first; spent
-        points keep their +2%).
+  - [x] P1.3b Sell Empire UI (run 20): `src/ui/legacyView.ts` (row, preview, badge and next-sale texts, unit-tested);
+        a one-time "EMPIRE FOR SALE!" banner and map dot (`tutorial.legacyOffered`), a gold glowing map row, a preview
+        modal (+points, x now -> x next, keeps / starts over, run time) with "Not yet", the sale (scenes paused, saved),
+        a confetti celebration with Grandpa Joe's line, then a reload into the new empire (every scene and texture is
+        rebuilt from the save, since car ids restart). HUD Legacy chip with the multiplier, tap for info. e2e on an
+        iPhone SE.
+  - [ ] P1.3c Legacy tree: spend points on Mechanic, Dealer and Racer branches (spent points keep their +2%). Node design
+        drafted in GDD (run 20: 3 x 4 nodes, costs 2/3/5/8, free respec once per empire). Next: core (`ECON.legacy.tree`,
+        `state.legacy.nodes`, buy/respec, each effect wired + tested, sim A/B), then a tree screen from the Legacy chip.
   - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
+- [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
+      for `.icon-btn.hidden`); on 320 px phones the panel's tabs and buy modes overflowed and a modal's focus slid the
+      whole game sideways (`overflow: clip`, `preventScroll`, compact tabs up to 430 px: four tabs + x1/x10/Max fit at 320 px, scrolling tabs
+      as a fallback).
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)

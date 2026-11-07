@@ -27,6 +27,8 @@ import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
+import { LEGACY_ICON, grandpaLine, legacyBadge, nextSaleLine, sellEmpirePreview, sellEmpireRow } from './legacyView';
+import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import {
   buyGarageBay,
   buyGarageUpgrade,
@@ -83,6 +85,10 @@ export interface UiDeps {
   resetProgress: () => void;
   /** The business on screen changed (city map "Go"): swap the Phaser scene. */
   onSwitchBusiness: () => void;
+  /** Sell the empire (P1.3b): stop the scenes, apply the sale and save it. Null when not allowed. */
+  sellEmpire: () => SoldEmpire | null;
+  /** Start the new empire's scenes fresh (a reload: every scene and texture is rebuilt from the saved game). */
+  restart: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -118,6 +124,10 @@ export class Ui {
   private mapBtn!: HTMLButtonElement;
   /** The map banner was shown this session (it repeats each session until the map is opened). */
   private mapAnnounced = false;
+  /** The "empire for sale" banner was shown this session (P1.3b). */
+  private legacyAnnounced = false;
+  /** HUD chip with the Legacy income multiplier, once the player owns points (P1.3b). */
+  private legacyChip!: HTMLButtonElement;
   private hint!: HTMLElement;
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
@@ -192,7 +202,9 @@ export class Ui {
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="dot"></span>') as HTMLButtonElement;
     this.mapBtn.setAttribute('aria-label', 'City map');
     this.mapBtn.onclick = () => this.openMap();
-    hud.append(this.cash, this.rate, el('div', 'spacer'), this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
+    this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
+    this.legacyChip.onclick = () => this.openLegacyInfo();
+    hud.append(this.cash, this.rate, el('div', 'spacer'), this.legacyChip, this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
@@ -1125,7 +1137,18 @@ export class Ui {
 
     const mapOn = mapUnlocked(s);
     this.mapBtn.classList.toggle('hidden', !mapOn);
-    this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s)));
+    this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
+    const badge = legacyBadge(s);
+    this.legacyChip.classList.toggle('hidden', badge === null);
+    if (badge !== null && this.legacyChip.textContent !== badge) {
+      this.legacyChip.textContent = badge;
+      this.legacyChip.setAttribute('aria-label', `Legacy: income ${badge.split(' ')[1]}`);
+    }
+    if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
+      this.legacyAnnounced = true;
+      this.showBanner('EMPIRE FOR SALE!', 'Open the 🗺 map to sell it for Legacy Points');
+      sfx.fanfare();
+    }
     if (mapOn && !s.tutorial.mapSeen && !this.mapAnnounced && !this.modalOpen && s.tutorial.crusherSeen) {
       this.mapAnnounced = true;
       setTimeout(() => this.showBanner('CITY MAP!', 'Tap 🗺 to see what you can build next'), 2700);
@@ -1195,7 +1218,9 @@ export class Ui {
       const next = nextBusiness(st);
       const rows = mapRows(st).filter((r) => r.status === 'open' || r.id === next);
       // Rebuild only when something visible changed (progress is shown to the whole percent).
-      const key = JSON.stringify(rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id), r.tier]));
+      const sellRow = sellEmpireRow(st);
+      const teaser = nextSaleLine(st);
+      const key = JSON.stringify([rows.map((r) => [r.status, r.active, Math.floor(r.progress * 100), r.action, canOpenBusiness(st, r.id), r.tier]), sellRow, teaser]);
       if (key === lastKey) return;
       lastKey = key;
       art.innerHTML = cityMapSvg(st);
@@ -1249,6 +1274,32 @@ export class Ui {
           return row;
         }),
       );
+      // Prestige (P1.3b): the Sell Empire row once a sale is worth it, else how far the next one is.
+      if (sellRow) {
+        const row = el('div', `map-row legacy${sellRow.glow ? ' glow' : ''}`);
+        const text = el('div', 'map-text');
+        const name = el('div', 'map-name display');
+        name.textContent = 'Sell Empire';
+        const line = el('div', 'map-line');
+        line.textContent = sellRow.line;
+        text.append(name, line);
+        const b = el('button', 'buy small sell-empire') as HTMLButtonElement;
+        b.textContent = sellRow.action;
+        b.onclick = () => {
+          close();
+          this.openSellEmpire();
+        };
+        row.append(el('div', 'map-icon', LEGACY_ICON), text, b);
+        list.append(row);
+      } else if (teaser) {
+        const row = el('div', 'map-row legacy-next');
+        const text = el('div', 'map-text');
+        const line = el('div', 'map-line');
+        line.textContent = teaser;
+        text.append(line);
+        row.append(el('div', 'map-icon', LEGACY_ICON), text);
+        list.append(row);
+      }
     };
     paint();
     // Live progress while the yard keeps earning behind the map.
@@ -1431,7 +1482,71 @@ export class Ui {
     }
     back.append(box);
     this.root.append(back);
-    btn.focus();
+    btn.focus({ preventScroll: true });
+  }
+
+  /** Sell Empire preview (P1.3b): what the sale gives, what is kept and what resets. Confirming sells at once. */
+  openSellEmpire() {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    if (!canSellEmpire(s)) return;
+    if (!s.tutorial.legacyOffered) {
+      s.tutorial.legacyOffered = true;
+      this.deps.onChange();
+    }
+    const p = sellEmpirePreview(s);
+    const li = (xs: string[]) => xs.map((x) => `<li>${x}</li>`).join('');
+    this.modal({
+      title: 'Sell your empire?',
+      cls: 'sell-empire-preview',
+      body:
+        `<p>Sell every business and start again in a fresh scrapyard, richer for good.</p>` +
+        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>Legacy Points</small></div>` +
+        `<p class="legacy-mult">All income <b>${p.multNow}</b> → <b class="next">${p.multNext}</b> forever</p>` +
+        `<div class="legacy-cols"><div class="keep"><b>You keep</b><ul>${li(p.keeps)}</ul></div><div class="lose"><b>Starts over</b><ul>${li(p.resets)}</ul></div></div>` +
+        `<p class="legacy-run">This empire: ${p.earned} earned in ${p.runTime}</p>`,
+      button: `Sell for +${p.points} ${LEGACY_ICON}`,
+      secondary: 'Not yet',
+      onSecondary: () => {},
+      onClose: () => this.confirmSellEmpire(),
+    });
+  }
+
+  private confirmSellEmpire() {
+    const before = this.deps.state().legacy.sold;
+    const sold = this.deps.sellEmpire();
+    if (!sold) {
+      sfx.denied();
+      return;
+    }
+    sfx.fanfare();
+    haptics.play('celebrate');
+    const s = this.deps.state();
+    // Scattered, not in a line: positions and delays step by coprime strides through the pieces.
+    const confetti = Array.from({ length: 18 }, (_, i) => `<i style="--i:${i};--x:${3 + ((i * 7) % 18) * 5.3}%;--d:${1.5 + ((i * 5) % 7) * 0.12}s;--w:${-((i * 11) % 17) * 0.11}s"></i>`).join('');
+    this.modal({
+      title: 'EMPIRE SOLD!',
+      cls: 'legacy-celebrate',
+      body:
+        `<div class="confetti" aria-hidden="true">${confetti}</div>` +
+        `<p>You sold an empire worth ${formatCash(sold.earned)} after ${formatDuration(sold.seconds)}.</p>` +
+        `<p class="note">${grandpaLine(before)}<br>— Grandpa Joe</p>`,
+      big: `+${sold.points} ${LEGACY_ICON}`,
+      button: `Start again: income ${legacyBadge(s)?.split(' ')[1] ?? ''}`,
+      onClose: () => this.deps.restart(),
+    });
+  }
+
+  /** Tapping the HUD's Legacy chip: what the points do. */
+  openLegacyInfo() {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    const best = s.legacy.bestRunSeconds > 0 ? `<p class="legacy-run">Fastest empire: ${formatDuration(s.legacy.bestRunSeconds)} · empires sold: ${s.legacy.sold}</p>` : '';
+    this.modal({
+      title: 'Legacy',
+      body: `<p>${s.legacy.points} Legacy Points: every payout and all idle income are worth <b>${legacyBadge(s)?.split(' ')[1] ?? 'x1.00'}</b>.</p>${best}<p>${nextSaleLine(s) ?? 'Sell your empire on the city map for more points.'}</p>`,
+      button: 'OK',
+    });
   }
 
   /** Settings sheet: sound, music, motion, number format, reset, credits. */
@@ -1543,7 +1658,7 @@ export class Ui {
     };
     back.append(box);
     this.root.append(back);
-    done.focus();
+    done.focus({ preventScroll: true });
   }
 
   /** Stamp an auction card (P1.2c): `won` when you (or your Agent) bought the lot, `lost` when another bidder did. */

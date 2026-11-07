@@ -41,6 +41,8 @@ body {
   height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
+  /* clip, not just hidden: a hidden box can still be scrolled by focus() (the whole game slid 83 px left, run 20). */
+  overflow: clip;
   background: var(--asphalt);
 }
 
@@ -206,6 +208,10 @@ body {
   white-space: nowrap;
 }
 
+.icon-btn.hidden {
+  display: none;
+}
+
 .hud .parts.hidden {
   display: none;
 }
@@ -291,7 +297,10 @@ body {
   display: flex;
   gap: 4px;
   flex: 1;
+  min-width: 0;
 }
+
+
 
 .tab,
 .mode {
@@ -1082,5 +1091,213 @@ body {
   .auction-lot .stamp,
   .auction-lot.closing .bar > i {
     animation: none;
+  }
+}
+
+/* ---- Prestige: Sell Empire (P1.3b) ---- */
+.legacy-chip {
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.legacy-chip.hidden {
+  display: none;
+}
+
+.map-row.legacy {
+  background: linear-gradient(90deg, #fff4d1, #fff9ee);
+  border-color: #e0a800;
+}
+
+.map-row.legacy.glow {
+  animation: legacy-glow 1.6s ease-in-out infinite;
+}
+
+.modal .map-row .buy.sell-empire {
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  box-shadow: 0 4px 0 #a87e00;
+}
+
+.map-row.legacy-next {
+  border-style: dashed;
+}
+
+@keyframes legacy-glow {
+  50% {
+    box-shadow: 0 0 0 3px #f7c94899, 0 0 14px #f7c948;
+  }
+}
+
+.legacy-gain {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 20px 4px;
+  margin: 0 0 8px;
+  border-radius: 14px;
+  background: #fff4d1;
+  border: 2px solid #e0a800;
+}
+
+.legacy-gain .display {
+  font-size: 30px;
+  color: #a87e00;
+  line-height: 1.1;
+}
+
+.legacy-gain small {
+  font-weight: 800;
+  font-size: 12px;
+  color: #7a6a58;
+}
+
+.modal .legacy-mult {
+  margin-bottom: 8px;
+}
+
+.legacy-mult .next {
+  color: #2ea94a;
+}
+
+.legacy-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  text-align: left;
+  margin-bottom: 10px;
+}
+
+.legacy-cols > div {
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.legacy-cols .keep {
+  background: #e6f6e9;
+}
+
+.legacy-cols .lose {
+  background: #fde8e6;
+}
+
+.legacy-cols ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  line-height: 1.35;
+}
+
+.modal .legacy-run {
+  font-size: 13px;
+  color: #7a6a58;
+  font-weight: 700;
+}
+
+.legacy-celebrate .modal {
+  position: relative;
+  overflow: hidden;
+}
+
+.legacy-celebrate .modal .big {
+  color: #a87e00;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  left: var(--x);
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  background: hsl(calc(var(--i) * 47deg) 85% 58%);
+  animation: confetti-fall var(--d) var(--w) linear infinite;
+}
+
+@keyframes confetti-fall {
+  to {
+    transform: translateY(520px) rotate(540deg);
+  }
+}
+
+.reduce-motion .confetti {
+  display: none;
+}
+
+.reduce-motion .map-row.legacy.glow {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .map-row.legacy.glow {
+    animation: none;
+  }
+}
+
+/* The preview must fit a 375x667 phone (iPhone SE) without scrolling the page (run 20). */
+.sell-empire-preview .modal {
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  padding: 16px 16px 12px;
+}
+
+.sell-empire-preview .modal h2 {
+  font-size: 23px;
+  margin-bottom: 4px;
+}
+
+.sell-empire-preview .modal p {
+  font-size: 14px;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.sell-empire-preview .modal .buy {
+  font-size: 18px;
+  padding: 10px;
+}
+
+.sell-empire-preview .modal .secondary {
+  margin-top: 4px;
+  padding: 6px 12px;
+}
+
+/* Phones up to 430 px: four tabs and three buy modes overflowed the panel (run 20). */
+@media (max-width: 430px) {
+  .panel-head {
+    gap: 3px;
+  }
+  .tabs {
+    gap: 3px;
+  }
+  .tab,
+  .mode {
+    padding: 7px 6px;
+    font-size: 12.5px;
+    letter-spacing: -0.01em;
+  }
+  /* If a business's tab set still doesn't fit, the tabs scroll sideways instead of sliding under the buy modes. */
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
   }
 }

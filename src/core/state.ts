@@ -248,6 +248,8 @@ export interface GameState {
     mapSeen: boolean;
     /** The "lot cars can go to Paint & Tuning" toast was shown (P1.2f). */
     lotTuneSeen: boolean;
+    /** The Sell Empire preview was opened (the map dot and banner stop) (P1.3b). */
+    legacyOffered: boolean;
   };
   settings: {
     sound: boolean;
@@ -390,7 +392,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },

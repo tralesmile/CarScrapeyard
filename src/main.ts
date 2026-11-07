@@ -12,6 +12,7 @@ import { SaveManager } from './core/save';
 import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
+import { sellEmpire } from './core/legacy';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
@@ -128,6 +129,22 @@ const ui = new Ui(document.getElementById('ui')!, {
     return sc.barnReveal(shown);
   },
   onSwitchBusiness: () => showBusiness(),
+  sellEmpire: () => {
+    // Freeze every scene first: their cars and textures belong to the empire being sold.
+    for (const key of Object.values(SCENE_KEYS)) if (game.scene.isActive(key)) game.scene.pause(key);
+    const sold = sellEmpire(state, platform.now());
+    if (!sold) {
+      showBusiness();
+      return null;
+    }
+    saveNow();
+    return sold;
+  },
+  restart: () => {
+    saveNow();
+    resetting = true;
+    location.reload();
+  },
   resetProgress: () => {
     resetting = true;
     saves.wipe();

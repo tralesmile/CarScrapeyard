@@ -70,6 +70,8 @@ async function waitForServer(url, ms = 15000) {
       return { x: r.x + b.centerX * z, y: r.y + b.centerY * z, w: b.width * z, h: b.height * z };
     });
     assert(geo.w > 100, 'big car is on screen');
+    // The map button used to be drawn from the start: `.hidden` had no CSS rule for icon buttons (found in run 20).
+    assert(await page.$eval('.map-btn', (e) => getComputedStyle(e).display === 'none'), 'the map button is really hidden before 30 sales');
 
     // Art pass (P0.14h): power-of-two car textures with trilinear mipmaps, and a Canvas 2D backdrop.
     const art14h = await page.evaluate(() => {
@@ -1312,6 +1314,95 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye && window.__jye.state);
     const fresh = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash, intro: window.__jye.state.tutorial.introSeen }));
     assert(fresh.sold === 0 && fresh.cash === 0 && !fresh.intro, 'reset progress starts a new game');
+
+    console.log('sell empire (P1.3b)');
+    {
+      const se = await browser.newContext({ ...devices['iPhone SE'] });
+      const sp = await se.newPage();
+      sp.on('pageerror', (e) => errors.push('sell empire pageerror: ' + e.message));
+      sp.on('console', (m) => m.type() === 'error' && errors.push('sell empire console: ' + m.text()));
+      await sp.goto(URL);
+      await sp.waitForSelector('.modal .buy');
+      await sp.click('.modal .buy');
+      await sp.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A rich player: 144 x $5M earned is worth 12 Legacy Points.
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true });
+        s.carsSold = 120;
+        s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
+        s.lifetimeEarnings = 144 * 5e6;
+        s.legacy.runSeconds = 3 * 3600 + 25 * 60;
+      });
+      await sp.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('EMPIRE FOR SALE'), null, { timeout: 15000 });
+      assert(true, 'an "EMPIRE FOR SALE!" banner announces the offer');
+      assert(await sp.isVisible('.map-btn .dot.on'), 'the map button shows a dot while the sale is new');
+      assert(await sp.$eval('.legacy-chip', (e) => e.classList.contains('hidden')), 'no Legacy chip before the first sale');
+      await sp.waitForTimeout(2600); // let the banner clear
+      await sp.click('.map-btn');
+      await sp.waitForSelector('.map-row.legacy');
+      const row = await sp.$eval('.map-row.legacy', (e) => ({ text: e.textContent, glow: e.classList.contains('glow') }));
+      assert(/\+12 Legacy Points/.test(row.text) && /x1\.00 → x1\.24/.test(row.text) && row.glow, `the map offers Sell Empire, glowing (${row.text.trim()})`);
+      await sp.$eval('.map-row.legacy', (e) => e.scrollIntoView());
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21a-sell-empire-map.png') });
+      await sp.click('.map-row.legacy .sell-empire');
+      await sp.waitForSelector('.sell-empire-preview .modal');
+      const prev = await sp.textContent('.sell-empire-preview .modal');
+      assert(/\+12/.test(prev) && /x1\.24/.test(prev) && /You keep/.test(prev) && /Starts over/.test(prev) && /3h 25m|3h25m/.test(prev), 'the preview shows the points, the new multiplier, what is kept and the run time');
+      const fits = await sp.$eval('.sell-empire-preview .modal', (e) => e.getBoundingClientRect().bottom <= window.innerHeight && e.getBoundingClientRect().top >= 0);
+      assert(fits, 'the preview fits an iPhone SE screen');
+      assert(await sp.evaluate(() => document.getElementById('app').scrollLeft === 0), 'the game never slides sideways when a modal takes focus');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21b-sell-empire-preview.png') });
+      await sp.click('.modal .secondary');
+      const kept = await sp.evaluate(() => ({ pts: window.__jye.state.legacy.points, sold: window.__jye.state.carsSold, offered: window.__jye.state.tutorial.legacyOffered }));
+      assert(kept.pts === 0 && kept.sold === 120 && kept.offered, '"Not yet" keeps the empire (and the offer counts as seen)');
+      assert(!(await sp.isVisible('.map-btn .dot.on')), 'the map dot clears once the preview was seen');
+      await sp.click('.map-btn');
+      await sp.click('.map-row.legacy .sell-empire');
+      await sp.waitForSelector('.sell-empire-preview .modal .buy');
+      await sp.click('.sell-empire-preview .modal .buy');
+      await sp.waitForSelector('.legacy-celebrate .modal');
+      const cel = await sp.textContent('.legacy-celebrate .modal');
+      const after = await sp.evaluate(() => {
+        const s = window.__jye.state;
+        return { pts: s.legacy.points, sold: s.carsSold, cash: s.cash, empires: s.legacy.sold, intro: s.tutorial.introSeen };
+      });
+      assert(/EMPIRE SOLD/.test(cel) && /\+12/.test(cel) && /Grandpa Joe/.test(cel), 'a celebration with Grandpa Joe follows the sale');
+      assert(after.pts === 12 && after.sold === 0 && after.cash === 0 && after.empires === 1 && after.intro, `the sale banks 12 points and resets the run (${JSON.stringify(after)})`);
+      await sp.waitForTimeout(500);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21c-sell-empire-celebrate.png') });
+      await Promise.all([sp.waitForNavigation(), sp.click('.legacy-celebrate .modal .buy')]);
+      await sp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
+      const re = await sp.evaluate(() => ({ pts: window.__jye.state.legacy.points, sold: window.__jye.state.carsSold, modal: !!document.querySelector('.modal'), map: getComputedStyle(document.querySelector('.map-btn')).display }));
+      assert(re.pts === 12 && re.sold === 0 && !re.modal && re.map === 'none', 'the new empire starts in a fresh yard after the reload, no intro, map hidden again');
+      await sp.waitForSelector('.legacy-chip:not(.hidden)');
+      const chip = await sp.textContent('.legacy-chip');
+      assert(/x1\.24/.test(chip), `the HUD shows the Legacy chip (${chip})`);
+      const hudFits = await sp.evaluate(() => {
+        const h = document.querySelector('.hud').getBoundingClientRect();
+        return [...document.querySelectorAll('.hud > *')].filter((e) => getComputedStyle(e).display !== 'none').every((e) => e.getBoundingClientRect().right <= h.right + 0.5);
+      });
+      assert(hudFits, 'the top bar still fits on an iPhone SE with the chip');
+      const panelFits = await sp.evaluate(() => {
+        const p = document.querySelector('.panel').getBoundingClientRect();
+        return [...document.querySelectorAll('.panel-head .tab, .panel-head .mode')].filter((e) => getComputedStyle(e).display !== 'none').every((e) => e.getBoundingClientRect().right <= p.right + 0.5);
+      });
+      assert(panelFits, 'every tab and buy mode fits the panel on a 320 px phone');
+      // The new empire's yard runs (its car values already include x1.24, see legacy.test.ts).
+      const val = await sp.evaluate(() => {
+        const s = window.__jye.state;
+        const c = s.cars[0];
+        return c.value;
+      });
+      assert(val > 0, `the new empire's first wreck is on the way ($${val})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21d-new-empire.png') });
+      await sp.click('.legacy-chip');
+      await sp.waitForSelector('.modal h2:has-text("Legacy")');
+      const info = await sp.textContent('.modal');
+      assert(/12 Legacy Points/.test(info) && /x1\.24/.test(info) && /Sell Empire again after/.test(info), 'tapping the chip explains the points and the next sale');
+      await sp.click('.modal .buy');
+      await se.close();
+    }
 
     console.log('car art gallery');
     const gal = await ctx.newPage();

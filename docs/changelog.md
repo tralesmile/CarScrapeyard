@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.20.0 - 2026-11-07 (run 20)
+
+- **Sell Empire (P1.3b):** once selling would give 10 or more Legacy Points, an "EMPIRE FOR SALE!" banner shows and
+  the city map gets a gold, glowing "🏛 Sell Empire" row ("+12 Legacy Points · income x1.00 → x1.24"). Its preview
+  shows the points, the new income multiplier, what you keep (Legacy Points, the Collection book, stats and settings),
+  what starts over (cash, upgrades, crew, every business and car, parts, jobs, the barn) and how long this empire took.
+  Confirming plays a confetti celebration with a line from Grandpa Joe, then a fresh scrapyard starts.
+- A gold **Legacy chip** ("🏛 x1.24") sits in the top bar once you own points; tap it for your points, the fastest
+  empire and how much more you need to earn for the next sale. After a sale the map shows that goal too.
+- **Fixes:** the 🗺 map button no longer shows before 30 sales (it was always drawn; only its dot was hidden). On
+  320 px-wide phones the panel's tabs and x1/x10/Max buttons fit again, and opening a popup no longer slides the whole
+  game sideways.
+- Tests: 10 unit tests for the Sell Empire texts (row threshold, offline cash counts, glow, preview, badge, next-sale
+  line, save round trip, old saves); e2e plays a full sale on an iPhone SE (banner, map dot, map row, preview fits the
+  screen, "Not yet", the sale, celebration, reload into the new empire, HUD chip fits, chip info), screenshots e2e-21a-d.
+
 ## 0.19.0 - 2026-11-07 (run 19)
 
 - **Paint shop customers speak (P1.2g):** as the customer steps out of their car they say what they want in a speech

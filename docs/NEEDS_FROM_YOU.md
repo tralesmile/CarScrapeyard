@@ -68,6 +68,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       you rather pick the service yourself?
       New since run 19: paint shop customers say what they want as they step out ("Make it pop!", "The full works,
       please!"), next to the order ticket. On a short phone the car is a little smaller so the shop sign stays readable.
+      New since run 20: **Sell Empire (prestige).** After about 3-4 hours (once selling is worth 10 Legacy Points) a
+      gold "Sell Empire" row appears on the city map. Selling resets your businesses and cash but every point adds +2%
+      to all income forever (a gold "🏛 x1.24" chip in the top bar). Is the first sale at ~3.5 hours the right moment,
+      and is the preview clear about what you keep and lose? Would you rather keep something more (e.g. the crew)?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

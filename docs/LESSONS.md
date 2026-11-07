@@ -349,3 +349,25 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **One e2e flake this run: the lot's FOR SALE tag took over 3 s to show after a car was injected** (passed on the
   re-run with the same build). Waits on animated scene state get 6 s now; if it flakes again, log `arriving`, `bigId`
   and the texture key in the failure message instead of re-running blind.
+
+
+## 2026-11-07 (run 20)
+
+- **A `.hidden` class needs a CSS rule for every element that uses it.** The 🗺 map button had `hidden` toggled since
+  run 10, but only `.hint.hidden`, `.sell.hidden`, ... had `display: none`; `.icon-btn` had none, so the map button
+  showed from the first second. The e2e waited for `.map-btn:not(.hidden)` (the class), so it passed. Checking
+  `getComputedStyle(e).display` in the e2e caught it at once. Assert what the player sees, not the class we set.
+- **`overflow: hidden` boxes can still be scrolled by `focus()`.** A modal's button focus slid the whole #app 83 px
+  left (it is wider than a 320 px phone because the panel head overflowed), flakily. Fixes: `overflow: clip` on #app,
+  `focus({ preventScroll: true })`, and fix the real overflow. When a screenshot looks shifted, log every element with a
+  non-zero `scrollLeft`.
+- **A media query placed before the rule it overrides does nothing.** Same specificity, later wins: my narrow-phone
+  `.tab` sizes sat above the base `.tab, .mode` rule. Put responsive overrides at the end of the stylesheet.
+- **Iterate on one feature with a scratch Playwright script, not the 8-minute e2e.** A 60-line copy of the new e2e
+  section run against `vite preview` took 15 s per try and found three layout bugs before the full run.
+- **Reset-everything features: reload instead of rebuilding scenes in place.** Selling the empire restarts car ids at
+  1 while textures are keyed by id (`car-1`), so an in-place restart would show old art. Pause the scenes, apply the
+  sale, save, show the celebration, then `location.reload()`: every scene and texture is rebuilt from the save.
+- **The e2e log is block-buffered; the failure line is not where it stopped.** `console.log` to a file buffers while
+  `console.error` doesn't, so "E2E FAILED" printed before the last few "ok" lines. Read the assertion text, not the
+  position. The full e2e took ~17 minutes this run (headless GL at ~10 fps); run the new section alone first.

@@ -199,4 +199,22 @@ to automate it, open new car businesses, then sell your empire and start again i
 - Pacing (sim, P1.3a): the always-tapping bot is offered the first sale at 3h28m (after Paint & Tuning opens at
   1h35m), the relaxed bot at 4h20m; the plan's target for a casual player is day 2-3. With x1.24 the second empire opens
   the Used Car Lot at 39m (was 45m) and Paint & Tuning at 1h19m (was 1h35m).
+- **UI (P1.3b):** an "EMPIRE FOR SALE!" banner and a dot on the map button the first time the sale is offered; a gold
+  "Sell Empire" row at the bottom of the city map's list (glows per the rule above); a preview (points, income
+  multiplier now and next, what you keep and what starts over, this empire's earnings and time) with "Not yet"; a
+  confetti celebration with Grandpa Joe; then the game reloads into the fresh scrapyard (no intro). A gold chip in the
+  top bar shows the multiplier ("🏛 x1.24"); tapping it shows the points, the fastest empire and the next sale goal.
+- **Legacy tree (P1.3c, design draft run 20):** three branches of four nodes, bought in order within a branch with
+  Legacy Points. Spending a point does **not** remove its +2% income (the multiplier counts points earned, not points
+  held), so the tree is pure upside and the choice is only *which* node first. Costs 2 / 3 / 5 / 8 per branch (54 for
+  everything; the first sale gives ~12, so 2-4 nodes per empire early on). Every effect is a number in `ECON.legacy.tree`.
+  - **Mechanic** (work faster): Quick Hands (2) +25% tap work in every business · Head Start (3) each new empire starts
+    with $5K and the Mechanic hired · Parts Hoarder (5) +50% parts from the crusher · Master Crew (8) every crew member
+    and the Foreman/Detailer/Painter work +30% faster.
+  - **Dealer** (sell better): Silver Tongue (2) haggle "perfect" zone 30% wider · Regulars (3) buyers arrive 25% more
+    often in the yard and the lot · Insider (5) auction prices -10% · Franchise (8) opening a business costs 25% less.
+  - **Racer** (luck and time): Quick Tips (2) +1 s per service on the paint shop tip timer · Rare Finds (3) Rare, Epic and
+    Legendary chances x1.5 · Barn Scout (5) barn finds come twice as often and stages take 20% less time · Night Shift
+    (8) the offline earnings cap is 2 hours longer.
+  - Respec: free once per empire (refund all spent points), so an early wrong pick never hurts. No paid respec.
 
