@@ -7,13 +7,27 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' | 'sports' | 'hyper';
 /** Businesses on the city map, in unlock order (P1.1). */
 export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
+export type CityId = 'rustValley' | 'motorCity';
+/** \"City lights\" setting (P1.3d3c): follow the device clock, or always day / always night. */
+export type CityLights = 'auto' | 'day' | 'night';
 export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
 export type GarageUpgradeKind = 'tools' | 'rep';
 export type CarLotUpgradeKind = 'valet' | 'showroom';
 export type CarLotCrewKind = 'detailer' | 'agent';
+/** Walk-up buyer types on the Used Car Lot (P1.2c); they share the yard buyers' looks. */
+export type LotBuyerKind = 'family' | 'collector' | 'speed' | 'tradie' | 'influencer';
+/** Services on the Paint & Tuning menu (P1.2d). */
+export type PaintService = 'respray' | 'rims' | 'wrap' | 'tune';
+export type PaintUpgradeKind = 'booth' | 'hype';
 /** Auction condition grade of a used car, 1 (rough) to 5 (nearly mint). */
 export type Condition = 1 | 2 | 3 | 4 | 5;
 export type BuyerKind = 'bargain' | 'collector' | 'speed' | 'family' | 'tradie' | 'influencer';
+/** Legacy tree (P1.3c): three branches of four nodes, bought in order within a branch. */
+export type LegacyBranch = 'mechanic' | 'dealer' | 'racer';
+export type LegacyNode =
+  | 'quickHands' | 'headStart' | 'partsHoarder' | 'masterCrew'
+  | 'silverTongue' | 'regulars' | 'insider' | 'franchise'
+  | 'quickTips' | 'rareFinds' | 'barnScout' | 'nightShift';
 
 export const ECON = {
   /** Seconds between new wrecks arriving while a lot slot is free. */
@@ -190,6 +204,31 @@ export const ECON = {
     >,
   },
 
+  /**
+   * Cities (P1.3d). An empire is built in one city; a new city is chosen when the empire is sold. The same four
+   * businesses run in every city, scaled: every value (car prices, fees, rewards, idle income) AND every price (upgrades,
+   * crew, slots, opening costs, unlock goals, Head Start cash) is x `scale`, so the pacing inside a run stays the one the
+   * sim tunes. The bigger earnings count in full for Legacy Points, so a run in a bigger city sells sooner and for more.
+   * `fromSale`: the city can be chosen on that empire sale and later ones (2 = from the second sale; 0 = the start).
+   */
+  cities: {
+    list: {
+      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began', names: {}, hasNight: false },
+      motorCity: {
+        name: 'Motor City',
+        icon: '🏙️',
+        scale: 5,
+        fromSale: 2,
+        tagline: 'The big city: bigger prices, bigger payouts',
+        // City names for the businesses (P1.3d2), shown on the map, in the list and on the scenes' signs. Keep each at
+        // most as long as the longest default name ("Paint & Tuning"), so the signs keep their lettering.
+        names: { scrapyard: 'Salvage Yard', garage: 'Midtown Garage', carlot: 'Auto Mall', paint: 'Neon Customs' },
+        // Neon night-time look for every scene (P1.3d3c), by the device clock or the "City lights" setting.
+        hasNight: true,
+      },
+    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string; names: Partial<Record<BusinessId, string>>; hasNight: boolean }>,
+  },
+
   /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */
   /**
    * Businesses on the Rust Valley city map (P1.1). The scrapyard is always open. A business unlocks (shows its price on
@@ -203,13 +242,13 @@ export const ECON = {
       scrapyard: { name: 'Scrapyard', icon: '🚗', unlockLifetime: 0, openCost: 0, ready: true },
       garage: { name: 'Repair Garage', icon: '🔧', unlockLifetime: 200_000, openCost: 100_000, ready: true },
       carlot: { name: 'Used Car Lot', icon: '🏷️', unlockLifetime: 5_000_000, openCost: 2_500_000, ready: true },
-      paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: false },
+      paint: { name: 'Paint & Tuning', icon: '🎨', unlockLifetime: 50_000_000, openCost: 25_000_000, ready: true },
     } satisfies Record<BusinessId, { name: string; icon: string; unlockLifetime: number; openCost: number; ready: boolean }>,
     /**
      * Map tiers (P1.1d): each open business grows on the map in three tiers. The number is the size needed for tier 2
      * and tier 3: lot slots for the scrapyard, repair bays for the garage. Businesses without an entry stay tier 1.
      */
-    tiers: { scrapyard: [3, 4], garage: [2, 3], carlot: [3, 4] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
+    tiers: { scrapyard: [3, 4], garage: [2, 3], carlot: [3, 4], paint: [2, 3] } satisfies Partial<Record<BusinessId, readonly [number, number]>>,
   },
 
   /**
@@ -263,6 +302,10 @@ export const ECON = {
     lotSeconds: 45,
     /** Seconds before an empty board slot gets a new lot (after you bought one). */
     refillSeconds: 4,
+    /** The last seconds of a lot: the card says "Going…" and its timer turns red (P1.2c). */
+    auctionClosingSeconds: 8,
+    /** How long the "SOLD!" / "YOURS!" stamp stays on an auction card, seconds. */
+    stampSeconds: 1.6,
     spots: {
       start: 2,
       /** Cost of forecourt spot 3 and 4. */
@@ -283,6 +326,23 @@ export const ECON = {
     workPerTap: 1,
     /** Seconds until a buyer walks up while a refurbished car waits (they pay the full price). */
     buyerInterval: 6,
+    /** The last seconds of `buyerInterval`: the buyer stands by the car and looks it over before paying. */
+    buyerLookSeconds: 2.5,
+    /**
+     * Walk-up buyer types (P1.2c). Each pays a bonus for the cars they like: some by family, the Collector for cars you
+     * bought in Good or Mint condition ("all original"). A buyer picks the waiting car they like best. `weight` is how
+     * often they show up; they show up once that many cars have been sold in the yard.
+     */
+    buyers: {
+      family: { name: 'Family', likes: 'family cars', families: ['sedan', 'van', 'suv'], minCondition: 0, bonus: 0.15, weight: 3, unlockCarsSold: 0 },
+      collector: { name: 'Collector', likes: 'all-original cars (bought Good or Mint)', families: null, minCondition: 4, bonus: 0.3, weight: 2, unlockCarsSold: 0 },
+      speed: { name: 'Speed Freak', likes: 'fast cars', families: ['muscle', 'sports', 'hyper'], minCondition: 0, bonus: 0.2, weight: 2, unlockCarsSold: 0 },
+      tradie: { name: 'Tradie', likes: 'pickups and vans', families: ['pickup', 'van'], minCondition: 0, bonus: 0.2, weight: 2, unlockCarsSold: 20 },
+      influencer: { name: 'Influencer', likes: 'show-off cars', families: ['sports', 'hyper'], minCondition: 0, bonus: 0.4, weight: 1, unlockCarsSold: 100 },
+    } satisfies Record<
+      LotBuyerKind,
+      { name: string; likes: string; families: readonly CarFamily[] | null; minCondition: number; bonus: number; weight: number; unlockCarsSold: number }
+    >,
     upgrades: {
       /** Faster refurbishing (taps and the Detailer), doubled at the station milestones. */
       valet: { name: 'Valet Bay', baseCost: 250_000, growth: 1.17 },
@@ -301,6 +361,67 @@ export const ECON = {
     agentReserve: 2,
   },
 
+  /**
+   * Paint & Tuning (business 4, P1.2d): customers order one to three services for their car (respray, rims, vinyl
+   * wrap, engine tune). The booth works through them in order (tap, or the Painter); bigger orders pay a combo bonus,
+   * and an order you finish yourself quickly earns a tip. Refurbished lot cars can come in for one service (P1.2f).
+   */
+  paint: {
+    /** Seconds until the next customer drives in while a booth is free. */
+    arrivalInterval: 4,
+    booths: {
+      start: 1,
+      /** Cost of booth 2 and 3. */
+      costs: [25_000_000, 200_000_000] as const,
+    },
+    /** Fee per service = baseFee x service feeMult x (family base value / feeFamilyRef) x Hype multiplier. */
+    baseFee: 55_000,
+    feeFamilyRef: 600,
+    /** Each service beyond the first adds this fraction to the whole order's fee. */
+    comboBonus: 0.15,
+    /** Order sizes (number of services) by weight. */
+    orderSizes: { 1: 3, 2: 3, 3: 1 } satisfies Record<1 | 2 | 3, number>,
+    /** Tip on orders the player finishes by hand within tipSecondsPerService x services of the car arriving. */
+    tip: 0.25,
+    tipSecondsPerService: 3,
+    services: {
+      respray: { name: 'Respray', icon: '🎨', work: 8, feeMult: 1, weight: 3 },
+      rims: { name: 'Custom rims', icon: '🛞', work: 6, feeMult: 0.8, weight: 3 },
+      wrap: { name: 'Vinyl wrap', icon: '🌀', work: 12, feeMult: 1.5, weight: 2 },
+      tune: { name: 'Engine tune', icon: '⚙️', work: 16, feeMult: 2.2, weight: 1.5 },
+    } satisfies Record<PaintService, { name: string; icon: string; work: number; feeMult: number; weight: number }>,
+    /** Work removed per tap at Spray Booth level 1. */
+    workPerTap: 1,
+    upgrades: {
+      /** Faster work (taps and the Painter), doubled at the station milestones. */
+      booth: { name: 'Spray Booth', baseCost: 3_000_000, growth: 1.17 },
+      /** Higher fees. */
+      hype: { name: 'Hype', baseCost: 6_000_000, growth: 1.35 },
+    } satisfies Record<PaintUpgradeKind, { name: string; baseCost: number; growth: number }>,
+    /** Each Hype level multiplies fees by this. */
+    hypeFeeGrowth: 1.1,
+    /** The Painter works on the oldest order on its own (work units per second at Spray Booth level 1), also offline. */
+    painter: { name: 'Painter', cost: 60_000_000, workPerSec: 1.2 },
+    /**
+     * Lot cars through the shop (P1.2f): a refurbished Used Car Lot car can take a free booth for one service. It pays
+     * nothing at the shop; its sticker price on the lot goes up by the shop's fee for that service x `valueMult`
+     * (walk-up buyers then add their bonus on top). The service suits the car.
+     */
+    lotCars: {
+      valueMult: 1,
+      service: {
+        sedan: 'respray',
+        hatch: 'rims',
+        pickup: 'rims',
+        muscle: 'tune',
+        van: 'respray',
+        suv: 'rims',
+        sports: 'wrap',
+        hyper: 'tune',
+      },
+    } satisfies { valueMult: number; service: Record<CarFamily, PaintService> },
+  },
+
   barn: {
     /** Unlocks after this many cars sold (after contracts). */
     unlockCarsSold: 60,
@@ -317,6 +438,64 @@ export const ECON = {
     growthPerRestore: 0.15,
     /** Seconds until the next barn find after one is sold (runs offline too). */
     nextFindSeconds: 300,
+  },
+  /** Prestige "Sell Empire" (P1.3a). Points = floor(sqrt(all-time earnings / pointScale)). */
+  legacy: {
+    pointScale: 5_000_000,
+    /** The sale is offered once it would give at least this many points. */
+    minPoints: 10,
+    /** Income bonus per Legacy Point (+2%). */
+    incomePerPoint: 0.02,
+    /** The button glows when new points >= this share of the points already owned. */
+    glowFrac: 0.5,
+    /**
+     * Legacy tree (P1.3c). Nodes are bought in order within a branch for `costs[i]` points. Spent points keep their
+     * +2% income (the multiplier counts points earned). One free respec per empire.
+     */
+    tree: {
+      costs: [2, 3, 5, 8] as const,
+      branches: {
+        mechanic: { name: 'Mechanic', icon: '🔧', nodes: ['quickHands', 'headStart', 'partsHoarder', 'masterCrew'] },
+        dealer: { name: 'Dealer', icon: '🤝', nodes: ['silverTongue', 'regulars', 'insider', 'franchise'] },
+        racer: { name: 'Racer', icon: '🏁', nodes: ['quickTips', 'rareFinds', 'barnScout', 'nightShift'] },
+      } satisfies Record<LegacyBranch, { name: string; icon: string; nodes: readonly [LegacyNode, LegacyNode, LegacyNode, LegacyNode] }>,
+      nodes: {
+        quickHands: { name: 'Quick Hands', icon: '👐', desc: '+25% tap work in every business' },
+        headStart: { name: 'Head Start', icon: '🚀', desc: 'New empires start with $5K and the Mechanic' },
+        partsHoarder: { name: 'Parts Hoarder', icon: '⚙️', desc: '+50% parts from the crusher' },
+        masterCrew: { name: 'Master Crew', icon: '👷', desc: 'All crew work 30% faster' },
+        silverTongue: { name: 'Silver Tongue', icon: '🗣️', desc: 'Haggle PERFECT zone 30% wider' },
+        regulars: { name: 'Regulars', icon: '🔔', desc: 'Buyers come 25% more often' },
+        insider: { name: 'Insider', icon: '🔨', desc: 'Auction prices -10%' },
+        franchise: { name: 'Franchise', icon: '🏢', desc: 'Opening a business costs 25% less' },
+        quickTips: { name: 'Quick Tips', icon: '⚡', desc: '+1s per service on the paint tip timer' },
+        rareFinds: { name: 'Rare Finds', icon: '💎', desc: 'Rare, Epic and Legendary cars x1.3 as often' },
+        barnScout: { name: 'Barn Scout', icon: '🏚️', desc: 'Barn finds twice as often, stages 20% faster' },
+        nightShift: { name: 'Night Shift', icon: '🌙', desc: 'Offline earnings cap +2 hours' },
+      } satisfies Record<LegacyNode, { name: string; icon: string; desc: string }>,
+      /** Tap work in every business x (1 + this). */
+      quickHandsTap: 0.25,
+      headStartCash: 5_000,
+      /** Crusher parts x (1 + this). */
+      partsHoarderBonus: 0.5,
+      /** Crew work rates x (1 + this); the Salesperson's delay / (1 + this). */
+      masterCrewSpeed: 0.3,
+      /** Haggle perfect zone x (1 + this). */
+      silverTongueZone: 0.3,
+      /** Buyer gaps (yard) and walk-up intervals (lot) / (1 + this). */
+      regularsRate: 0.25,
+      /** Auction prices x (1 - this). */
+      insiderDiscount: 0.1,
+      /** Business open costs x (1 - this). */
+      franchiseDiscount: 0.25,
+      quickTipsSeconds: 1,
+      /** Rare, Epic and Legendary arrival weights x this. */
+      rareFindsMult: 1.3,
+      /** Barn: time to the next find / this; stage times x (1 - barnScoutStage). */
+      barnScoutFind: 2,
+      barnScoutStage: 0.2,
+      nightShiftSeconds: 2 * 60 * 60,
+    },
   },
 } as const;
 

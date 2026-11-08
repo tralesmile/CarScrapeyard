@@ -27,16 +27,16 @@ const T0 = 1_800_000_000_000;
 
 describe('formulas', () => {
   it('upgrade cost grows exponentially from the base', () => {
-    expect(upgradeCost('wash', 1)).toBe(ECON.upgrades.wash.baseCost);
-    expect(upgradeCost('wash', 2)).toBe(Math.ceil(ECON.upgrades.wash.baseCost * ECON.upgrades.wash.growth));
-    expect(upgradeCost('wash', 20)).toBeGreaterThan(upgradeCost('wash', 19));
+    expect(upgradeCost('wash', 1, 1)).toBe(ECON.upgrades.wash.baseCost);
+    expect(upgradeCost('wash', 2, 1)).toBe(Math.ceil(ECON.upgrades.wash.baseCost * ECON.upgrades.wash.growth));
+    expect(upgradeCost('wash', 20, 1)).toBeGreaterThan(upgradeCost('wash', 19, 1));
   });
 
   it('bulk max never spends more than the cash', () => {
-    const { levels, cost } = bulkCost('repair', 1, 'max', 5_000);
+    const { levels, cost } = bulkCost('repair', 1, 'max', 5_000, 1);
     expect(levels).toBeGreaterThan(0);
     expect(cost).toBeLessThanOrEqual(5_000);
-    expect(cost + upgradeCost('repair', 1 + levels)).toBeGreaterThan(5_000);
+    expect(cost + upgradeCost('repair', 1 + levels, 1)).toBeGreaterThan(5_000);
   });
 
   it('milestones double power', () => {
@@ -128,7 +128,7 @@ describe('core loop', () => {
     expect(buyUpgrade(s, 'wash')).toBe(false);
     expect(hireManager(s, 'mechanic')).toBe(false);
     expect(buySlot(s)).toBe(false);
-    s.cash = s.lifetimeEarnings = upgradeCost('wash', 1);
+    s.cash = s.lifetimeEarnings = upgradeCost('wash', 1, 1);
     expect(buyUpgrade(s, 'wash')).toBe(true);
     expect(s.cash).toBe(0);
     expect(s.levels.wash).toBe(2);

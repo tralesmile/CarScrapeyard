@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, ManagerKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CityId, CityLights, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -72,6 +72,18 @@ export interface LotCar {
   paid: number;
   /** Refurbish work units left (0 = ready to sell). */
   work: number;
+  /** In a Paint & Tuning booth right now (P1.2f): it can't be sold or looked at until it comes back. */
+  atShop?: boolean;
+  /** The service the paint shop did on it (it can only go once). */
+  tuned?: PaintService;
+  /** What the service added to its sticker price. */
+  tuneValue?: number;
+}
+
+/** A walk-up buyer looking over one of your refurbished cars before paying for it (P1.2c). */
+export interface LotBuyer {
+  kind: LotBuyerKind;
+  carId: number;
 }
 
 export interface CarLot {
@@ -85,6 +97,8 @@ export interface CarLot {
   cars: LotCar[];
   /** Seconds a buyer has been on the way (runs while a refurbished car waits). */
   buyerTimer: number;
+  /** The buyer on the forecourt looking a car over (the last `buyerLookSeconds` of the wait), or null. */
+  buyer: LotBuyer | null;
   nextId: number;
   focusedId: number | null;
   /** Car being haggled over: walk-up buyers leave it alone until the slider stops. */
@@ -93,6 +107,47 @@ export interface CarLot {
   /** Profit the lot has made in total (sale price minus auction price). */
   profit: number;
   /** Cash the lot has taken in from sales in total. */
+  earned: number;
+}
+
+/** A customer order in the Paint & Tuning shop (P1.2d): services done one after another. */
+export interface PaintJob {
+  id: number;
+  family: CarFamily;
+  model: string;
+  /** Colour the car arrives in. */
+  paint: number;
+  /** Colour the customer asked for (shown once a respray or wrap is done). */
+  newPaint: number;
+  /** Ordered services, 1-3, no repeats. */
+  services: PaintService[];
+  /** Index of the service being worked on (services.length = done). */
+  step: number;
+  /** Work units left on the current service. */
+  work: number;
+  /** Full fee (combo bonus included), fixed when the car arrives. */
+  fee: number;
+  /** Seconds since the car arrived (for the quick-finish tip). */
+  age: number;
+  /**
+   * Set when this is one of your own Used Car Lot cars (P1.2f): no fee and no tip; `fee` is what the service adds to
+   * the car's sticker price when it goes back to the lot.
+   */
+  lotCarId?: number;
+}
+
+export interface PaintShop {
+  booths: number;
+  levels: Record<PaintUpgradeKind, number>;
+  painter: boolean;
+  /** Cars in the booths, oldest first. */
+  jobs: PaintJob[];
+  arrivalTimer: number;
+  nextJobId: number;
+  focusedId: number | null;
+  jobsDone: number;
+  tips: number;
+  /** Cash the shop has earned in total. */
   earned: number;
 }
 
@@ -170,6 +225,8 @@ export interface GameState {
   garage: Garage;
   /** Used Car Lot (business 3). Ticks only once opened. */
   carlot: CarLot;
+  /** Paint & Tuning (business 4). Ticks only once opened. */
+  paint: PaintShop;
   /** The customer waiting in the yard (null between buyers or before unlock). */
   buyer: Buyer | null;
   /** Seconds until the next buyer arrives when there is none. */
@@ -189,6 +246,10 @@ export interface GameState {
     barnSeen: boolean;
     /** The city map was opened at least once (its button shows a dot until then). */
     mapSeen: boolean;
+    /** The "lot cars can go to Paint & Tuning" toast was shown (P1.2f). */
+    lotTuneSeen: boolean;
+    /** The Sell Empire preview was opened (the map dot and banner stop) (P1.3b). */
+    legacyOffered: boolean;
   };
   settings: {
     sound: boolean;
@@ -201,6 +262,8 @@ export interface GameState {
     vibration: boolean;
     /** Sell at the asking price without the haggle slider. */
     skipHaggle: boolean;
+    /** Night-time neon look in cities that have one: by the device clock, or always day / night (P1.3d3c). */
+    cityLights: CityLights;
   };
   /**
    * Collection book counts (P0.14i, the book itself is P1.4): cars sold per family. Saves from before run 9 start
@@ -216,6 +279,32 @@ export interface GameState {
     perfectHaggles: number;
     buyersServed: number;
   };
+  /** Prestige (P1.3a): Legacy Points and what's left of the empires sold before this one. Kept on a sale. */
+  legacy: Legacy;
+}
+
+export interface Legacy {
+  /** Legacy Points earned so far (never lost). */
+  points: number;
+  /** Earnings of every empire sold before this one. */
+  allTime: number;
+  /** Empires sold. */
+  sold: number;
+  /** Seconds played in the empire that was sold last, and the fastest sale so far (0 = none yet). */
+  lastRunSeconds: number;
+  bestRunSeconds: number;
+  /** Seconds played in this empire (playSeconds is lifetime). */
+  runSeconds: number;
+  /** Legacy tree (P1.3c): nodes owned per branch (0-4, bought in order). */
+  tree: Record<LegacyBranch, number>;
+  /** The free respec of this empire is used (reset on every sale). */
+  respecUsed: boolean;
+  /** City this empire is built in (P1.3d), picked on the sale before it. */
+  city: CityId;
+}
+
+export function newLegacy(): Legacy {
+  return { points: 0, allTime: 0, sold: 0, lastRunSeconds: 0, bestRunSeconds: 0, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' };
 }
 
 export function emptyFamilyCounts(): Record<CarFamily, number> {
@@ -256,11 +345,27 @@ export function newCarLot(): CarLot {
     refill: Array.from({ length: n }, (_, i) => 0.3 + i * 0.4),
     cars: [],
     buyerTimer: 0,
+    buyer: null,
     nextId: 1,
     focusedId: null,
     holdId: null,
     sold: 0,
     profit: 0,
+    earned: 0,
+  };
+}
+
+export function newPaintShop(): PaintShop {
+  return {
+    booths: ECON.paint.booths.start,
+    levels: { booth: 1, hype: 1 },
+    painter: false,
+    jobs: [],
+    arrivalTimer: ECON.paint.arrivalInterval - 0.5,
+    nextJobId: 1,
+    focusedId: null,
+    jobsDone: 0,
+    tips: 0,
     earned: 0,
   };
 }
@@ -286,6 +391,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     businesses: newBusinesses(),
     garage: newGarage(),
     carlot: newCarLot(),
+    paint: newPaintShop(),
     buyer: null,
     buyerTimer: 0,
     focusedId: null,
@@ -294,9 +400,10 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
+    legacy: newLegacy(),
   };
 }

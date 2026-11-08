@@ -4,6 +4,8 @@
 
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { businessName } from '../core/businesses';
+import { currentCity } from '../core/cities';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
 import { findJob, focusJob, garageTap } from '../core/garage';
@@ -20,6 +22,7 @@ import {
   GARAGE_AREA_TOP,
   LIFT_RISE,
   SPEECH_TIME,
+  carLabelTop,
   customerKind,
   customerLine,
   liftPosts,
@@ -72,6 +75,8 @@ export class GarageScene extends Phaser.Scene {
   private foremanTimer = 0;
   private floaters: Floater[] = [];
   private layoutInsets = '';
+  /** Whether the backdrop on screen was painted with the night look (P1.3d3c): repainted when the clock or setting flips it. */
+  private drawnNight = false;
   private insetCheck = 0;
   /** Lift height 0 (down) .. 1 (raised by LIFT_RISE) and the little dip on each tap, both tweened. */
   private lift = { v: 0 };
@@ -231,6 +236,7 @@ export class GarageScene extends Phaser.Scene {
     this.insetCheck = 0.5;
     const { top, bottom } = this.bridge.insets();
     if (`${Math.round(top)},${Math.round(bottom)}` !== this.layoutInsets) this.layout();
+    else if (this.bridge.night() !== this.drawnNight) this.drawBackground();
   }
 
   private drawBackground() {
@@ -248,10 +254,11 @@ export class GarageScene extends Phaser.Scene {
       floorY,
       s: this.dpr,
       lift: { cx: W / 2, groundY, carW: this.px(a.carW) },
-      sign: ECON.businesses.list.garage.name.toUpperCase(),
+      sign: businessName(this.bridge.state, 'garage').toUpperCase(),
       // Keep the sign clear of the bay row even before a 2nd bay is bought.
       reservedTop: this.px(this.bridge.insets().top + BAY_ROW_BOTTOM),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2) - LIFT_RISE),
+      city: currentCity(this.bridge.state), night: (this.drawnNight = this.bridge.night()),
     });
     tex.refresh();
     this.bg.setTexture('garage-backdrop').setPosition(0, 0).setVisible(true);
@@ -324,7 +331,7 @@ export class GarageScene extends Phaser.Scene {
       o.setScale(this.bigScale);
       if (!this.carLeaving) o.setPosition(this.px(a.cx), this.px(a.cy));
     }
-    this.label.setPosition(this.px(a.cx), this.px(a.cy + a.carW * 0.16));
+    this.label.setPosition(this.px(a.cx), this.px(carLabelTop(a.cy, a.carW, this.cssH - this.bridge.insets().bottom)));
   }
 
   private syncBigCar() {

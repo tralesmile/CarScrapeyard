@@ -3,8 +3,9 @@
 // see the timeline printed.
 
 import { describe, expect, it } from 'vitest';
-import { ECON, type ManagerKind, type UpgradeKind } from '../src/core/config';
-import { slotCost, upgradeCost } from '../src/core/formulas';
+import { ECON, type LegacyNode, type ManagerKind, type UpgradeKind } from '../src/core/config';
+import { managerCost, slotCost, upgradeCost } from '../src/core/formulas';
+import { cityScale } from '../src/core/cities';
 import { mapUnlocked } from '../src/core/businesses';
 import { formatCash, formatDuration } from '../src/core/format';
 import {
@@ -26,19 +27,23 @@ import { barnStageCost, barnUnlocked, nextBarnStage, revealBarn, sellBarnCar, st
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
-import { canOpenBusiness, openBusiness, switchBusiness } from '../src/core/businesses';
+import { canSellEmpire, legacyMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
+import { buyNode, spentPoints } from '../src/core/legacyTree';
+import { canOpenBusiness, openBusiness, switchBusiness, unlockGoal } from '../src/core/businesses';
 import {
   buyCarLotUpgrade,
   buyLot,
   buySpot,
   carlotUpgradeCost,
   hireLotCrew,
+  lotCrewCost,
   lotProfit,
   refurbTap,
   sellLotCar,
   spotCost,
 } from '../src/core/carlot';
-import { buyGarageBay, buyGarageUpgrade, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
+import { boothCost, buyBooth, buyPaintUpgrade, hirePainter, painterCost, lotSendBlock, paintTap, paintUpgradeCost, sendLotCarToShop } from '../src/core/paint';
+import { buyGarageBay, buyGarageUpgrade, foremanCost, garageBayCost, garageTap, garageUpgradeCost, hireForeman } from '../src/core/garage';
 
 interface BotProfile {
   name: string;
@@ -50,6 +55,8 @@ interface BotProfile {
   reaction: number;
   /** Haggle multiplier the bot lands on big sales. */
   haggle: number;
+  /** In the paint shop, send refurbished lot cars into free booths (P1.2f). */
+  tuneLotCars?: boolean;
 }
 
 const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5, haggle: 1.2 };
@@ -61,7 +68,7 @@ function spendSmart(s: GameState): void {
   // Managers first, in the order the tutorial teaches.
   for (const m of MANAGER_ORDER) {
     if (!s.managers[m]) {
-      if (s.cash >= ECON.managers[m].cost) hireManager(s, m);
+      if (s.cash >= managerCost(s, m)) hireManager(s, m);
       return; // save up for the next manager before anything else...
     }
   }
@@ -72,7 +79,7 @@ function spendSmart(s: GameState): void {
   const g = ECON.businesses.list.garage;
   // (A barn restoration already under way is finished first.)
   const barnMidway = s.barn.stage > 0 && (s.barn.status === 'covered' || s.barn.status === 'working');
-  if (!s.businesses.opened.garage && g.ready && s.lifetimeEarnings >= g.unlockLifetime && !barnMidway) {
+  if (!s.businesses.opened.garage && g.ready && s.lifetimeEarnings >= unlockGoal(s, 'garage') && !barnMidway) {
     if (canOpenBusiness(s, 'garage')) {
       openBusiness(s, 'garage');
       switchBusiness(s, 'garage');
@@ -80,12 +87,12 @@ function spendSmart(s: GameState): void {
   }
   // Like the yard's crew, the garage's Foreman comes first once the garage is open (it runs while you're away).
   if (s.businesses.opened.garage && !s.garage.foreman) {
-    if (s.cash >= ECON.garage.foreman.cost) hireForeman(s);
-    reserve = ECON.garage.foreman.cost;
+    if (s.cash >= foremanCost(s)) hireForeman(s);
+    reserve = foremanCost(s);
   }
   // The Used Car Lot is the next big goal: save for it, open it, then its crew (Detailer, then Auction Agent).
   const lot = ECON.businesses.list.carlot;
-  if (s.garage.foreman && !s.businesses.opened.carlot && lot.ready && s.lifetimeEarnings >= lot.unlockLifetime && !barnMidway) {
+  if (s.garage.foreman && !s.businesses.opened.carlot && lot.ready && s.lifetimeEarnings >= unlockGoal(s, 'carlot') && !barnMidway) {
     if (canOpenBusiness(s, 'carlot')) {
       openBusiness(s, 'carlot');
       switchBusiness(s, 'carlot');
@@ -94,11 +101,23 @@ function spendSmart(s: GameState): void {
   if (s.businesses.opened.carlot) {
     for (const k of ['detailer', 'agent'] as const) {
       if (!s.carlot.crew[k]) {
-        if (s.cash >= ECON.carlot.crew[k].cost) hireLotCrew(s, k);
-        reserve = Math.max(reserve, ECON.carlot.crew[k].cost);
+        if (s.cash >= lotCrewCost(s, k)) hireLotCrew(s, k);
+        reserve = Math.max(reserve, lotCrewCost(s, k));
         break;
       }
     }
+  }
+  // Paint & Tuning is the fourth goal once the lot runs on its own: save for it, open it, then hire the Painter.
+  const pt = ECON.businesses.list.paint;
+  if (s.carlot.crew.agent && !s.businesses.opened.paint && pt.ready && s.lifetimeEarnings >= unlockGoal(s, 'paint') && !barnMidway) {
+    if (canOpenBusiness(s, 'paint')) {
+      openBusiness(s, 'paint');
+      switchBusiness(s, 'paint');
+    } else return;
+  }
+  if (s.businesses.opened.paint && !s.paint.painter) {
+    if (s.cash >= painterCost(s)) hirePainter(s);
+    reserve = Math.max(reserve, painterCost(s));
   }
   if (nextBarnStage(s)) {
     const c = barnStageCost(s);
@@ -108,21 +127,26 @@ function spendSmart(s: GameState): void {
   // ...then the cheapest of slot / upgrades.
   const kinds: UpgradeKind[] = crusherUnlocked(s) ? ['wash', 'repair', 'quality', 'press'] : ['wash', 'repair', 'quality'];
   const options: { cost: number; buy: () => boolean }[] = kinds.map(
-    (k) => ({ cost: upgradeCost(k, s.levels[k]), buy: () => buyUpgrade(s, k) }),
+    (k) => ({ cost: upgradeCost(k, s.levels[k], cityScale(s)), buy: () => buyUpgrade(s, k) }),
   );
   // The Scrapper competes with upgrades once the barn is open (it keeps the parts bin stocked).
-  if (barnUnlocked(s) && !s.managers.scrapper) options.push({ cost: ECON.managers.scrapper.cost, buy: () => hireManager(s, 'scrapper') });
-  const sc = slotCost(s.slots);
+  if (barnUnlocked(s) && !s.managers.scrapper) options.push({ cost: managerCost(s, 'scrapper'), buy: () => hireManager(s, 'scrapper') });
+  const sc = slotCost(s.slots, cityScale(s));
   if (sc !== null) options.push({ cost: sc, buy: () => buySlot(s) });
   if (s.businesses.opened.garage) {
-    for (const k of ['tools', 'rep'] as const) options.push({ cost: garageUpgradeCost(k, s.garage.levels[k]), buy: () => buyGarageUpgrade(s, k) });
-    const bc = garageBayCost(s.garage.bays);
+    for (const k of ['tools', 'rep'] as const) options.push({ cost: garageUpgradeCost(k, s.garage.levels[k], cityScale(s)), buy: () => buyGarageUpgrade(s, k) });
+    const bc = garageBayCost(s.garage.bays, cityScale(s));
     if (bc !== null) options.push({ cost: bc, buy: () => buyGarageBay(s) });
   }
   if (s.businesses.opened.carlot) {
-    for (const k of ['valet', 'showroom'] as const) options.push({ cost: carlotUpgradeCost(k, s.carlot.levels[k]), buy: () => buyCarLotUpgrade(s, k) });
-    const sp = spotCost(s.carlot.spots);
+    for (const k of ['valet', 'showroom'] as const) options.push({ cost: carlotUpgradeCost(k, s.carlot.levels[k], cityScale(s)), buy: () => buyCarLotUpgrade(s, k) });
+    const sp = spotCost(s.carlot.spots, cityScale(s));
     if (sp !== null) options.push({ cost: sp, buy: () => buySpot(s) });
+  }
+  if (s.businesses.opened.paint) {
+    for (const k of ['booth', 'hype'] as const) options.push({ cost: paintUpgradeCost(k, s.paint.levels[k], cityScale(s)), buy: () => buyPaintUpgrade(s, k) });
+    const bo = boothCost(s.paint.booths, cityScale(s));
+    if (bo !== null) options.push({ cost: bo, buy: () => buyBooth(s) });
   }
   options.sort((a, b) => a.cost - b.cost);
   const best = options[0];
@@ -131,13 +155,13 @@ function spendSmart(s: GameState): void {
 
 function earlyUpgrades(s: GameState): void {
   // Before the first manager, a real player buys a couple of cheap upgrades.
-  if (!s.managers.mechanic && s.levels.wash < 3 && s.cash >= upgradeCost('wash', s.levels.wash) + 0) {
-    if (s.cash - upgradeCost('wash', s.levels.wash) > ECON.managers.mechanic.cost * 0.3) buyUpgrade(s, 'wash');
+  if (!s.managers.mechanic && s.levels.wash < 3 && s.cash >= upgradeCost('wash', s.levels.wash, cityScale(s))) {
+    if (s.cash - upgradeCost('wash', s.levels.wash, cityScale(s)) > managerCost(s, 'mechanic') * 0.3) buyUpgrade(s, 'wash');
   }
 }
 
-function run(profile: BotProfile, seconds: number, seed = 12345) {
-  const s = newGame(0, seed);
+function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameState) {
+  const s = start ?? newGame(0, seed);
   const marks: Record<string, number> = {};
   const dt = 0.1;
   let cooldown = 0;
@@ -147,16 +171,40 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
   let extraCash = 0;
   let barnCash = 0;
   let scrapperCrushes = 0;
+  let lotTunes = 0;
   for (let t = 0; t < seconds; t += dt) {
     for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
     // In the garage (once the yard runs on its own) the bot taps customer cars instead of working the yard.
     const inGarage = s.businesses.active === 'garage' && s.managers.seller;
-    if (s.lifetimeEarnings >= ECON.businesses.list.carlot.unlockLifetime && marks.lotGoal === undefined) marks.lotGoal = t;
+    if (s.lifetimeEarnings >= unlockGoal(s, 'carlot') && marks.lotGoal === undefined) marks.lotGoal = t;
     if (s.businesses.opened.carlot && marks.lotOpen === undefined) marks.lotOpen = t;
     if (s.carlot.crew.detailer && marks.detailer === undefined) marks.detailer = t;
     if (s.carlot.crew.agent && marks.agent === undefined) marks.agent = t;
     if (s.carlot.spots >= 3 && marks.spot3 === undefined) marks.spot3 = t;
-    if (s.lifetimeEarnings >= ECON.businesses.list.paint.unlockLifetime && marks.paintGoal === undefined) marks.paintGoal = t;
+    if (s.lifetimeEarnings >= unlockGoal(s, 'paint') && marks.paintGoal === undefined) marks.paintGoal = t;
+    if (s.businesses.opened.paint && marks.paintOpen === undefined) marks.paintOpen = t;
+    if (s.paint.painter && marks.painter === undefined) marks.painter = t;
+    if (s.paint.booths >= 2 && marks.booth2 === undefined) marks.booth2 = t;
+    // In the paint shop the bot taps the oldest order.
+    const inPaint = s.businesses.active === 'paint' && s.managers.seller;
+    if (inPaint) {
+      // P1.2f: a free booth takes a refurbished lot car that hasn't been tuned yet.
+      if (profile.tuneLotCars) {
+        const lotCar = s.carlot.cars.find((c) => lotSendBlock(s, c.id) === null);
+        if (lotCar) {
+          sendLotCarToShop(s, lotCar.id);
+          lotTunes += 1;
+        }
+      }
+      const job = s.paint.jobs[0];
+      if (job) {
+        tapBudget += profile.tapsPerSec * dt;
+        if (tapBudget >= 1) {
+          tapBudget -= 1;
+          paintTap(s, job.id);
+        }
+      }
+    }
     if (inGarage) {
       const job = s.garage.jobs[0];
       if (job) {
@@ -194,7 +242,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
         }
       }
     }
-    const car = inGarage || inLot ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
+    const car = inGarage || inLot || inPaint ? undefined : (s.cars.find((c) => c.id === s.focusedId) ?? s.cars[0]);
     // Crush a fresh wreck when a crush order is open (what a player chasing contracts does).
     const barnNeedsParts = (nextBarnStage(s)?.parts ?? 0) > s.parts;
     const wantsCrush = barnNeedsParts || s.contracts.some((c) => c.status === 'active' && c.kind === 'crush');
@@ -239,12 +287,13 @@ function run(profile: BotProfile, seconds: number, seed = 12345) {
     if (barnUnlocked(s) && marks.barn === undefined) marks.barn = t;
     if (s.barn.restored > 0 && marks.barnSold === undefined) marks.barnSold = t;
     if (mapUnlocked(s) && marks.map === undefined) marks.map = t;
-    if (s.lifetimeEarnings >= ECON.businesses.list.garage.unlockLifetime && marks.garage === undefined) marks.garage = t;
+    if (s.lifetimeEarnings >= unlockGoal(s, 'garage') && marks.garage === undefined) marks.garage = t;
     if (s.businesses.opened.garage && marks.garageOpen === undefined) marks.garageOpen = t;
     if (s.garage.foreman && marks.foreman === undefined) marks.foreman = t;
     if (s.garage.bays >= 2 && marks.bay2 === undefined) marks.bay2 = t;
+    if (canSellEmpire(s) && marks.legacy === undefined) marks.legacy = t;
   }
-  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes };
+  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes, lotTunes };
 }
 
 describe('opening pacing', () => {
@@ -422,4 +471,218 @@ describe('Used Car Lot (P1.2a)', () => {
     // The garage still matters after the lot opens.
     expect(a.garageShare).toBeGreaterThan(0.05);
   });
+});
+
+describe('Paint & Tuning (P1.2d)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('opens within the first three hours and becomes a fourth income', () => {
+    const rows: string[] = [];
+    const res: Record<string, { open: number; share: number; lotShare: number; tips: number; jobs: number }> = {};
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyPaint(() => run(profile, 180 * 60));
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      const share = s.paint.earned / s.lifetimeEarnings;
+      const lotShare = s.carlot.profit / s.lifetimeEarnings;
+      rows.push(
+        `${profile.name}: lot open ${fmt('lotOpen')}, Agent ${fmt('agent')}, paint goal ${fmt('paintGoal')}, opened ${fmt('paintOpen')}, ` +
+          `Painter ${fmt('painter')}, booth 2 ${fmt('booth2')}, orders ${s.paint.jobsDone} (tips ${s.paint.tips}), ` +
+          `paint earned ${formatCash(s.paint.earned)} (${(share * 100).toFixed(0)}% of all), lot ${(lotShare * 100).toFixed(0)}%, ` +
+          `lifetime ${formatCash(s.lifetimeEarnings)}, levels ${JSON.stringify(s.paint.levels)}`,
+      );
+      res[profile.name] = { open: marks.paintOpen ?? Infinity, share, lotShare, tips: s.paint.tips, jobs: s.paint.jobsDone };
+    }
+    console.log(['--- Paint & Tuning, 180 minutes ---', ...rows].join('\n'));
+    const a = res.active!;
+    expect(a.open).toBeGreaterThan(70 * 60);
+    expect(a.open).toBeLessThan(140 * 60);
+    expect(a.share).toBeGreaterThan(0.12);
+    expect(a.share).toBeLessThan(0.6);
+    // The lot still matters after the shop opens, and an active player earns tips on some orders.
+    expect(a.lotShare).toBeGreaterThan(0.1);
+    expect(a.tips).toBeGreaterThan(0);
+    expect(a.tips).toBeLessThan(a.jobs);
+  });
+
+  it('sending lot cars through the shop (P1.2f) is worth it but does not run away', () => {
+    const rows: string[] = [];
+    const out: Record<string, { life: number; lot: number; tunes: number }> = {};
+    for (const profile of [ACTIVE, { ...ACTIVE, name: 'active+tune', tuneLotCars: true }]) {
+      const { s, lotTunes } = withReadyPaint(() => run(profile, 180 * 60));
+      out[profile.name] = { life: s.lifetimeEarnings, lot: s.carlot.profit, tunes: lotTunes };
+      rows.push(
+        `${profile.name}: lot cars tuned ${lotTunes}, lot profit ${formatCash(s.carlot.profit)}, paint ${formatCash(s.paint.earned)}, ` +
+          `lifetime ${formatCash(s.lifetimeEarnings)}`,
+      );
+    }
+    console.log(['--- Lot cars through the shop, 180 minutes ---', ...rows].join('\n'));
+    const base = out.active!;
+    const tuned = out['active+tune']!;
+    expect(tuned.tunes).toBeGreaterThan(20);
+    expect(tuned.lot).toBeGreaterThan(base.lot);
+    // A bonus for playing both businesses, not a new economy: within +15% lifetime at 3 hours.
+    expect(tuned.life).toBeGreaterThan(base.life * 1.01);
+    expect(tuned.life).toBeLessThan(base.life * 1.15);
+  });
+});
+
+describe('Sell Empire (P1.3a)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('the first sale comes after all four businesses, and the second empire grows faster', () => {
+    const rows: string[] = [];
+    const first: Record<string, number> = {};
+    for (const profile of [ACTIVE, RELAXED]) {
+      const { s, marks } = withReadyPaint(() => run(profile, 7 * 3600));
+      first[profile.name] = marks.legacy ?? Infinity;
+      const fmt = (k: string) => (marks[k] === undefined ? 'never' : formatDuration(marks[k]!));
+      rows.push(
+        `${profile.name}: paint open ${fmt('paintOpen')}, Sell Empire offered ${fmt('legacy')} ` +
+          `(7 h: lifetime ${formatCash(s.lifetimeEarnings)}, ${pendingLegacyPoints(s)} points waiting)`,
+      );
+    }
+    // Second empire: sell as soon as it's offered, play the same bot again.
+    const one = withReadyPaint(() => run(ACTIVE, Math.min(first.active!, 7 * 3600) + 1));
+    const sold = sellEmpire(one.s, 0);
+    expect(sold?.points).toBeGreaterThanOrEqual(ECON.legacy.minPoints);
+    const two = withReadyPaint(() => run(ACTIVE, 7 * 3600, 999, one.s));
+    const base = withReadyPaint(() => run(ACTIVE, 7 * 3600, 999));
+    const fmt2 = (m: Record<string, number>, k: string) => (m[k] === undefined ? 'never' : formatDuration(m[k]!));
+    rows.push(
+      `active, 2nd empire (x${legacyMultiplier(one.s).toFixed(2)}): garage ${fmt2(two.marks, 'garageOpen')} vs ${fmt2(base.marks, 'garageOpen')}, ` +
+        `lot ${fmt2(two.marks, 'lotOpen')} vs ${fmt2(base.marks, 'lotOpen')}, paint ${fmt2(two.marks, 'paintOpen')} vs ${fmt2(base.marks, 'paintOpen')}, ` +
+        `next sale ${fmt2(two.marks, 'legacy')} (${pendingLegacyPoints(two.s)} points waiting at 7 h)`,
+    );
+    console.log(['--- Sell Empire ---', ...rows].join('\n'));
+    // Pacing: the plan wants the first prestige on day 2-3 for a casual player; for the always-tapping bot that is
+    // after the fourth business is running, between 3 and 5 hours of play.
+    expect(first.active!).toBeGreaterThan(3 * 3600);
+    expect(first.active!).toBeLessThan(5 * 3600);
+    expect(first.relaxed!).toBeGreaterThan(first.active!);
+    // The second empire opens every business sooner.
+    expect(two.marks.paintOpen!).toBeLessThan(base.marks.paintOpen!);
+    expect(two.marks.lotOpen!).toBeLessThan(base.marks.lotOpen!);
+  }, 60_000);
+});
+
+describe('Legacy tree (P1.3c)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('each branch speeds up the second empire without running away', () => {
+    const first = withReadyPaint(() => run(ACTIVE, 7 * 3600));
+    const offered = first.marks.legacy!;
+    const plans: Record<string, LegacyNode[]> = {
+      none: [],
+      mechanic: ['quickHands', 'headStart', 'partsHoarder'],
+      dealer: ['silverTongue', 'regulars', 'insider'],
+      racer: ['quickTips', 'rareFinds', 'barnScout'],
+    };
+    const hours = 4;
+    const rows: string[] = [];
+    const out: Record<string, { paint: number; lifetime: number }> = {};
+    for (const [name, nodes] of Object.entries(plans)) {
+      const one = withReadyPaint(() => run(ACTIVE, offered + 1));
+      // Points bank on the sale, so the tree is bought at the start of the new empire (Head Start pays from the next one).
+      expect(sellEmpire(one.s, 0)).not.toBeNull();
+      for (const n of nodes) expect(buyNode(one.s, n)).toBe(true);
+      const two = withReadyPaint(() => run(ACTIVE, hours * 3600, 999, one.s));
+      out[name] = { paint: two.marks.paintOpen ?? Infinity, lifetime: two.s.lifetimeEarnings };
+      rows.push(
+        `${name.padEnd(8)} (${spentPoints(one.s.legacy)}/${one.s.legacy.points} pts): garage ${formatDuration(two.marks.garageOpen ?? 0)}, ` +
+          `lot ${formatDuration(two.marks.lotOpen ?? 0)}, paint ${two.marks.paintOpen === undefined ? 'never' : formatDuration(two.marks.paintOpen)}, ` +
+          `${hours} h lifetime ${formatCash(two.s.lifetimeEarnings)}`,
+      );
+    }
+    console.log(['--- Legacy tree, 2nd empire (active bot, first 10 points) ---', ...rows].join('\n'));
+    for (const name of ['mechanic', 'dealer', 'racer']) {
+      // Every branch helps...
+      expect(out[name]!.lifetime).toBeGreaterThan(out.none!.lifetime);
+      expect(out[name]!.paint).toBeLessThanOrEqual(out.none!.paint);
+      // ...but ten points never more than +60% at 4 hours (the +2% per point already gives x1.24).
+      expect(out[name]!.lifetime).toBeLessThan(out.none!.lifetime * 1.6);
+    }
+  }, 180_000);
+});
+
+
+describe('Motor City (P1.3d)', () => {
+  function withReadyPaint<T>(fn: () => T): T {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      return fn();
+    } finally {
+      list.paint!.ready = was;
+    }
+  }
+
+  it('a third empire in Motor City sells sooner than the first Rust Valley run and earns x scale', () => {
+    const K = ECON.cities.list.motorCity.scale;
+    const one = withReadyPaint(() => run(ACTIVE, 7 * 3600));
+    const firstOffer = one.marks.legacy!;
+    // Replay the first empire up to its offer, sell (Rust Valley is the only choice), play the second one to its offer.
+    const a = withReadyPaint(() => run(ACTIVE, firstOffer + 1));
+    expect(sellEmpire(a.s, 0)!.city).toBe('rustValley');
+    const clone = (x: GameState) => JSON.parse(JSON.stringify(x)) as GameState;
+    const two = withReadyPaint(() => run(ACTIVE, 7 * 3600, 999, clone(a.s)));
+    const secondOffer = two.marks.legacy!;
+    expect(secondOffer).toBeDefined();
+    const b = withReadyPaint(() => run(ACTIVE, secondOffer + 1, 999, clone(a.s)));
+    const third: Record<string, ReturnType<typeof run>> = {};
+    for (const city of ['rustValley', 'motorCity'] as const) {
+      const s = clone(b.s);
+      expect(sellEmpire(s, 0, city)?.city).toBe(city);
+      third[city] = withReadyPaint(() => run(ACTIVE, 5 * 3600, 999, s));
+    }
+    const rv = third.rustValley!;
+    const mc = third.motorCity!;
+    const f = (m: Record<string, number>, k: string) => (m[k] === undefined ? 'never' : formatDuration(m[k]!));
+    console.log(
+      [
+        '--- Motor City, 3rd empire (active bot) ---',
+        `1st empire (Rust Valley): sale offered ${formatDuration(firstOffer)}; 2nd: ${formatDuration(secondOffer)} (x${legacyMultiplier(b.s).toFixed(2)})`,
+        `3rd in Rust Valley: paint ${f(rv.marks, 'paintOpen')}, sale offered ${f(rv.marks, 'legacy')}, 5 h lifetime ${formatCash(rv.s.lifetimeEarnings)}`,
+        `3rd in Motor City:  paint ${f(mc.marks, 'paintOpen')}, sale offered ${f(mc.marks, 'legacy')}, 5 h lifetime ${formatCash(mc.s.lifetimeEarnings)} ` +
+          `(x${(mc.s.lifetimeEarnings / rv.s.lifetimeEarnings).toFixed(2)}), ${pendingLegacyPoints(mc.s)} vs ${pendingLegacyPoints(rv.s)} points waiting`,
+      ].join('\n'),
+    );
+    // Same pacing inside the run (every price and value x K)...
+    expect(mc.s.lifetimeEarnings / rv.s.lifetimeEarnings).toBeGreaterThan(K * 0.85);
+    expect(mc.s.lifetimeEarnings / rv.s.lifetimeEarnings).toBeLessThan(K * 1.15);
+    expect(Math.abs(mc.marks.paintOpen! - rv.marks.paintOpen!)).toBeLessThan(15 * 60);
+    // ...but Legacy comes faster: the Motor City run is offered the sale before Rust Valley's first run and its own.
+    expect(mc.marks.legacy!).toBeLessThan(firstOffer);
+    // Not a runaway: still a session or two of play (x5: offered at about 2.5 h for the always-tapping bot).
+    expect(mc.marks.legacy!).toBeGreaterThan(1.5 * 3600);
+    expect(mc.marks.legacy!).toBeLessThan(rv.marks.legacy ?? Infinity);
+    expect(pendingLegacyPoints(mc.s)).toBeGreaterThan(pendingLegacyPoints(rv.s) * 1.5);
+  }, 240_000);
 });

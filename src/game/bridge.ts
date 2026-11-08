@@ -16,6 +16,8 @@ export interface Bridge {
   onInput(): void;
   /** The covered car at the back of the yard was tapped. */
   onBarnTap(): void;
+  /** Whether scenes use their city's night-time look now (device clock or the "City lights" setting, P1.3d3c). */
+  night(): boolean;
   /** The yard scene finished creating (shared textures exist): show the business that should be on screen. */
   onYardReady(): void;
 }

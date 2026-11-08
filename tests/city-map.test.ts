@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
 import { newGame } from '../src/core/state';
-import { businessTier, nextTierGoal } from '../src/core/businesses';
+import { businessName, businessTier, nextTierGoal } from '../src/core/businesses';
+import { sanitizeCity } from '../src/core/cities';
 import { cityMapSvg, mapRows, PLOTS, MAP_H, MAP_W } from '../src/ui/cityMap';
 
 const T0 = 1_800_000_000_000;
@@ -60,7 +61,7 @@ describe('city map', () => {
     expect(Number(dash[1]) / Number(dash[2])).toBeCloseTo(0.5, 2);
   });
 
-  it('rows: scrapyard is "You are here", the garage shows its goal, then its price; the lot opens, Paint & Tuning shows "soon"', () => {
+  it('rows: scrapyard is "You are here", the garage shows its goal, then its price; the lot and Paint & Tuning open', () => {
     const s = newGame(T0, 1);
     let rows = mapRows(s);
     expect(rows.map((r) => r.id)).toEqual(['scrapyard', 'garage', 'carlot', 'paint']);
@@ -76,12 +77,12 @@ describe('city map', () => {
     s.lifetimeEarnings = ECON.businesses.list.carlot.unlockLifetime;
     rows = mapRows(s);
     expect(rows[2]).toMatchObject({ status: 'forSale', action: 'Open $2.50M' });
-    // A business whose loop is not built yet (Paint & Tuning) shows "soon" once its goal is reached.
+    // Paint & Tuning is for sale once its goal is reached (P1.2e).
     s.lifetimeEarnings = ECON.businesses.list.paint.unlockLifetime;
     rows = mapRows(s);
-    expect(rows[3]).toMatchObject({ status: 'soon', action: null });
+    expect(rows[3]).toMatchObject({ status: 'forSale', action: 'Open $25.0M' });
     svg = cityMapSvg(s);
-    expect(svg.slice(svg.indexOf('data-biz="paint"'))).toContain('SOON');
+    expect(svg.slice(svg.indexOf('data-biz="paint"'))).toContain('FOR SALE');
   });
 
   it('map tiers (P1.1d): businesses grow with lot slots and repair bays; closed ones have no tier', () => {
@@ -137,5 +138,78 @@ describe('city map', () => {
     expect(rows[0]).toMatchObject({ tier: 3, nextTier: null });
     expect(rows[1]).toMatchObject({ tier: 2, nextTier: '3 repair bays' });
     expect(rows[2]).toMatchObject({ tier: 0, nextTier: null });
+  });
+});
+
+describe('Motor City map (P1.3d2)', () => {
+  const motor = () => {
+    const s = newGame(T0, 1);
+    s.legacy.sold = 2;
+    s.legacy.city = 'motorCity';
+    return s;
+  };
+  const rects = (svg: string, cls: string) =>
+    [...svg.matchAll(new RegExp(`<rect class="${cls}" x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"`, 'g'))].map((m) => ({ x: +m[1]!, y: +m[2]!, w: +m[3]!, h: +m[4]! }));
+
+  it('draws its own ground: highway, rooftops and no Rust Valley grass, with every plot still tappable', () => {
+    const rv = cityMapSvg(newGame(T0, 1));
+    const svg = cityMapSvg(motor());
+    expect(balanced(svg)).toBe(true);
+    expect(svg).not.toMatch(/NaN|undefined/);
+    expect(svg).toContain('data-city="motorCity"');
+    expect(svg).toContain('aria-label="Motor City city map"');
+    expect(rv).toContain('data-city="rustValley"');
+    expect(svg).toContain('class="highway"');
+    expect(rv).not.toContain('class="highway"');
+    expect(svg).not.toContain('#8fbf5a');
+    for (const id of Object.keys(ECON.businesses.list)) expect(svg).toContain(`data-biz="${id}"`);
+    expect(svg.match(/class="pin"/g)?.length).toBe(1);
+  });
+
+  it('keeps rooftops inside the map and off every plot and road', () => {
+    const roofs = rects(cityMapSvg(motor()), 'roof');
+    expect(roofs.length).toBeGreaterThanOrEqual(8);
+    for (const r of roofs) {
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.w).toBeLessThanOrEqual(MAP_W);
+      expect(r.y).toBeGreaterThanOrEqual(22); // below the highway
+      expect(r.y + r.h).toBeLessThanOrEqual(MAP_H);
+      const offRoad = r.y + r.h <= 140 || r.y >= 168;
+      expect(offRoad, `roof at ${r.x},${r.y} is on the avenue`).toBe(true);
+      for (const [id, p] of Object.entries(PLOTS)) {
+        const overlap = r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h;
+        expect(overlap, `roof at ${r.x},${r.y} covers ${id}`).toBe(false);
+      }
+    }
+  });
+
+  it('uses the city names for the businesses on the map, in the list and in the open toast', () => {
+    const s = motor();
+    s.lifetimeEarnings = 1e12;
+    const svg = cityMapSvg(s);
+    const names = ECON.cities.list.motorCity.names;
+    for (const id of Object.keys(ECON.businesses.list) as (keyof typeof names)[]) {
+      expect(businessName(s, id)).toBe(names[id]);
+      expect(svg).toContain(`aria-label="${names[id]}"`);
+    }
+    expect(mapRows(s).map((r) => r.name)).toEqual(['Salvage Yard', 'Midtown Garage', 'Auto Mall', 'Neon Customs']);
+    // Rust Valley keeps the defaults.
+    const rv = newGame(T0, 1);
+    expect(mapRows(rv).map((r) => r.name)).toEqual(Object.values(ECON.businesses.list).map((b) => b.name));
+    // A repaired save (city reset to Rust Valley) shows the default names again.
+    const bad = motor();
+    bad.legacy.sold = 0;
+    sanitizeCity(bad.legacy);
+    expect(businessName(bad, 'garage')).toBe(ECON.businesses.list.garage.name);
+  });
+
+  it('keeps every city name short enough for the scene signs and the map label', () => {
+    const longest = Math.max(...Object.values(ECON.businesses.list).map((b) => b.name.length));
+    for (const c of Object.values(ECON.cities.list))
+      for (const [id, n] of Object.entries(c.names)) {
+        expect(n.length, `${c.name} ${id}: "${n}"`).toBeLessThanOrEqual(longest);
+        const p = PLOTS[id as keyof typeof PLOTS];
+        expect(n.length * 7.2 + 14, `"${n}" label fits its plot`).toBeLessThan(p.w);
+      }
   });
 });

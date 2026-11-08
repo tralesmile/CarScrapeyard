@@ -1,9 +1,9 @@
 // Used Car Lot backdrop painted with the Canvas 2D API (P1.2b): a sunny sky over a far skyline, a glass showroom with
 // an orange roof band lettered as the lot sign, strings of pennant flags, a palm-free forecourt of warm asphalt with
 // white bay lines, and a round display platform the car being refurbished stands on. Pure apart from the canvas
-// context; the layout helpers are unit-tested.
+// context; the layout helpers are unit-tested. Motor City (P1.3d3b): a dusk sky over taller towers with lit windows.
 
-import type { Condition } from '../core/config';
+import type { CityId, Condition, LotBuyerKind } from '../core/config';
 import { BUYER_W, OUTLINE, person } from './buyerArt';
 
 export interface LotLayout {
@@ -22,6 +22,100 @@ export interface LotLayout {
   reservedTop: number;
   /** Highest y the tallest car's roof reaches, px: the sign stays above it. */
   roofY: number;
+  /** City the business is in (default Rust Valley). */
+  city?: CityId;
+  /** Night-time look (P1.3d3c; only cities with one change). */
+  night?: boolean;
+}
+
+/** A skyline row: colour, min height, height variation and min width (CSS px). */
+export type SkylineRow = readonly [color: string, hMin: number, hVar: number, wMin: number];
+
+/** The lot's colours per city (P1.3d3b). */
+export interface LotTheme {
+  sky: [string, string, string];
+  sunGlow: string;
+  rows: readonly SkylineRow[];
+  /** Lit windows on the near row (Motor City at dusk), or none. */
+  windows: string | null;
+  forecourt: [string, string];
+  kerb: string;
+  showroomKerb: string;
+  /** Showroom glass, top to bottom (lit warm from inside at night). */
+  glass: [string, string];
+  /** Night (P1.3d3c): a moon instead of the sun, and a neon glow around the sign; null by day. */
+  night: { moon: string; signGlow: string } | null;
+}
+
+export const LOT_THEMES: Record<CityId, LotTheme> = {
+  rustValley: {
+    sky: ['#5fb4e0', '#a9dcf0', '#f6e2b8'],
+    sunGlow: '255,236,180',
+    rows: [
+      ['#b9cfdc', 34, 50, 26],
+      ['#93aec0', 18, 34, 34],
+    ],
+    windows: null,
+    forecourt: ['#6b6f78', '#4a4e57'],
+    kerb: '#d9d4c7',
+    showroomKerb: '#c4b7a3',
+    glass: ['#2c4a63', '#4f7894'],
+    night: null,
+  },
+  motorCity: {
+    sky: ['#3d5a80', '#8fb3d1', '#f2c38b'],
+    sunGlow: '255,190,120',
+    rows: [
+      ['#5e7a9c', 120, 75, 28],
+      ['#3e5a78', 44, 60, 34],
+    ],
+    windows: 'rgba(255,214,140,0.85)',
+    forecourt: ['#5a6475', '#3c4452'],
+    kerb: '#b8c2ce',
+    showroomKerb: '#8a94a3',
+    glass: ['#2c4a63', '#4f7894'],
+    night: null,
+  },
+};
+
+/** Motor City after dark (P1.3d3c): navy sky, dark towers with lit windows, a lit showroom and a glowing sign.
+ * Row sizes are the day's, so the skyline's layout is the same by day and night. */
+export const LOT_NIGHT: LotTheme = {
+  ...LOT_THEMES.motorCity,
+  sky: ['#0a1230', '#1c2856', '#4b3a72'],
+  sunGlow: '190,205,255',
+  rows: LOT_THEMES.motorCity.rows.map(([, ...rest], i) => [i === 0 ? '#2b3762' : '#18213e', ...rest] as const),
+  windows: 'rgba(255,212,128,0.95)',
+  forecourt: ['#3e4656', '#262c37'],
+  kerb: '#8a94a3',
+  showroomKerb: '#5d6676',
+  glass: ['#7a5a3a', '#e2b27a'],
+  night: { moon: '#f1f4ff', signGlow: '#ff9a4f' },
+};
+
+export function lotTheme(L: Pick<LotLayout, 'city' | 'night'>): LotTheme {
+  const city = L.city ?? 'rustValley';
+  return L.night && city === 'motorCity' ? LOT_NIGHT : LOT_THEMES[city];
+}
+
+/**
+ * The skyline's buildings (left x, width, height, px) for each row, covering the whole width. Heights stay under 80% of
+ * the horizon so some sky shows above the tallest tower.
+ */
+export function lotSkyline(L: Pick<LotLayout, 'w' | 's' | 'city' | 'floorY'>): { x: number; w: number; h: number; row: number }[] {
+  const s = L.s;
+  const out: { x: number; w: number; h: number; row: number }[] = [];
+  lotTheme(L).rows.forEach(([, hMin, hVar, wMin], row) => {
+    let x = -10 * s;
+    let i = 0;
+    while (x < L.w) {
+      const bw = (wMin + ((i * 53) % 29)) * s;
+      out.push({ x, w: bw - 2 * s, h: Math.min(L.floorY * 0.8, (hMin + ((i * 71) % hVar)) * s), row });
+      x += bw;
+      i++;
+    }
+  });
+  return out;
 }
 
 /** Spot thumbnails above the forecourt (same size as the garage's bay row). */
@@ -38,6 +132,21 @@ export const CONDITION_RUST: Record<Condition, { patches: number; dents: number 
   4: { patches: 3, dents: 1 },
   5: { patches: 1, dents: 0 },
 };
+
+/** What a walk-up buyer says while looking a car over (P1.2c): a happy line when it is their kind of car. */
+export const LOT_BUYER_LINES: Record<LotBuyerKind, { likes: readonly string[]; plain: readonly string[] }> = {
+  family: { likes: ['Room for the kids!', 'Perfect for school runs!'], plain: ['Hmm, does it fit a pram?', 'Looks tidy enough.'] },
+  collector: { likes: ['All original? Marvellous!', 'Factory paint! I must have it.'], plain: ['Hmm, a few new parts…', 'It will do, I suppose.'] },
+  speed: { likes: ['Ooh, listen to that engine!', 'How fast does it go?'], plain: ['Bit slow for me…', 'It runs, right?'] },
+  tradie: { likes: ['Plenty of room for tools!', 'She will haul a load!'], plain: ['Where do the ladders go?', 'Fair enough, mate.'] },
+  influencer: { likes: ['My followers will love this!', 'Selfie with it first!'], plain: ['Not very photogenic…', 'Hmm, filter it later.'] },
+};
+
+/** The buyer's line for this car; `bonus > 0` means they like it. Stable per car so it doesn't flicker. */
+export function lotBuyerLine(kind: LotBuyerKind, bonus: number, carId: number): string {
+  const set = bonus > 0 ? LOT_BUYER_LINES[kind].likes : LOT_BUYER_LINES[kind].plain;
+  return set[Math.abs(carId * 7) % set.length] ?? set[0]!;
+}
 
 /** "★★★☆☆" for a condition grade. */
 export function conditionStars(c: Condition): string {
@@ -98,40 +207,51 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function sky(ctx: CanvasRenderingContext2D, L: LotLayout) {
+  const T = lotTheme(L);
   const g = ctx.createLinearGradient(0, 0, 0, L.floorY);
-  g.addColorStop(0, '#5fb4e0');
-  g.addColorStop(0.7, '#a9dcf0');
-  g.addColorStop(1, '#f6e2b8');
+  g.addColorStop(0, T.sky[0]);
+  g.addColorStop(0.7, T.sky[1]);
+  g.addColorStop(1, T.sky[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, L.w, L.floorY + 1);
   // Sun glow on the right.
   const sx = L.w * 0.84;
   const sy = L.reservedTop + (L.floorY - L.reservedTop) * 0.25;
+  if (T.night) {
+    // Moonlight: a soft halo and a small moon (no blinding sun-white centre behind the towers).
+    const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 60 * L.s);
+    halo.addColorStop(0, `rgba(${T.sunGlow},0.4)`);
+    halo.addColorStop(1, `rgba(${T.sunGlow},0)`);
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, L.w, L.floorY);
+    ctx.fillStyle = T.night.moon;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 11 * L.s, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
   const sun = ctx.createRadialGradient(sx, sy, 0, sx, sy, 90 * L.s);
   sun.addColorStop(0, 'rgba(255,246,214,0.95)');
-  sun.addColorStop(0.25, 'rgba(255,236,180,0.6)');
-  sun.addColorStop(1, 'rgba(255,236,180,0)');
+  sun.addColorStop(0.25, `rgba(${T.sunGlow},0.6)`);
+  sun.addColorStop(1, `rgba(${T.sunGlow},0)`);
   ctx.fillStyle = sun;
   ctx.fillRect(0, 0, L.w, L.floorY);
 }
 
-/** Two rows of city blocks on the horizon: pale and far, then a little darker and nearer. */
+/** Two rows of city blocks on the horizon: pale and far, then darker and nearer (Motor City: towers with lit windows). */
 function skyline(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const s = L.s;
-  for (const [color, base, hMin, hVar, wMin] of [
-    ['#b9cfdc', 1.0, 34, 50, 26],
-    ['#93aec0', 1.0, 18, 34, 34],
-  ] as const) {
-    ctx.fillStyle = color;
-    let x = -10 * s;
-    let i = 0;
-    while (x < L.w) {
-      const bw = (wMin + ((i * 53) % 29)) * s;
-      const bh = (hMin + ((i * 71) % hVar)) * s;
-      ctx.fillRect(x, L.floorY * base - bh, bw - 2 * s, bh);
-      x += bw;
-      i++;
-    }
+  const T = lotTheme(L);
+  const rows = T.rows.length;
+  for (const b of lotSkyline(L)) {
+    ctx.fillStyle = T.rows[b.row]![0];
+    const top = L.floorY - b.h;
+    ctx.fillRect(b.x, top, b.w, b.h);
+    if (!T.windows || b.row !== rows - 1) continue;
+    ctx.fillStyle = T.windows;
+    const cols = Math.max(1, Math.floor((b.w - 4 * s) / (7 * s)));
+    for (let r = 0, y = top + 5 * s; y < L.floorY - 10 * s; r++, y += 8 * s)
+      for (let c = 0; c < cols; c++) if ((r * 3 + c * 5 + Math.round(b.x / s)) % 4 !== 0) ctx.fillRect(b.x + 3 * s + c * 7 * s, y, 3 * s, 4 * s);
   }
 }
 
@@ -140,9 +260,10 @@ function showroom(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const r = showroomRect(L);
   if (r.h <= 2 * s) return;
   // Glass front with mullions and a soft reflection.
+  const T = lotTheme(L);
   const glass = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-  glass.addColorStop(0, '#2c4a63');
-  glass.addColorStop(1, '#4f7894');
+  glass.addColorStop(0, T.glass[0]);
+  glass.addColorStop(1, T.glass[1]);
   ctx.fillStyle = glass;
   ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.fillStyle = 'rgba(255,255,255,0.14)';
@@ -157,16 +278,27 @@ function showroom(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const panes = 6;
   for (let i = 0; i <= panes; i++) ctx.fillRect(r.x + (r.w / panes) * i - 2 * s, r.y, 4 * s, r.h);
   // Base kerb of the building.
-  ctx.fillStyle = '#c4b7a3';
+  ctx.fillStyle = T.showroomKerb;
   ctx.fillRect(r.x - 4 * s, L.floorY - 6 * s, r.w + 8 * s, 6 * s);
 }
 
 function sign(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const s = L.s;
   const b = signBand(L);
+  const glow = lotTheme(L).night?.signGlow;
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   roundRect(ctx, b.x + 2 * s, b.y + 3 * s, b.w, b.h, 6 * s);
   ctx.fill();
+  if (glow) {
+    // Neon halo behind the band at night (the band and its lettering stay the same, so they read as by day).
+    ctx.save();
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 16 * s;
+    ctx.fillStyle = glow;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 6 * s);
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.fillStyle = '#e8762b';
   roundRect(ctx, b.x, b.y, b.w, b.h, 6 * s);
   ctx.fill();
@@ -220,13 +352,14 @@ function bunting(ctx: CanvasRenderingContext2D, L: LotLayout) {
 
 function forecourt(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const s = L.s;
+  const T = lotTheme(L);
   const g = ctx.createLinearGradient(0, L.floorY, 0, L.h);
-  g.addColorStop(0, '#6b6f78');
-  g.addColorStop(1, '#4a4e57');
+  g.addColorStop(0, T.forecourt[0]);
+  g.addColorStop(1, T.forecourt[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, L.floorY, L.w, L.h - L.floorY);
   // Kerb along the back.
-  ctx.fillStyle = '#d9d4c7';
+  ctx.fillStyle = T.kerb;
   ctx.fillRect(0, L.floorY, L.w, 4 * s);
   // Angled white bay lines on both sides of the platform, in perspective.
   ctx.strokeStyle = 'rgba(251,243,228,0.75)';

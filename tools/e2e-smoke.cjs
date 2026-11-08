@@ -70,6 +70,8 @@ async function waitForServer(url, ms = 15000) {
       return { x: r.x + b.centerX * z, y: r.y + b.centerY * z, w: b.width * z, h: b.height * z };
     });
     assert(geo.w > 100, 'big car is on screen');
+    // The map button used to be drawn from the start: `.hidden` had no CSS rule for icon buttons (found in run 20).
+    assert(await page.$eval('.map-btn', (e) => getComputedStyle(e).display === 'none'), 'the map button is really hidden before 30 sales');
 
     // Art pass (P0.14h): power-of-two car textures with trilinear mipmaps, and a Canvas 2D backdrop.
     const art14h = await page.evaluate(() => {
@@ -94,6 +96,11 @@ async function waitForServer(url, ms = 15000) {
     assert(art14h.aa, 'textures use smooth (linear) filtering, not pixel-art mode');
     assert(art14h.mip, 'bay car texture is mipmapped (trilinear)');
     assert(art14h.backdrop === 'backdrop' && art14h.canvas && art14h.full, 'backdrop is one Canvas 2D texture the size of the game');
+    const rvGround = await page.evaluate(() => {
+      const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+      return Array.from(img.getContext('2d').getImageData(4, img.height - 4, 1, 1).data.slice(0, 3));
+    });
+    assert(rvGround[0] > rvGround[2], `the Rust Valley yard is warm dirt (ground rgb ${rvGround.join(',')})`);
 
     console.log('wash by swiping');
     await page.mouse.move(geo.x - geo.w * 0.35, geo.y);
@@ -743,7 +750,14 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('garage'));
     const yardTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').length);
     assert(yardTabs === 4, '"Go" on the scrapyard brings the yard and its four tabs back');
-    await page.waitForTimeout(1200);
+    // Wait for it rather than a fixed time: the Salesperson may sell a car in the meantime, and while the sold car
+    // drives off (0.5 s) the scene shows no car although the next one is already focused (flaked in run 17).
+    await page
+      .waitForFunction(() => {
+        const s = window.__jye.state;
+        return s.cars.length === 0 || window.__jye.game.scene.getScene('yard').bigCarId === s.focusedId;
+      }, null, { timeout: 4000 })
+      .catch(() => {});
     const yardCar = await page.evaluate(() => {
       const sc = window.__jye.game.scene.getScene('yard');
       const s = window.__jye.state;
@@ -783,6 +797,38 @@ async function waitForServer(url, ms = 15000) {
     assert(auction.length === 3 && auction.every((a) => /★/.test(a.desc) && /profit \$\d/.test(a.desc) && /^Buy \$/.test(a.btn)), `the auction board shows three lots with condition, price and profit (${auction[0].title} · ${auction[0].desc})`);
     assert(/Buy a car at the auction/.test(await page.textContent('.hint')), 'the lot hint points at the auction');
     await page.screenshot({ path: path.join(SHOTS, 'e2e-19a-carlot-auction.png') });
+    // P1.2c auction feel: a bid countdown on every card, "Going…" with a red timer in the last seconds, and a SOLD!
+    // stamp when a lot goes to another bidder.
+    const timers = await page.evaluate(() => [...document.querySelectorAll('.cards .card.auction-lot .lvl')].map((l) => l.textContent));
+    assert(timers.every((t) => /^⏱ \d+s$/.test(t)), `each lot shows its bid countdown (${timers.join(', ')})`);
+    const fit = await page.evaluate(() =>
+      [...document.querySelectorAll('.cards .card.auction-lot')].map((c) => {
+        const r = c.getBoundingClientRect();
+        const b = c.querySelector('.buy').getBoundingClientRect();
+        const d = c.querySelector('.desc').getBoundingClientRect();
+        return Math.round(r.bottom - b.bottom) >= 0 && Math.round(b.top - d.bottom) >= -1;
+      }),
+    );
+    assert(fit.every(Boolean), `every auction card holds its text and Buy button (${fit.join(', ')})`);
+    await page.evaluate(() => (window.__jye.state.carlot.board[1].timeLeft = 5));
+    await page.waitForFunction(() => document.querySelectorAll('.cards .card.auction-lot')[1].classList.contains('closing'), null, { timeout: 2000 });
+    const going = await page.evaluate(() => document.querySelectorAll('.cards .card.auction-lot .lvl')[1].textContent);
+    assert(/^🔨 Going… [45]s$/.test(going), `a closing lot says "Going…" (${going})`);
+    await page.evaluate(() => (window.__jye.state.carlot.board[2].timeLeft = 0.05));
+    await page.waitForFunction(() => {
+      const st = document.querySelectorAll('.cards .card.auction-lot')[2].querySelector('.stamp');
+      const ok = !st.classList.contains('hidden') && st.textContent === 'SOLD!';
+      // Hold the stamp for the screenshot.
+      if (ok) for (const x of window.__jye.ui.stamps) if (x) x.until += 60_000;
+      return ok;
+    }, null, { timeout: 2000 });
+    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder with a SOLD! stamp');
+    await page.waitForTimeout(350);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-19d-carlot-auction-sold.png') });
+    await page.evaluate(() => {
+      for (const x of window.__jye.ui.stamps) if (x) x.until = 0;
+      window.__jye.state.carlot.board[1].timeLeft = 40;
+    });
     const cashLot0 = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.cards .card.auction-lot >> nth=0 >> .buy');
     await page.waitForFunction(() => {
@@ -790,6 +836,8 @@ async function waitForServer(url, ms = 15000) {
       return window.__jye.state.carlot.cars.length === 1 && sc.debugView().carVisible && !sc.debugView().arriving;
     }, null, { timeout: 4000 });
     const bought = await page.evaluate(() => ({ cash: window.__jye.state.cash, car: window.__jye.state.carlot.cars[0], hint: document.querySelector('.hint').textContent }));
+    const wonStamp = await page.evaluate(() => document.querySelectorAll('.cards .card.auction-lot')[0].querySelector('.stamp').textContent);
+    assert(wonStamp === 'YOURS!', `the bought lot gets a YOURS! stamp (${wonStamp})`);
     assert(bought.cash < cashLot0 && bought.car.condition === 1 && bought.car.work > 0, `buying moves the car onto the lot (${bought.car.model}, paid ${bought.car.paid})`);
     assert(/Tap the car to refurbish/.test(bought.hint), `the hint says to tap the car (${bought.hint})`);
     const lotCarPos = async () =>
@@ -822,6 +870,34 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye.state.carlot.sold === 1, null, { timeout: 3000 });
     const soldLot = await page.evaluate(() => ({ profit: window.__jye.state.carlot.profit, hold: window.__jye.state.carlot.holdId }));
     assert(soldLot.profit > 0 && soldLot.hold === null, `the haggled sale makes a profit (${soldLot.profit})`);
+    // P1.2c walk-up buyers: buy another car, finish it, and a buyer walks up, looks it over and says something.
+    await page.waitForSelector('.cards .card.auction-lot .buy:not([disabled])', { timeout: 8000 });
+    await page.click('.cards .card.auction-lot .buy:not([disabled]) >> nth=0');
+    await page.waitForFunction(() => window.__jye.state.carlot.cars.length === 1, null, { timeout: 3000 });
+    await page.evaluate(() => (window.__jye.state.carlot.cars[0].work = 0));
+    await page.waitForFunction(() => {
+      const v = window.__jye.game.scene.getScene('carlot').debugView();
+      const l = window.__jye.state.carlot;
+      const ok = !!l.buyer && v.buyerLooking === v.bigId && v.buyerVisible && !v.buyerWalking && v.speech !== '';
+      // Keep the buyer looking for the checks and the screenshot.
+      if (l.buyer) l.buyerTimer = Math.min(l.buyerTimer, 4.5);
+      return ok;
+    }, null, { timeout: 12000 });
+    const look = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('carlot');
+      const sb = sc.speech.getBounds();
+      return {
+        speech: sc.debugView().speech,
+        kind: window.__jye.state.carlot.buyer.kind,
+        right: sc.buyer.x > sc.bigCar.x + sc.bigCar.displayWidth * 0.3,
+        onScreen: sb.left >= 0 && sb.right <= sc.scale.width && sb.top >= 0,
+        sold: window.__jye.state.carlot.sold,
+      };
+    });
+    assert(look.right && look.onScreen && look.sold === 1, `a ${look.kind} buyer stands by the car and looks it over: "${look.speech}"`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-19e-carlot-buyer-looks.png') });
+    await page.waitForFunction(() => window.__jye.state.carlot.sold === 2, null, { timeout: 6000 });
+    assert(await page.evaluate(() => window.__jye.state.carlot.buyer === null && window.__jye.state.carlot.cars.length === 0), 'then the buyer pays and drives the car away');
     // Upgrades and crew: Valet Bay, Showroom, a third spot, the Detailer and the Auction Agent.
     await page.click('.tab:has-text("Lot"):visible');
     const valet0 = await page.textContent('.cards .card.carlot-valet .desc');
@@ -836,7 +912,7 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate(() => window.__jye.state.carlot.crew.detailer && window.__jye.state.carlot.crew.agent), 'Detailer and Auction Agent hired');
     await page.waitForFunction(() => window.__jye.state.carlot.cars.length > 0, null, { timeout: 8000 });
     assert(true, 'the Auction Agent buys a car on its own');
-    await page.waitForFunction(() => window.__jye.state.carlot.sold > 1, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__jye.state.carlot.sold > 2, null, { timeout: 30000 });
     assert(true, 'the Detailer refurbishes and a walk-up buyer drives a car away without input');
     await page.waitForFunction(() => {
       const sc = window.__jye.game.scene.getScene('carlot');
@@ -868,6 +944,247 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.map-row[data-biz="scrapyard"] button');
     await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('carlot'), null, { timeout: 4000 });
     assert(true, 'back to the yard from the lot');
+
+    console.log('paint and tuning');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.cash += 400e6;
+      s.lifetimeEarnings += 400e6;
+    });
+    await page.click('.map-btn');
+    await page.waitForSelector('.map-row[data-biz="paint"] button:not([disabled])');
+    assert((await page.textContent('.map-row[data-biz="paint"] button')) === 'Open $25.0M', 'Paint & Tuning is for sale on the map');
+    await page.click('.map-row[data-biz="paint"] button');
+    await page.waitForFunction(() => window.__jye.state.businesses.opened.paint);
+    await page.click('.map-row[data-biz="paint"] button');
+    await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+    await page.waitForSelector('.modal.city-map', { state: 'detached' });
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('paint') && window.__jye.game.scene.isSleeping('yard'), null, { timeout: 4000 });
+    assert(true, '"Go" puts the Paint & Tuning shop on screen and the yard to sleep');
+    const paintTabs = await page.evaluate(() => [...document.querySelectorAll('.tab')].filter((t) => t.style.display !== 'none').map((t) => t.textContent.replace(/\s+$/, '')));
+    assert(paintTabs.join(',') === 'Shop,Crew', `the panel shows the shop's tabs (${paintTabs.join(', ')})`);
+    await page.waitForFunction(() => window.__jye.state.paint.jobs.length > 0, null, { timeout: 6000 });
+    // Swap the first order for a known one (respray, rims, engine tune) so every layer is checked.
+    await page.evaluate(() => {
+      const p = window.__jye.state.paint;
+      const j = p.jobs[0];
+      const id = p.nextJobId++;
+      p.jobs = [{ ...j, id, services: ['respray', 'rims', 'tune'], step: 0, work: 8, age: 0 }];
+      p.focusedId = id;
+    });
+    await page.waitForFunction(() => {
+      const v = window.__jye.game.scene.getScene('paint').debugView();
+      return v.carVisible && !v.arriving && v.ticket && v.customer && v.bigId === window.__jye.state.paint.focusedId;
+    }, null, { timeout: 4000 });
+    const order = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(order.ticketIcons === '🎨🛞⚙️' && /^⚡ \+\$[\d.]+[KMB]?\ntip · \d+s$/.test(order.tipText), `the order ticket shows the three services and the tip timer (${order.ticketIcons} · ${order.tipText.replace('\n', ' ')})`);
+    assert(order.shown.colour === 0 && order.shown.rims === 0 && order.shown.tune === 0, 'the car arrives in its old colour with stock rims');
+    assert(/Tap the car: respray/.test(await page.textContent('.hint')), 'the hint says to tap the car for the respray');
+    const ticketFit = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      const t = sc.ticket.getBounds();
+      const z = window.__jye.game.scale.zoom;
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      const hud = document.querySelector('.hud').getBoundingClientRect();
+      return { onScreen: t.left >= 0 && t.right <= sc.scale.width, belowHud: c.y + t.top * z >= hud.bottom - 1 };
+    });
+    assert(ticketFit.onScreen && ticketFit.belowHud, 'the ticket hangs on screen, below the top bar');
+    // P1.2g: the customer says what they want; the bubble never covers the ticket (its tip clock is running).
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('paint').debugView().speech, null, { timeout: 3000 });
+    const said = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    const clear = (a, b) => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+    const inScreen = (b, sc) => b.x >= 0 && b.x + b.w <= sc.w && b.y >= 0;
+    assert(
+      ['The full works, please!', 'Do everything!', 'Make it a show car!'].includes(said.speech.text) && said.ticket && clear(said.speech.box, said.ticketBox) && inScreen(said.speech.box, said.screen),
+      `the customer says what they want, clear of the ticket (${JSON.stringify(said.speech)})`,
+    );
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20-paint-order.png') });
+    const paintCarPos = async () =>
+      page.evaluate(() => {
+        const sc = window.__jye.game.scene.getScene('paint');
+        const b = sc.bigCar.getBounds();
+        const z = window.__jye.game.scale.zoom;
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        return { x: c.x + b.centerX * z, y: c.y + b.centerY * z };
+      });
+    const pc = await paintCarPos();
+    const tapUntil = async (pred, max = 60) => {
+      for (let i = 0; i < max; i++) {
+        if (await page.evaluate(pred)) return true;
+        await page.mouse.click(pc.x, pc.y);
+        await page.waitForTimeout(20);
+      }
+      return page.evaluate(pred);
+    };
+    await tapUntil(() => window.__jye.state.paint.jobs[0].work <= 4);
+    await page.evaluate(() => (window.__jye.state.paint.jobs[0].age = 0));
+    await page.waitForTimeout(120);
+    const mid = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(mid.shown.colour > 0.3 && mid.shown.colour < 0.9 && mid.shown.rims === 0, `tapping sprays the new colour across the car (${Math.round(mid.shown.colour * 100)}% done)`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20b-paint-spraying.png') });
+    await tapUntil(() => window.__jye.state.paint.jobs[0].step === 2);
+    await tapUntil(() => window.__jye.state.paint.jobs[0].work <= 8);
+    await page.evaluate(() => (window.__jye.state.paint.jobs[0].age = 0));
+    await page.waitForTimeout(120);
+    const late = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(late.shown.colour === 1 && late.shown.rims === 1 && late.shown.tune > 0.3 && late.shown.tune < 0.9, `the respray and rims stay on while the tune decal comes in (tune ${Math.round(late.shown.tune * 100)}%)`);
+    assert(/^⚡ \+/.test(late.tipText) && /🛞/.test(late.ticketIcons), 'the ticket still offers the tip after two services');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20c-paint-tune.png') });
+    await tapUntil(() => window.__jye.state.paint.jobsDone === 1, 40);
+    const paid = await page.evaluate(() => ({ ...window.__jye.state.paint, jobs: undefined }));
+    assert(paid.jobsDone === 1 && paid.tips === 1 && paid.earned > 0, `a quick hand-finished order pays the fee plus the tip (${paid.earned})`);
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('paint').debugView().leaving, null, { timeout: 1000 });
+    assert(true, 'the customer drives the finished car away');
+    // Upgrades, a second booth and the Painter.
+    await page.click('.tab:has-text("Shop"):visible');
+    const booth0 = await page.textContent('.cards .card.paint-booth .desc');
+    await page.click('.cards .card.paint-booth .buy');
+    await page.click('.cards .card.paint-hype .buy');
+    await page.click('.cards .card.paint-booths .buy');
+    const pl = await page.evaluate(() => window.__jye.state.paint);
+    assert(pl.levels.booth === 2 && pl.levels.hype === 2 && pl.booths === 2 && (await page.textContent('.cards .card.paint-booth .desc')) !== booth0, 'Spray Booth, Hype and a second booth bought');
+    await page.click('.tab:has-text("Crew"):visible');
+    await page.click('.cards .card.paint-painter .buy');
+    assert(await page.evaluate(() => window.__jye.state.paint.painter), 'Painter hired');
+    const done0 = await page.evaluate(() => window.__jye.state.paint.jobsDone);
+    await page.waitForFunction((d) => window.__jye.state.paint.jobsDone > d, done0, { timeout: 30000 });
+    assert(true, 'the Painter finishes an order without input');
+    await page.waitForFunction(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      const v = sc.debugView();
+      const p = window.__jye.state.paint;
+      const ok = v.carVisible && !v.arriving && !v.leaving && v.painter && v.booths === 2 && v.ticket && p.jobs.length === 2 && v.bigId === p.jobs[0].id;
+      // Hold the orders for the screenshot.
+      if (ok) for (const j of p.jobs) j.work = Math.max(j.work, 3);
+      return ok;
+    }, null, { timeout: 20000 });
+    const painterView = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      return { left: sc.painter.x < sc.bigCar.x - sc.bigCar.displayWidth * 0.3, inside: sc.painter.x - sc.painter.displayWidth / 2 >= 0 };
+    });
+    assert(painterView.left && painterView.inside, 'the Painter stands left of the car, on screen; two booths show above');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20d-paint-crew.png') });
+    // A very short phone (375x560) with two booths: the car moves down so the sign, the ticket and the booth row
+    // stay apart, and the speech bubble still clears the ticket.
+    const vp0 = page.viewportSize();
+    // Hold the orders again: the Painter can finish a 3-unit order during the resize (run 23 flake: ticket null).
+    await page.evaluate(() => { for (const j of window.__jye.state.paint.jobs) j.work = Math.max(j.work, 20); });
+    await page.setViewportSize({ width: 375, height: 560 });
+    await page.waitForTimeout(700);
+    const shortView = await page.evaluate(() => {
+      const sc = window.__jye.game.scene.getScene('paint');
+      sc.speechText.setText('Wrap it, make it fast!');
+      sc.speechFor = sc.bigId;
+      sc.placeSpeech();
+      sc.speech.setVisible(true).setAlpha(1).setScale(1);
+      sc.speechUntil = sc.clock + 3;
+      const v = sc.debugView();
+      const hud = document.querySelector('.hud').getBoundingClientRect();
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      const rowBottom = Math.max(0, ...sc.booths.map((b) => b.container.getBounds().bottom / sc.bridge.dpr));
+      return { v, hudBottom: hud.bottom - c.y, rowBottom, h: sc.cssH };
+    });
+    const sv = shortView.v;
+    const svClear = sv.ticketBox && sv.speech && clear(sv.speech.box, sv.ticketBox) && inScreen(sv.speech.box, sv.screen);
+    assert(
+      Math.round(shortView.h) === 560 && sv.sign && svClear && sv.ticketBox.y >= shortView.rowBottom + 4 && sv.ticketBox.y >= shortView.hudBottom,
+      `on a 560 px phone the sign keeps its lettering, the ticket clears the booth row and the bubble clears the ticket (${JSON.stringify({ carW: sv.carW, t: sv.ticketBox, s: sv.speech && sv.speech.box, row: shortView.rowBottom })})`,
+    );
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20f-paint-short-phone.png') });
+    await page.setViewportSize(vp0);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.__jye.saveNow());
+    await page.reload();
+    await page.waitForFunction(() => window.__jye && window.__jye.game.scene.isActive('paint'), null, { timeout: 8000 });
+    assert(await page.evaluate(() => !window.__jye.game.scene.isActive('yard') && !window.__jye.game.scene.isActive('carlot')), 'a reload brings back the paint shop on screen');
+    await page.waitForTimeout(500);
+    if (await page.isVisible('.modal-back .modal .buy')) await page.click('.modal-back .modal .buy');
+    await page.click('.map-btn');
+    assert((await page.textContent('.modal.city-map > .buy')) === 'Back to the paint shop', "the map's back button names the paint shop");
+    const paintTier = await page.evaluate(() => document.querySelector('.map-row[data-biz="paint"] .map-stars')?.textContent);
+    assert(paintTier === '★★☆', `two booths put the shop at tier 2 on the map (${paintTier})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-20e-paint-map.png') });
+    await page.click('.map-row[data-biz="scrapyard"] button');
+    await page.waitForFunction(() => window.__jye.game.scene.isActive('yard') && window.__jye.game.scene.isSleeping('paint'), null, { timeout: 4000 });
+    assert(true, 'back to the yard from the paint shop');
+
+    console.log('lot cars through the paint shop');
+    const goTo = async (biz, scene) => {
+      await page.click('.map-btn');
+      await page.click(`.map-row[data-biz="${biz}"] button`);
+      await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+      await page.waitForSelector('.modal.city-map', { state: 'detached' });
+      await page.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 4000 });
+    };
+    await goTo('carlot', 'carlot');
+    // One known refurbished muscle car; no walk-up buyers, no Auction Agent buys and no paint customers for now.
+    const tuneId = await page.evaluate(() => {
+      const s = window.__jye.state;
+      const l = s.carlot;
+      const id = l.nextId++;
+      l.crew.agent = false;
+      l.buyer = null;
+      l.buyerTimer = -1e6;
+      l.cars = [{ id, family: 'muscle', model: 'Stallion Thunder', paint: 0xe5484d, condition: 3, paid: 1000, work: 0 }];
+      l.focusedId = id;
+      s.paint.jobs = [];
+      s.paint.focusedId = null;
+      s.paint.arrivalTimer = -1e6;
+      return id;
+    });
+    await page.waitForSelector('.crush.tune:not(.hidden)', { timeout: 4000 });
+    const tuneUi = await page.evaluate(() => {
+      const t = document.querySelector('.crush.tune').getBoundingClientRect();
+      const s = document.querySelector('.sell').getBoundingClientRect();
+      return { text: document.querySelector('.crush.tune').textContent, disabled: document.querySelector('.crush.tune').disabled, apart: s.right <= t.left - 4, onScreen: s.left >= 0 && t.right <= window.innerWidth };
+    });
+    assert(/⚙️ Tune\+\$[\d.]+[KMB]?/.test(tuneUi.text) && !tuneUi.disabled, `a refurbished lot car offers an engine tune at the paint shop (${tuneUi.text})`);
+    assert(tuneUi.apart && tuneUi.onScreen, 'the Tune button sits beside the Sell button, both on screen');
+    await page.waitForFunction(() => window.__jye.game.scene.getScene('carlot').tag.visible, null, { timeout: 6000 });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21a-lot-tune-button.png') });
+    const sticker0 = await page.evaluate((id) => window.__jye.state.carlot.cars.find((c) => c.id === id) && window.__jye.game.scene.getScene('carlot').tagText.text, tuneId);
+    await page.click('.crush.tune');
+    const sent = await page.evaluate((id) => {
+      const s = window.__jye.state;
+      return { away: s.carlot.cars.find((c) => c.id === id)?.atShop === true, job: s.paint.jobs.find((j) => j.lotCarId === id)?.services.join(',') };
+    }, tuneId);
+    assert(sent.away && sent.job === 'tune', 'Tune sends the car to a paint booth for an engine tune');
+    await page.waitForFunction(() => document.querySelector('.sell').classList.contains('hidden') && document.querySelector('.crush.tune').classList.contains('hidden'));
+    await page.waitForFunction(() => /Paint & Tuning/.test(window.__jye.game.scene.getScene('carlot').label.text), null, { timeout: 2000 });
+    assert(true, 'the lot says the car is at the paint shop; it cannot be sold meanwhile');
+    await goTo('paint', 'paint');
+    await page.waitForFunction((id) => {
+      const s = window.__jye.state;
+      const v = window.__jye.game.scene.getScene('paint').debugView();
+      const job = s.paint.jobs.find((j) => j.lotCarId === id);
+      const ok = !!job && v.bigId === job.id && v.carVisible && !v.arriving && v.ticket;
+      // Hold the job (the Painter works on it) for the checks and the screenshot.
+      if (job) job.work = Math.max(job.work, 10);
+      return ok;
+    }, tuneId, { timeout: 5000 });
+    const lotJobView = await page.evaluate(() => window.__jye.game.scene.getScene('paint').debugView());
+    assert(lotJobView.ticketIcons === '⚙️' && /^🏷️ \+\$[\d.]+[KMB]?\nsticker$/.test(lotJobView.tipText) && !lotJobView.customer, `the shop shows your lot car with its sticker bonus and no customer (${lotJobView.tipText.replace('\n', ' ')})`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21b-paint-lot-car.png') });
+    const cash0 = await page.evaluate(() => window.__jye.state.cash);
+    await page.waitForFunction((id) => window.__jye.state.carlot.cars.find((c) => c.id === id)?.tuned === 'tune', tuneId, { timeout: 30000 });
+    const back = await page.evaluate((id) => ({ car: window.__jye.state.carlot.cars.find((c) => c.id === id), done: window.__jye.state.paint.jobsDone }), tuneId);
+    assert(back.car.atShop === undefined && back.car.tuneValue > 0, `the tuned car goes back to the lot (+${back.car.tuneValue} on its sticker)`);
+    await goTo('carlot', 'carlot');
+    await page.waitForFunction((id) => {
+      const sc = window.__jye.game.scene.getScene('carlot');
+      return window.__jye.state.carlot.focusedId === id && sc.tag.visible && /⚙️/.test(sc.tagText.text);
+    }, tuneId, { timeout: 4000 });
+    const sticker1 = await page.evaluate(() => window.__jye.game.scene.getScene('carlot').tagText.text);
+    assert(sticker1 !== sticker0 && (await page.evaluate(() => document.querySelector('.crush.tune').classList.contains('hidden'))), `its FOR SALE tag shows the tune and the higher price (${sticker0.replace('\n', ' ')} -> ${sticker1.replace('\n', ' ')}); it can't go twice`);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-21c-lot-tuned.png') });
+    assert((await page.evaluate(() => window.__jye.state.cash)) >= cash0 - 1, 'the shop charged nothing for your own car');
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.carlot.crew.agent = true;
+      s.carlot.buyerTimer = 0;
+      s.paint.arrivalTimer = 0;
+    });
+    await goTo('scrapyard', 'yard');
 
     console.log('save and reload');
     const before = await page.evaluate(() => {
@@ -915,6 +1232,8 @@ async function waitForServer(url, ms = 15000) {
     assert(/Foreman fixed cars in the garage: \$/.test(shopLine), `the welcome-back popup shows the garage's earnings (${shopLine.trim()})`);
     const lotLine = (await page.textContent('.modal .offline-carlot').catch(() => '')) || '';
     assert(/lot crew bought, polished and sold cars: \$/.test(lotLine), `the welcome-back popup shows the lot's earnings (${lotLine.trim()})`);
+    const paintLine = (await page.textContent('.modal .offline-paint').catch(() => '')) || '';
+    assert(/Painter finished paint and tuning orders: \$/.test(paintLine), `the welcome-back popup shows the paint shop's earnings (${paintLine.trim()})`);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');
@@ -955,6 +1274,11 @@ async function waitForServer(url, ms = 15000) {
       s.managers.seller = false;
       s.managers.scrapper = false; // its scrap cash would muddle the sale amount
       s.garage.foreman = false; // and so would the garage Foreman's fees
+      s.paint.painter = false; // and the Painter's (it still works the order held for the short-phone check)
+      // ...and the Used Car Lot's walk-up sales.
+      s.carlot.crew.detailer = s.carlot.crew.agent = false;
+      s.carlot.cars = [];
+      s.carlot.buyer = null;
       s.buyer = null;
       s.buyerTimer = 999;
     });
@@ -973,7 +1297,7 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForTimeout(200);
     const afterRare = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash }));
     const haggleHidden = await page.$eval('.haggle', (e) => e.classList.contains('hidden'));
-    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, 'skip haggling sells a Rare car at the asking price, no slider');
+    assert(haggleHidden && afterRare.sold === rareSale.sold + 1 && afterRare.cash - rareSale.cash === rareSale.value, `skip haggling sells a Rare car at the asking price, no slider (${JSON.stringify({ rareSale, afterRare, haggleHidden })})`);
     await page.evaluate(() => {
       window.__jye.state.managers.seller = true;
       window.__jye.state.managers.scrapper = true;
@@ -998,6 +1322,430 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => window.__jye && window.__jye.state);
     const fresh = await page.evaluate(() => ({ sold: window.__jye.state.carsSold, cash: window.__jye.state.cash, intro: window.__jye.state.tutorial.introSeen }));
     assert(fresh.sold === 0 && fresh.cash === 0 && !fresh.intro, 'reset progress starts a new game');
+
+    console.log('sell empire (P1.3b)');
+    {
+      const se = await browser.newContext({ ...devices['iPhone SE'] });
+      const sp = await se.newPage();
+      sp.on('pageerror', (e) => errors.push('sell empire pageerror: ' + e.message));
+      sp.on('console', (m) => m.type() === 'error' && errors.push('sell empire console: ' + m.text()));
+      await sp.goto(URL);
+      await sp.waitForSelector('.modal .buy');
+      await sp.click('.modal .buy');
+      await sp.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A rich player: 144 x $5M earned is worth 12 Legacy Points.
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true });
+        s.carsSold = 120;
+        s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
+        s.lifetimeEarnings = 144 * 5e6;
+        s.legacy.runSeconds = 3 * 3600 + 25 * 60;
+      });
+      await sp.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('EMPIRE FOR SALE'), null, { timeout: 15000 });
+      assert(true, 'an "EMPIRE FOR SALE!" banner announces the offer');
+      assert(await sp.isVisible('.map-btn .dot.on'), 'the map button shows a dot while the sale is new');
+      assert(await sp.$eval('.legacy-chip', (e) => e.classList.contains('hidden')), 'no Legacy chip before the first sale');
+      await sp.waitForTimeout(2600); // let the banner clear
+      await sp.click('.map-btn');
+      await sp.waitForSelector('.map-row.legacy');
+      const row = await sp.$eval('.map-row.legacy', (e) => ({ text: e.textContent, glow: e.classList.contains('glow') }));
+      assert(/\+12 Legacy Points/.test(row.text) && /x1\.00 → x1\.24/.test(row.text) && row.glow, `the map offers Sell Empire, glowing (${row.text.trim()})`);
+      await sp.$eval('.map-row.legacy', (e) => e.scrollIntoView());
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21a-sell-empire-map.png') });
+      await sp.click('.map-row.legacy .sell-empire');
+      await sp.waitForSelector('.sell-empire-preview .modal');
+      const prev = await sp.textContent('.sell-empire-preview .modal');
+      assert(/\+12/.test(prev) && /x1\.24/.test(prev) && /You keep/.test(prev) && /Starts over/.test(prev) && /3h 25m|3h25m/.test(prev), 'the preview shows the points, the new multiplier, what is kept and the run time');
+      const fits = await sp.$eval('.sell-empire-preview .modal', (e) => e.getBoundingClientRect().bottom <= window.innerHeight && e.getBoundingClientRect().top >= 0);
+      assert(fits, 'the preview fits an iPhone SE screen');
+      assert(/Motor City opens on your 2nd sale/.test(prev) && !(await sp.$('.city-pick')), 'the first sale has no city picker, only the Motor City teaser');
+      assert(await sp.evaluate(() => document.getElementById('app').scrollLeft === 0), 'the game never slides sideways when a modal takes focus');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21b-sell-empire-preview.png') });
+      await sp.click('.modal .secondary');
+      const kept = await sp.evaluate(() => ({ pts: window.__jye.state.legacy.points, sold: window.__jye.state.carsSold, offered: window.__jye.state.tutorial.legacyOffered }));
+      assert(kept.pts === 0 && kept.sold === 120 && kept.offered, '"Not yet" keeps the empire (and the offer counts as seen)');
+      assert(!(await sp.isVisible('.map-btn .dot.on')), 'the map dot clears once the preview was seen');
+      await sp.click('.map-btn');
+      await sp.click('.map-row.legacy .sell-empire');
+      await sp.waitForSelector('.sell-empire-preview .modal .buy');
+      await sp.click('.sell-empire-preview .modal .buy');
+      await sp.waitForSelector('.legacy-celebrate .modal');
+      const cel = await sp.textContent('.legacy-celebrate .modal');
+      const after = await sp.evaluate(() => {
+        const s = window.__jye.state;
+        return { pts: s.legacy.points, sold: s.carsSold, cash: s.cash, empires: s.legacy.sold, intro: s.tutorial.introSeen };
+      });
+      assert(/EMPIRE SOLD/.test(cel) && /\+12/.test(cel) && /Grandpa Joe/.test(cel), 'a celebration with Grandpa Joe follows the sale');
+      assert(after.pts === 12 && after.sold === 0 && after.cash === 0 && after.empires === 1 && after.intro, `the sale banks 12 points and resets the run (${JSON.stringify(after)})`);
+      await sp.waitForTimeout(500);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21c-sell-empire-celebrate.png') });
+      await Promise.all([sp.waitForNavigation(), sp.click('.legacy-celebrate .modal .buy')]);
+      await sp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
+      const re = await sp.evaluate(() => ({ pts: window.__jye.state.legacy.points, sold: window.__jye.state.carsSold, modal: !!document.querySelector('.modal'), map: getComputedStyle(document.querySelector('.map-btn')).display }));
+      assert(re.pts === 12 && re.sold === 0 && !re.modal && re.map === 'none', 'the new empire starts in a fresh yard after the reload, no intro, map hidden again');
+      await sp.waitForSelector('.legacy-chip:not(.hidden)');
+      const chip = await sp.textContent('.legacy-chip');
+      assert(/x1\.24/.test(chip), `the HUD shows the Legacy chip (${chip})`);
+      const hudFits = await sp.evaluate(() => {
+        const h = document.querySelector('.hud').getBoundingClientRect();
+        return [...document.querySelectorAll('.hud > *')].filter((e) => getComputedStyle(e).display !== 'none').every((e) => e.getBoundingClientRect().right <= h.right + 0.5);
+      });
+      assert(hudFits, 'the top bar still fits on an iPhone SE with the chip');
+      const panelFits = await sp.evaluate(() => {
+        const p = document.querySelector('.panel').getBoundingClientRect();
+        return [...document.querySelectorAll('.panel-head .tab, .panel-head .mode')].filter((e) => getComputedStyle(e).display !== 'none').every((e) => e.getBoundingClientRect().right <= p.right + 0.5);
+      });
+      assert(panelFits, 'every tab and buy mode fits the panel on a 320 px phone');
+      // The new empire's yard runs (its car values already include x1.24, see legacy.test.ts).
+      const val = await sp.evaluate(() => {
+        const s = window.__jye.state;
+        const c = s.cars[0];
+        return c.value;
+      });
+      assert(val > 0, `the new empire's first wreck is on the way ($${val})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21d-new-empire.png') });
+      // Legacy tree (P1.3c): the chip has a dot while a node is affordable and opens the tree.
+      assert(await sp.isVisible('.legacy-chip .dot'), 'the Legacy chip shows a dot: points to spend');
+      await sp.click('.legacy-chip');
+      await sp.waitForSelector('.legacy-tree .modal h2:has-text("Legacy")');
+      const info = await sp.textContent('.legacy-tree .modal');
+      assert(/12 of 12 points free/.test(info) && /x1\.24/.test(info) && /Sell Empire again after/.test(info), 'the tree shows the free points, the multiplier and the next sale');
+      const tabs = await sp.$$eval('.tree-tab', (ts) => ts.map((t) => t.dataset.branch));
+      assert(tabs.join() === 'mechanic,dealer,racer', `three branch tabs (${tabs.join()})`);
+      const nodes = await sp.$$eval('.tree-node', (ns) => ns.map((n) => n.dataset.node + ':' + n.className.split(' ')[1]));
+      assert(nodes.join() === 'quickHands:next,headStart:locked,partsHoarder:locked,masterCrew:locked', `the Mechanic branch lists four nodes in order (${nodes.join()})`);
+      assert(await sp.$eval('.tree-node[data-node="headStart"] .tree-buy', (b) => b.disabled), 'a later node cannot be bought first');
+      const treeFits = () => sp.evaluate(() => {
+        const m = document.querySelector('.legacy-tree .modal').getBoundingClientRect();
+        const tabsR = [...document.querySelectorAll('.tree-tab')].map((t) => t.getBoundingClientRect());
+        const done = document.querySelector('.legacy-tree .modal .buy').getBoundingClientRect();
+        const name = document.querySelector('.tree-tab span');
+        return m.top >= 0 && m.bottom <= innerHeight + 0.5 && m.right <= innerWidth + 0.5 && done.bottom <= innerHeight + 0.5 &&
+          tabsR.every((r) => r.right <= m.right + 0.5) && name.scrollWidth <= name.clientWidth + 1;
+      });
+      assert(await treeFits(), 'the tree fits a 320 px phone (modal, tabs, tab names and Done on screen)');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21e-legacy-tree.png') });
+      await sp.click('.tree-node[data-node="quickHands"] .tree-buy');
+      await sp.waitForSelector('.tree-node[data-node="quickHands"].owned');
+      const t1 = await sp.evaluate(() => ({ tree: { ...window.__jye.state.legacy.tree }, pts: window.__jye.state.legacy.points }));
+      assert(t1.tree.mechanic === 1 && t1.pts === 12, 'buying Quick Hands spends 2 points and keeps all 12 for income');
+      assert(/10 of 12 points free/.test(await sp.textContent('.tree-head')), 'the header counts the spent points');
+      await sp.click('.tree-tab[data-branch="racer"]');
+      await sp.click('.tree-node[data-node="quickTips"] .tree-buy');
+      await sp.click('.tree-node[data-node="rareFinds"] .tree-buy');
+      await sp.waitForSelector('.tree-node[data-node="rareFinds"].owned');
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21f-legacy-racer.png') });
+      assert(await treeFits(), 'still fits with the respec line showing');
+      const t2 = await sp.evaluate(() => ({ ...window.__jye.state.legacy.tree }));
+      assert(t2.racer === 2, 'two Racer nodes bought');
+      assert(/respec: refund 7/.test(await sp.textContent('.tree-respec')), 'respec offers to refund the 7 spent points');
+      await sp.click('.tree-respec');
+      const t3 = await sp.evaluate(() => ({ tree: { ...window.__jye.state.legacy.tree }, used: window.__jye.state.legacy.respecUsed }));
+      assert(t3.tree.mechanic === 0 && t3.tree.racer === 0 && t3.used, 'respec refunds every node, once');
+      assert(/Respec used/.test(await sp.textContent('.legacy-tree .modal')) || (await sp.$('.tree-respec')) === null, 'no second respec this empire');
+      await sp.click('.tree-node[data-node="quickTips"] .tree-buy');
+      await sp.click('.legacy-tree .modal .buy');
+      assert((await sp.$('.legacy-tree')) === null, 'Done closes the tree');
+      // Bought nodes are saved.
+      await sp.evaluate(() => window.__jye.saveNow());
+      await sp.reload();
+      await sp.waitForFunction(() => window.__jye && window.__jye.state);
+      const t4 = await sp.evaluate(() => ({ ...window.__jye.state.legacy.tree }));
+      assert(t4.racer === 1 && t4.mechanic === 0, `the tree survives a reload (${JSON.stringify(t4)})`);
+      // P1.3e: a node-bought animation, then the perk shows as a chip on the tabs it changes.
+      assert(!(await sp.isVisible('.perk-strip')), 'no perk chips on the Upgrades tab before Quick Hands');
+      await sp.click('.legacy-chip');
+      await sp.waitForSelector('.legacy-tree .modal');
+      await sp.click('.tree-tab[data-branch="mechanic"]');
+      await sp.click('.tree-node[data-node="quickHands"] .tree-buy');
+      const anim = await sp.evaluate(() => ({
+        row: !!document.querySelector('.tree-node[data-node="quickHands"].owned.just-bought'),
+        spend: document.querySelector('.tree-node[data-node="quickHands"] .tree-spend')?.textContent ?? '',
+        pulse: document.querySelector('.tree-head')?.classList.contains('pulse'),
+      }));
+      assert(anim.row && /−2/.test(anim.spend) && anim.pulse, `buying a node pops the row, floats "−2 🏛" and pulses the points (${JSON.stringify(anim)})`);
+      await sp.waitForTimeout(250);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21g-node-bought.png') });
+      await sp.waitForTimeout(1100);
+      assert((await sp.$('.tree-spend')) === null, 'the floating spend text cleans itself up');
+      await sp.click('.legacy-tree .modal .buy');
+      await sp.waitForSelector('.perk-strip .perk-chip[data-perk="quickHands"]', { state: 'visible' });
+      const strip = await sp.evaluate(() => {
+        const p = document.querySelector('.panel').getBoundingClientRect();
+        const st = document.querySelector('.perk-strip').getBoundingClientRect();
+        const c = document.querySelector('.cards').getBoundingClientRect();
+        return { text: document.querySelector('.perk-strip').textContent, inPanel: st.left >= p.left && st.right <= p.right + 0.5, h: st.height, above: st.bottom <= c.top + 0.5, cardsH: c.height };
+      });
+      assert(/\+25% taps/.test(strip.text) && strip.inPanel && strip.h <= 20 && strip.above && strip.cardsH > 60, `the Upgrades tab names Quick Hands in a slim chip row (${JSON.stringify(strip)})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21h-perk-strip.png') });
+      // Night Shift: the welcome-back popup names it and counts the longer cap.
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        s.legacy.points = 22; // 2 (Quick Hands) + 2 (Silver Tongue) + 18 (the whole Racer branch); all-time earnings must back it
+        s.legacy.allTime = 22 * 22 * 5e6;
+        s.legacy.tree.racer = 4;
+        s.legacy.tree.dealer = 1;
+        s.carsSold = 5;
+        s.managers.mechanic = s.managers.washer = s.managers.seller = true;
+        s.lastSeen = Date.now() - 3 * 3600 * 1000;
+        const data = JSON.stringify(s);
+        let h = 0x811c9dc5;
+        for (let i = 0; i < data.length; i++) { h ^= data.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+        const env = JSON.stringify({ v: s.version, savedAt: Date.now() + 10, sum: (h >>> 0).toString(16).padStart(8, '0'), data });
+        localStorage.setItem('jye_save_a', env);
+        localStorage.setItem('jye_save_b', env);
+        Storage.prototype.setItem = function () {};
+      });
+      await sp.reload();
+      await sp.waitForSelector('.modal .offline-perk', { timeout: 8000 });
+      const wb = await sp.textContent('.modal');
+      assert(/working for (2h 59m|3h 0m)/.test(wb) && /4h cap/.test(wb) && !/You were away/.test(wb), `with Night Shift the crew works the full 3 hours away (${wb.match(/working for [^.]+/)?.[0]})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21i-night-shift.png') });
+      // Silver Tongue: a badge on the haggle box names the wider PERFECT zone.
+      await sp.click('.modal .buy');
+      await sp.evaluate(() => {
+        const s = window.__jye.state;
+        s.managers.seller = false;
+        const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+        c.dirt = 0;
+        c.damage = 0;
+        c.rarity = 'rare';
+      });
+      await sp.waitForSelector('.sell:not(.hidden)');
+      await sp.click('.sell');
+      await sp.waitForSelector('.haggle:not(.hidden) .perk-chip[data-perk="silverTongue"]');
+      const hb = await sp.evaluate(() => {
+        const h = document.querySelector('.haggle').getBoundingClientRect();
+        const c = document.querySelector('.haggle .perk-chip').getBoundingClientRect();
+        const z = document.querySelector('.haggle .zone-perfect').getBoundingClientRect();
+        return { chipIn: c.left >= h.left && c.right <= h.right && c.top >= 0, zone: z.width / document.querySelector('.haggle-track').getBoundingClientRect().width };
+      });
+      assert(hb.chipIn && hb.zone > 0.15, `the haggle box shows the Silver Tongue badge over a wider zone (${JSON.stringify(hb)})`);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21j-silver-tongue.png') });
+      await sp.click('.haggle');
+      await se.close();
+    }
+
+    console.log('motor city (P1.3d)');
+    {
+      const mc = await browser.newContext({ ...devices['iPhone SE'] });
+      const mp = await mc.newPage();
+      mp.on('pageerror', (e) => errors.push('motor city pageerror: ' + e.message));
+      mp.on('console', (m) => m.type() === 'error' && errors.push('motor city console: ' + m.text()));
+      await mp.goto(URL);
+      await mp.waitForSelector('.modal .buy');
+      await mp.click('.modal .buy');
+      await mp.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A second empire ready to sell: 12 points from the first sale, enough earned for 10 more.
+      await mp.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        s.carsSold = 120;
+        s.cash = 0;
+        s.legacy.sold = 1;
+        s.legacy.points = 12;
+        s.legacy.allTime = 144 * 5e6;
+        s.lifetimeEarnings = (484 - 144) * 5e6;
+        s.legacy.runSeconds = 2 * 3600;
+      });
+      await mp.waitForSelector('.map-btn:not(.hidden)');
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.map-row.legacy .sell-empire');
+      await mp.click('.map-row.legacy .sell-empire');
+      await mp.waitForSelector('.sell-empire-preview .city-pick');
+      const pick = await mp.$$eval('.city-opt', (bs) => bs.map((b) => `${b.dataset.city}:${b.getAttribute('aria-checked')}:${b.textContent}`));
+      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x5/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22a-city-pick.png') });
+      const mFits = await mp.$eval('.sell-empire-preview .modal', (e) => {
+        const r = e.getBoundingClientRect();
+        const b = e.querySelector('.buy').getBoundingClientRect();
+        const o = [...e.querySelectorAll('.city-opt')].map((x) => x.getBoundingClientRect());
+        return r.top >= 0 && r.bottom <= innerHeight + 0.5 && b.bottom <= innerHeight + 0.5 && o.every((x) => x.right <= r.right && x.left >= r.left) && o[0].right <= o[1].left;
+      });
+      assert(mFits, 'the preview with the city picker fits an iPhone SE (cards side by side, Sell button on screen)');
+      await mp.click('.city-opt[data-city="rustValley"]');
+      assert(await mp.$eval('.city-opt[data-city="rustValley"]', (b) => b.classList.contains('on') && b.getAttribute('aria-checked') === 'true'), 'tapping Rust Valley picks it');
+      await mp.click('.city-opt[data-city="motorCity"]');
+      assert(await mp.$eval('.city-opt[data-city="motorCity"]', (b) => b.classList.contains('on')) && !(await mp.$eval('.city-opt[data-city="rustValley"]', (b) => b.classList.contains('on'))), 'tapping Motor City picks it back');
+      await mp.click('.sell-empire-preview .modal .buy');
+      await mp.waitForSelector('.legacy-celebrate .modal');
+      const mcel = await mp.textContent('.legacy-celebrate .modal');
+      assert(/Next stop: .*Motor City/.test(mcel) && /\+10/.test(mcel), `the celebration names the next city (${mcel.match(/Next stop[^.]*/)?.[0]})`);
+      assert((await mp.evaluate(() => window.__jye.state.legacy.city)) === 'motorCity', 'the new empire is in Motor City');
+      await mp.waitForTimeout(400);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b-motor-city-sold.png') });
+      await Promise.all([mp.waitForNavigation(), mp.click('.legacy-celebrate .modal .buy')]);
+      await mp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
+      const mcs = await mp.evaluate(() => ({ city: window.__jye.state.legacy.city, pts: window.__jye.state.legacy.points, car: window.__jye.state.cars[0].value }));
+      assert(mcs.city === 'motorCity' && mcs.pts === 22, `Motor City survives the reload (${JSON.stringify(mcs)})`);
+      // P1.3d3c: the day checks below must not depend on the machine's clock ("auto" turns Motor City to night after
+      // 7 pm); the night look is checked at the end of this section through the Settings sheet.
+      await mp.evaluate(() => { window.__jye.state.settings.cityLights = 'day'; });
+      // P1.3d3: the yard is painted in Motor City's colours: asphalt (blue over red) and a skyline in the sky.
+      await mp.waitForTimeout(800);
+      const mYard = await mp.evaluate(() => {
+        const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+        const ctx = img.getContext('2d');
+        const px = (x, y) => Array.from(ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3));
+        return { ground: px(4, img.height - 4), w: img.width, h: img.height };
+      });
+      assert(mYard.ground[2] > mYard.ground[0], `the Motor City yard is asphalt, not dirt (ground rgb ${mYard.ground.join(',')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b2-motor-city-yard.png') });
+      // Prices are x5: the Wash Bay's first level costs $750 instead of $150.
+      await mp.click('.tab:nth-child(1)');
+      const washBtn = await mp.textContent('.cards .card:first-child .buy');
+      assert(/\$750/.test(washBtn), `Motor City prices are x5 (Wash Bay ${washBtn})`);
+      await mp.evaluate(() => { window.__jye.state.carsSold = 30; });
+      await mp.waitForSelector('.map-btn:not(.hidden)');
+      await mp.waitForTimeout(2600); // let the CITY MAP banner clear
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.modal.city-map h2');
+      const mTitle = await mp.textContent('.modal.city-map h2');
+      const goal = await mp.textContent('.map-row[data-biz="garage"]');
+      assert(mTitle === 'Motor City' && /\$1(\.0+)?M/.test(goal), `the map is titled Motor City and the garage goal is x5 (${mTitle}; ${goal.trim()})`);
+      await mp.waitForTimeout(700); // the map slides in
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22c-motor-city-map.png') });
+      // P1.3d2: Motor City has its own map (highway, rooftops, no grass) and its own business names.
+      const mMap = await mp.evaluate(() => {
+        const svg = document.querySelector('.modal.city-map .city-svg');
+        return {
+          city: svg.dataset.city,
+          aria: svg.getAttribute('aria-label'),
+          highway: !!svg.querySelector('.highway'),
+          roofs: svg.querySelectorAll('.roof').length,
+          rows: [...document.querySelectorAll('.map-row .map-name')].map((n) => n.textContent.trim()),
+          w: svg.getBoundingClientRect().width,
+          vw: window.innerWidth,
+        };
+      });
+      assert(mMap.city === 'motorCity' && mMap.aria === 'Motor City city map' && mMap.highway && mMap.roofs >= 8, `Motor City draws its own map (${JSON.stringify(mMap)})`);
+      assert(/^Salvage Yard/.test(mMap.rows[0]) && /^Midtown Garage/.test(mMap.rows[1] || ''), `the map list uses Motor City's names (${mMap.rows.join(' | ')})`);
+      assert(mMap.w <= mMap.vw, `the Motor City map fits the phone (${mMap.w} <= ${mMap.vw})`);
+      await mp.click('.modal.city-map > .buy');
+      await mp.waitForSelector('.modal.city-map', { state: 'detached', timeout: 3000 });
+      const mBtn = await mp.evaluate(() => {
+        const b = document.querySelector('.map-btn');
+        const t = b.querySelector('.city-tag');
+        return { aria: b.getAttribute('aria-label'), tag: t.textContent, shown: getComputedStyle(t).display !== 'none' };
+      });
+      assert(mBtn.aria === 'Motor City map' && mBtn.shown && mBtn.tag === '🏙️', `the map button names the city and shows its icon (${JSON.stringify(mBtn)})`);
+      // Go to the garage: its sign carries the Motor City name and the drive wipe says so too.
+      await mp.evaluate(() => {
+        const s = window.__jye.state;
+        s.lifetimeEarnings += 1e7;
+        s.cash += 1e7;
+      });
+      await mp.click('.map-btn');
+      await mp.waitForSelector('.map-row[data-biz="garage"] button:not([disabled])');
+      await mp.click('.map-row[data-biz="garage"] button');
+      await mp.waitForFunction(() => window.__jye.state.businesses.opened.garage);
+      await mp.click('.map-row[data-biz="garage"] button');
+      const mWipe = await mp.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+      assert(mWipe && mWipe.includes('Midtown Garage'), `"Go" drives to the Midtown Garage (${mWipe})`);
+      await mp.waitForFunction(() => window.__jye.game.scene.isActive('garage'), null, { timeout: 5000 });
+      await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+      await mp.waitForTimeout(800);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22d-midtown-garage.png') });
+      // P1.3d3b: the garage, the lot and the paint shop are painted in Motor City colours.
+      const bgPx = (key, fx, fy) =>
+        mp.evaluate(
+          ([k, x, y]) => {
+            const img = window.__jye.game.textures.get(k).getSourceImage();
+            const c = img.getContext('2d');
+            return Array.from(c.getImageData(Math.round(img.width * x), Math.round(img.height * y), 1, 1).data.slice(0, 3));
+          },
+          [key, fx, fy],
+        );
+      const gWall = await bgPx('garage-backdrop', 0.97, 0.02);
+      assert(gWall[2] > gWall[1] && gWall[2] > gWall[0], `the Midtown Garage wall is steel blue, not teal (rgb ${gWall.join(',')})`);
+      const goTo = async (biz, scene, shot) => {
+        await mp.evaluate(() => {
+          const s = window.__jye.state;
+          s.lifetimeEarnings += 1e10;
+          s.cash += 1e10;
+        });
+        await mp.click('.map-btn');
+        await mp.waitForSelector(`.map-row[data-biz="${biz}"] button:not([disabled])`);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((b) => window.__jye.state.businesses.opened[b], biz);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 5000 });
+        await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+        await mp.waitForTimeout(800);
+        await mp.screenshot({ path: path.join(SHOTS, shot) });
+      };
+      await goTo('carlot', 'carlot', 'e2e-22e-motor-city-lot.png');
+      const lSky = await bgPx('carlot-backdrop', 0.5, 0.01);
+      assert(lSky[0] < 80 && lSky[1] < 120 && lSky[2] > lSky[0], `the Motor City lot has a dusk steel-blue sky (rgb ${lSky.join(',')})`);
+      await goTo('paint', 'paint', 'e2e-22f-motor-city-paint.png');
+      // P1.3q2: on an iPhone SE the tap hint pill sits below the car's name/price label, not over its lettering.
+      const labelVsHint = await mp.evaluate(() => {
+        const sc = window.__jye.game.scene.getScene('paint');
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        const z = window.__jye.game.scale.zoom;
+        const b = sc.label.getBounds();
+        const hint = document.querySelector('.hint');
+        const hr = hint.getBoundingClientRect();
+        // The pill bobs up by 5 px: compare with the top of its bob, wherever the animation is right now.
+        const ty = parseFloat((getComputedStyle(hint).translate || '0 0').split(' ')[1] || '0') || 0;
+        return { text: sc.label.text, labelBottom: c.top + b.bottom * z, hintTop: hr.top - ty - 5, hint: hint.textContent, shown: !hint.classList.contains('hidden') };
+      });
+      assert(
+        labelVsHint.text && labelVsHint.shown && labelVsHint.labelBottom <= labelVsHint.hintTop + 1,
+        `the paint shop's tap hint clears the car label on a 320x568 phone (${JSON.stringify(labelVsHint)})`,
+      );
+      const pWall = await bgPx('paint-backdrop', 0.02, 0.02);
+      assert(pWall[2] - pWall[0] > 50, `the Motor City paint booth has cool steel-blue panels (rgb ${pWall.join(',')})`);
+
+      // P1.3d3c: City lights -> Night in the Settings sheet turns every Motor City scene to its neon night look.
+      await mp.click('.settings-btn');
+      await mp.waitForSelector('.modal.settings .lights-row');
+      await mp.waitForTimeout(500);
+      const litFit = await mp.$eval('.modal.settings .lights-row', (r) => {
+        const box = r.closest('.modal').getBoundingClientRect();
+        const btns = [...r.querySelectorAll('.seg-btn')].map((b) => b.getBoundingClientRect());
+        return { n: btns.length, fits: btns.every((b) => b.right <= box.right + 0.5 && b.left >= box.left - 0.5), oneLine: btns.every((b) => Math.abs(b.top - btns[0].top) < 2), on: r.querySelector('.seg-btn.on')?.dataset.lights };
+      });
+      assert(litFit.n === 3 && litFit.fits && litFit.oneLine && litFit.on === 'day', `the City lights row shows Auto/Day/Night on one line on an iPhone SE (${JSON.stringify(litFit)})`);
+      const sheet = await mp.$eval('.modal.settings', (m) => {
+        const r = m.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, vh: innerHeight, scrolls: m.scrollHeight > m.clientHeight + 1, overflow: getComputedStyle(m).overflowY };
+      });
+      assert(sheet.top >= 0 && sheet.bottom <= sheet.vh + 0.5 && (!sheet.scrolls || sheet.overflow === 'auto'), `the Settings sheet fits an iPhone SE or scrolls, so Done stays reachable (${JSON.stringify(sheet)})`);
+      await mp.click('.modal.settings .lights-row .seg-btn[data-lights="night"]');
+      assert((await mp.evaluate(() => window.__jye.state.settings.cityLights)) === 'night', 'tapping Night sets City lights to night');
+      await mp.$eval('.modal.settings .lights-row', (r) => r.scrollIntoView({ block: 'center' }));
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22g-city-lights-setting.png') });
+      await mp.click('.modal.settings .buy');
+      await mp.waitForTimeout(900); // the scene repaints within half a second
+      const lum = (c) => c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+      const pNight = await bgPx('paint-backdrop', 0.02, 0.02);
+      assert(lum(pNight) < lum(pWall) * 0.8 && pNight[2] > pNight[0], `the paint booth turns a deeper night blue (rgb ${pWall.join(',')} -> ${pNight.join(',')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22h-motor-city-paint-night.png') });
+      const goBack = async (biz, scene, shot) => {
+        await mp.click('.map-btn');
+        await mp.waitForSelector(`.map-row[data-biz="${biz}"] button:not([disabled])`);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 5000 });
+        await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+        await mp.waitForTimeout(800);
+        await mp.screenshot({ path: path.join(SHOTS, shot) });
+      };
+      await goBack('carlot', 'carlot', 'e2e-22i-motor-city-lot-night.png');
+      const lNight = await bgPx('carlot-backdrop', 0.5, 0.01);
+      assert(lum(lNight) < lum(lSky) * 0.5, `the lot's sky turns to night (rgb ${lSky.join(',')} -> ${lNight.join(',')})`);
+      await goBack('garage', 'garage', 'e2e-22j-midtown-garage-night.png');
+      const gNight = await bgPx('garage-backdrop', 0.97, 0.02);
+      assert(gNight[2] > gNight[0] && lum(gNight) <= lum(gWall), `the garage stays lit, a little dimmer at night (rgb ${gWall.join(',')} -> ${gNight.join(',')})`);
+      await goBack('scrapyard', 'yard', 'e2e-22k-motor-city-yard-night.png');
+      const yNight = await mp.evaluate(() => {
+        const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+        return Array.from(img.getContext('2d').getImageData(4, 4, 1, 1).data.slice(0, 3));
+      });
+      assert(lum(yNight) < 60 && yNight[2] > yNight[0], `the yard's sky is a night sky (rgb ${yNight.join(',')})`);
+      await mc.close();
+    }
 
     console.log('car art gallery');
     const gal = await ctx.newPage();

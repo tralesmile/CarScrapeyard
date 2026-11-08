@@ -3,6 +3,10 @@ import { SHAPES } from '../src/game/carArt';
 import { ECON } from '../src/core/config';
 import { announceHere } from '../src/ui/announce';
 import {
+  CAR_LABEL_H,
+  HINT_BELOW_AREA,
+  HINT_BOB,
+  carLabelTop,
   BAY_ROW,
   BAY_ROW_BOTTOM,
   CUSTOMER_LINES,
@@ -155,6 +159,20 @@ describe('customer car rust', () => {
       const customer = paintRust(stub, fam, 512, 256, 11, CUSTOMER_RUST);
       expect(customer).toBeLessThanOrEqual(CUSTOMER_RUST.patches);
       expect(customer).toBeLessThan(wreck);
+    }
+  });
+});
+
+describe('car label vs tap hint (P1.3q2)', () => {
+  it('the label stays under the car when there is room', () => {
+    expect(carLabelTop(300, 300, 500)).toBe(300 + 300 * 0.16);
+  });
+
+  it('on a short phone the label rises so its bottom clears the top of the bobbing hint pill', () => {
+    for (const [cy, carW, areaBottom] of [[250, 256, 250], [260, 300, 270], [230, 220, 240]] as const) {
+      const top = carLabelTop(cy, carW, areaBottom);
+      expect(top + CAR_LABEL_H).toBeLessThan(areaBottom + HINT_BELOW_AREA - HINT_BOB);
+      expect(top).toBeLessThanOrEqual(cy + carW * 0.16);
     }
   });
 });

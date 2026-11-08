@@ -4,6 +4,8 @@
 import type { BusinessId } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
+import { franchisePerk } from './legacyTree';
+import { cityInfo, cityPrice, cityScale, currentCity } from './cities';
 
 export const BUSINESS_IDS = Object.keys(ECON.businesses.list) as BusinessId[];
 
@@ -20,20 +22,31 @@ export function businessInfo(id: BusinessId) {
   return ECON.businesses.list[id];
 }
 
+/** The business's name in the current city (P1.3d2): Motor City has its own names, Rust Valley the defaults. */
+export function businessName(state: Pick<GameState, 'legacy'>, id: BusinessId): string {
+  const names: Partial<Record<BusinessId, string>> = cityInfo(currentCity(state)).names;
+  return names[id] ?? businessInfo(id).name;
+}
+
 export function mapUnlocked(state: GameState): boolean {
   return state.carsSold >= ECON.businesses.mapUnlockCarsSold || BUSINESS_IDS.some((id) => id !== 'scrapyard' && state.businesses.opened[id]);
+}
+
+/** Lifetime earnings this empire needs before the business can be bought (scaled to the city). */
+export function unlockGoal(state: Pick<GameState, 'legacy'>, id: BusinessId): number {
+  return cityPrice(state, businessInfo(id).unlockLifetime);
 }
 
 export function businessStatus(state: GameState, id: BusinessId): BusinessStatus {
   if (state.businesses.opened[id]) return 'open';
   const info = businessInfo(id);
-  if (state.lifetimeEarnings < info.unlockLifetime) return 'locked';
+  if (state.lifetimeEarnings < unlockGoal(state, id)) return 'locked';
   return info.ready ? 'forSale' : 'soon';
 }
 
 /** 0..1 progress towards the unlock goal (1 once unlocked or open). */
 export function unlockProgress(state: GameState, id: BusinessId): number {
-  const goal = businessInfo(id).unlockLifetime;
+  const goal = unlockGoal(state, id);
   if (goal <= 0 || state.businesses.opened[id]) return 1;
   return Math.min(1, state.lifetimeEarnings / goal);
 }
@@ -43,14 +56,19 @@ export function nextBusiness(state: GameState): BusinessId | null {
   return BUSINESS_IDS.find((id) => !state.businesses.opened[id]) ?? null;
 }
 
+/** Cash it costs to open this business now (scaled to the city; Franchise makes it cheaper). */
+export function openCost(state: Pick<GameState, 'legacy'>, id: BusinessId): number {
+  return Math.round(businessInfo(id).openCost * cityScale(state) * franchisePerk(state));
+}
+
 export function canOpenBusiness(state: GameState, id: BusinessId): boolean {
-  return businessStatus(state, id) === 'forSale' && state.cash >= businessInfo(id).openCost;
+  return businessStatus(state, id) === 'forSale' && state.cash >= openCost(state, id);
 }
 
 /** Buy a business. It does not switch to it; the map does that after the opening celebration. */
 export function openBusiness(state: GameState, id: BusinessId): boolean {
   if (!canOpenBusiness(state, id)) return false;
-  state.cash -= businessInfo(id).openCost;
+  state.cash -= openCost(state, id);
   state.businesses.opened[id] = true;
   return true;
 }
@@ -77,6 +95,7 @@ function tierSize(state: GameState, id: BusinessId): number {
   if (id === 'scrapyard') return state.slots;
   if (id === 'garage') return state.garage.bays;
   if (id === 'carlot') return state.carlot.spots;
+  if (id === 'paint') return state.paint.booths;
   return 0;
 }
 
@@ -96,5 +115,6 @@ export function nextTierGoal(state: GameState, id: BusinessId): string | null {
   if (!at || tier < 1 || tier >= MAX_TIER) return null;
   const n = at[tier - 1]!;
   if (id === 'scrapyard') return `${n} lot slots`;
-  return id === 'garage' ? `${n} repair bays` : `${n} forecourt spots`;
+  if (id === 'garage') return `${n} repair bays`;
+  return id === 'carlot' ? `${n} forecourt spots` : `${n} paint booths`;
 }

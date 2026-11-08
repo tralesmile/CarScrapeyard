@@ -5,16 +5,18 @@
 
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { ECON } from '../core/config';
-import { findLotCar, focusLotCar, listPrice, lotCarReady, refurbTap } from '../core/carlot';
+import { businessName } from '../core/businesses';
+import { currentCity } from '../core/cities';
+import { ECON, type BuyerKind, type LotBuyerKind } from '../core/config';
+import { findLotCar, focusLotCar, listPrice, lotBuyerBonus, lotCarHere, lotCarReady, refurbTap } from '../core/carlot';
 import { formatCash } from '../core/format';
 import { tick, type GameEvent } from '../core/sim';
 import type { LotCar } from '../core/state';
 import type { Bridge } from './bridge';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import { SHAPES, carTextureSize, paintCar, paintRust } from './carArt';
-import { CONDITION_RUST, LOT_AREA_TOP, SPOT_ROW, conditionStars, paintDetailer, paintLotBackdrop } from './carlotArt';
-import { customerKind } from './garageArt';
+import { CONDITION_RUST, LOT_AREA_TOP, SPOT_ROW, conditionStars, lotBuyerLine, paintDetailer, paintLotBackdrop } from './carlotArt';
+import { carLabelTop, customerKind } from './garageArt';
 import { pruneFloaters, stackY, type Floater } from './floatStack';
 
 /** Height of the people on screen, CSS px. */
@@ -46,10 +48,18 @@ export class CarLotScene extends Phaser.Scene {
   private suds!: Phaser.GameObjects.Particles.ParticleEmitter;
   private detailer!: Phaser.GameObjects.Image;
   private buyer!: Phaser.GameObjects.Image;
+  /** Car the walk-up buyer stands next to and looks over (P1.2c), or null. */
+  private lookingId: number | null = null;
+  /** True while the buyer walks up to the car (no looking pose yet). */
+  private buyerWalking = false;
+  private speech!: Phaser.GameObjects.Container;
+  private speechText!: Phaser.GameObjects.Text;
   private spots: SpotView[] = [];
   private spotsKey = '';
   private floaters: Floater[] = [];
   private layoutInsets = '';
+  /** Whether the backdrop on screen was painted with the night look (P1.3d3c): repainted when the clock or setting flips it. */
+  private drawnNight = false;
   private insetCheck = 0;
   private bump = { v: 0 };
   private clock = 0;
@@ -101,6 +111,10 @@ export class CarLotScene extends Phaser.Scene {
       .setDepth(2)
       .setVisible(false);
     this.buyer = this.add.image(0, 0, '__WHITE').setOrigin(0.5, 1).setDepth(2).setVisible(false);
+    this.speechText = this.add
+      .text(0, 0, '', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(13)}px`, color: '#1e2430' })
+      .setOrigin(0.5);
+    this.speech = this.add.container(0, 0, [this.add.graphics(), this.speechText]).setDepth(7).setVisible(false);
     this.label = this.add
       .text(0, 0, '', {
         fontFamily: '"Lilita One", sans-serif',
@@ -152,6 +166,11 @@ export class CarLotScene extends Phaser.Scene {
     this.drawBackground();
     this.placeBigCar();
     this.spotsKey = '';
+    if (this.lookingId !== null && !this.buyerWalking && !this.carLeaving) {
+      const spot = this.buyerSpot();
+      this.buyer.setPosition(spot.x, spot.y);
+      if (this.speech.visible) this.placeSpeech();
+    }
   }
 
   private watchInsets(dt: number) {
@@ -160,6 +179,7 @@ export class CarLotScene extends Phaser.Scene {
     this.insetCheck = 0.5;
     const { top, bottom } = this.bridge.insets();
     if (`${Math.round(top)},${Math.round(bottom)}` !== this.layoutInsets) this.layout();
+    else if (this.bridge.night() !== this.drawnNight) this.drawBackground();
   }
 
   private drawBackground() {
@@ -177,9 +197,10 @@ export class CarLotScene extends Phaser.Scene {
       floorY,
       s: this.dpr,
       stage: { cx: W / 2, groundY, carW: this.px(a.carW) },
-      sign: ECON.businesses.list.carlot.name.toUpperCase(),
+      sign: businessName(this.bridge.state, 'carlot').toUpperCase(),
       reservedTop: this.px(this.bridge.insets().top + SPOT_ROW.y + SPOT_ROW.h / 2 + 4),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2)),
+      city: currentCity(this.bridge.state), night: (this.drawnNight = this.bridge.night()),
     });
     tex.refresh();
     this.bg.setTexture('carlot-backdrop').setPosition(0, 0).setVisible(true);
@@ -194,6 +215,7 @@ export class CarLotScene extends Phaser.Scene {
     this.syncBigCar();
     this.poseCar();
     this.syncPeople();
+    this.syncBuyer();
     this.syncSpots();
     this.watchInsets(dt);
     // Suds from the Detailer's cloth on the car he works on.
@@ -213,7 +235,8 @@ export class CarLotScene extends Phaser.Scene {
   }
 
   private ensureTextures(car: LotCar): string {
-    const key = `lcar-${car.id}`;
+    // The colour is in the key: a respray at Paint & Tuning (P1.2f) brings the car back in a new colour.
+    const key = `lcar-${car.id}-${car.paint.toString(16)}`;
     if (this.textures.exists(key)) return key;
     for (const [k, paint] of [
       [key, (ctx: CanvasRenderingContext2D) => paintCar(ctx, { family: car.family, paint: car.paint, rarity: 'common' }, this.texW, this.texH, { shadow: false })],
@@ -228,7 +251,8 @@ export class CarLotScene extends Phaser.Scene {
   }
 
   private releaseTextures(id: number) {
-    for (const k of [`lcar-${id}`, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    const keys = this.textures.getTextureKeys().filter((k) => k.startsWith(`lcar-${id}-`));
+    for (const k of [...keys, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
   }
 
   private placeBigCar() {
@@ -238,7 +262,7 @@ export class CarLotScene extends Phaser.Scene {
       o.setScale(scale);
       if (!this.carLeaving) o.setPosition(this.px(a.cx), this.px(a.cy));
     }
-    this.label.setPosition(this.px(a.cx), this.px(a.cy + a.carW * 0.16));
+    this.label.setPosition(this.px(a.cx), this.px(carLabelTop(a.cy, a.carW, this.cssH - this.bridge.insets().bottom)));
   }
 
   private syncBigCar() {
@@ -253,10 +277,11 @@ export class CarLotScene extends Phaser.Scene {
       this.barG.clear();
       // The hint says it during the first sales; after that the empty platform says where to go.
       const l = this.bridge.state.carlot;
-      if (!this.carLeaving) this.label.setText(l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
+      const away = l.cars.some((c) => !lotCarHere(c));
+      if (!this.carLeaving) this.label.setText(away ? `Your car is at ${businessName(this.bridge.state, 'paint')} 🎨` : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
       return;
     }
-    if (car.id !== this.bigId) {
+    if (car.id !== this.bigId || this.bigCar.texture.key !== this.ensureTextures(car)) {
       this.bigId = car.id;
       this.bigCar.setTexture(this.ensureTextures(car)).setVisible(true);
       this.bigRust.setTexture(`lrust-${car.id}`).setVisible(true);
@@ -302,7 +327,8 @@ export class CarLotScene extends Phaser.Scene {
       this.tagKey = '';
       return;
     }
-    const price = formatCash(listPrice(this.bridge.state, car));
+    // A car back from Paint & Tuning shows what it had done next to the price.
+    const price = `${car.tuned ? `${ECON.paint.services[car.tuned].icon} ` : ''}${formatCash(listPrice(this.bridge.state, car))}`;
     const key = `${car.id}|${price}`;
     if (key !== this.tagKey) {
       const fresh = !this.tagKey.startsWith(`${car.id}|`);
@@ -352,6 +378,97 @@ export class CarLotScene extends Phaser.Scene {
       .setAngle(Math.sin(t) * 4);
   }
 
+  // ---- the walk-up buyer (P1.2c) --------------------------------------------
+
+  /** Feet of the buyer, right of the platform, device px. */
+  private buyerSpot() {
+    const a = this.focusArea();
+    const half = (PERSON_H * BUYER_W) / BUYER_H / 2;
+    return { x: this.px(Math.min(a.cx + a.carW / 2 + 8, this.cssW - half - 2)), y: this.px(a.cy + a.carW * 0.13 + 14) };
+  }
+
+  private buyerLook(kind: BuyerKind): string {
+    return this.paintedTexture(`buyer-${kind}`, BUYER_W, BUYER_H, (ctx) => paintBuyer(ctx, kind));
+  }
+
+  /**
+   * The buyer in the core state stands by the car on the platform and looks it over (a slow lean and a speech bubble),
+   * then the sale event drives the car away. A buyer looking at a car in the spot row shows as an icon on its thumbnail.
+   */
+  private syncBuyer() {
+    if (this.carLeaving) return;
+    const b = this.bridge.state.carlot.buyer;
+    const here = b && b.carId === this.bigId && !this.arriving ? b : null;
+    if (here && this.lookingId !== here.carId) {
+      this.lookingId = here.carId;
+      const spot = this.buyerSpot();
+      this.tweens.killTweensOf(this.buyer);
+      this.buyer.setTexture(this.buyerLook(here.kind)).setScale(this.px(PERSON_H) / (BUYER_H * 2)).setAngle(0).setAlpha(1).setVisible(true);
+      this.buyer.setPosition(this.scale.width + this.px(30), spot.y);
+      this.buyerWalking = true;
+      const car = findLotCar(this.bridge.state, here.carId);
+      this.tweens.add({
+        targets: this.buyer,
+        x: spot.x,
+        duration: this.calm ? 1 : 520,
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          this.buyerWalking = false;
+          if (car && this.lookingId === car.id) this.say(lotBuyerLine(here.kind, lotBuyerBonus(here.kind, car), car.id));
+        },
+      });
+      sfx.bell();
+    } else if (!here && this.lookingId !== null) {
+      this.lookingId = null;
+      this.buyerWalking = false;
+      this.speech.setVisible(false);
+      this.tweens.killTweensOf(this.buyer);
+      this.tweens.add({
+        targets: this.buyer,
+        x: this.scale.width + this.px(40),
+        duration: this.calm ? 1 : 420,
+        ease: 'Sine.easeIn',
+        onComplete: () => this.buyer.setVisible(false),
+      });
+    }
+    if (this.lookingId !== null && !this.buyerWalking) {
+      // Looking it over: lean in towards the car and back.
+      this.buyer.setAngle(this.calm ? -3 : -3 + Math.sin(this.clock * 2.2) * 4);
+    }
+  }
+
+  private say(line: string) {
+    this.speechText.setText(line);
+    this.placeSpeech();
+    this.speech.setVisible(true).setAlpha(1);
+    this.tweens.killTweensOf(this.speech);
+    if (!this.calm) {
+      this.speech.setScale(0.5);
+      this.tweens.add({ targets: this.speech, scale: 1, duration: 200, ease: 'Back.easeOut' });
+    }
+  }
+
+  /** The speech bubble above the buyer's head, pointing down at them (kept on screen). */
+  private placeSpeech() {
+    const w = this.speechText.width + this.px(22);
+    const h = this.px(32);
+    const spot = this.buyerSpot();
+    const headY = spot.y - this.px(PERSON_H) - this.px(4);
+    const half = w / 2 + this.px(4);
+    const cx = Phaser.Math.Clamp(spot.x - w * 0.25, half, this.scale.width - half);
+    const cy = headY - this.px(10) - h / 2;
+    const tail = Phaser.Math.Clamp(spot.x - cx, -w / 2 + h / 2, w / 2 - h / 2);
+    const g = this.speech.list[0] as Phaser.GameObjects.Graphics;
+    g.clear();
+    g.fillStyle(0x000000, 0.18).fillRoundedRect(-w / 2 + this.px(2), -h / 2 + this.px(3), w, h, h / 2);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.fillTriangle(tail - this.px(6), h / 2 - this.px(1), tail + this.px(6), h / 2 - this.px(1), tail + this.px(2), h / 2 + this.px(10));
+    g.lineStyle(this.px(2), 0x1e2430, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.lineBetween(tail - this.px(6), h / 2, tail + this.px(2), h / 2 + this.px(10));
+    g.lineBetween(tail + this.px(6), h / 2, tail + this.px(2), h / 2 + this.px(10));
+    this.speech.setPosition(cx, cy);
+  }
+
   /** Paint a Canvas 2D texture once (2x for sharpness); textures are shared with the other scenes. */
   private paintedTexture(key: string, w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void): string {
     if (!this.textures.exists(key)) {
@@ -370,7 +487,7 @@ export class CarLotScene extends Phaser.Scene {
 
   private syncSpots() {
     const l = this.bridge.state.carlot;
-    const key = `${l.spots}|${l.cars.map((c) => `${c.id}${lotCarReady(c) ? 'r' : ''}`).join(',')}|${l.focusedId}`;
+    const key = `${l.spots}|${l.cars.map((c) => `${c.id}${lotCarReady(c) ? 'r' : ''}${c.atShop ? 's' : ''}${c.paint}`).join(',')}|${l.focusedId}|${l.buyer ? `${l.buyer.kind}${l.buyer.carId}` : ''}`;
     if (key !== this.spotsKey) {
       this.spotsKey = key;
       for (const v of this.spots) v.container.destroy();
@@ -392,8 +509,17 @@ export class CarLotScene extends Phaser.Scene {
         if (car) {
           const img = this.add.image(-this.px(6), -this.px(4), this.ensureTextures(car));
           img.setScale(this.px(w - 24) / this.texW);
-          const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), lotCarReady(car) ? '🏷️' : '🧽', { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
+          const away = !lotCarHere(car);
+          const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), away ? '🎨' : lotCarReady(car) ? '🏷️' : '🧽', { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
+          // Away at the paint shop: the thumbnail fades and says so.
+          if (away) img.setAlpha(0.35);
           items.push(img, icon);
+          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), 'At the shop', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
+          // A buyer is looking this car over (shown on the platform when it is the big car).
+          if (l.buyer && l.buyer.carId === car.id && car.id !== this.bigId) {
+            const buyerIcon = ECON.buyers.kinds[l.buyer.kind].icon;
+            items.push(this.add.text(-this.px(w / 2 - 13), -this.px(h / 2 - 12), buyerIcon, { fontSize: `${this.px(13)}px` }).setOrigin(0.5));
+          }
         } else {
           items.push(this.add.text(0, 0, 'Free spot', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
         }
@@ -424,6 +550,10 @@ export class CarLotScene extends Phaser.Scene {
       spots: this.spots.length,
       leaving: this.carLeaving,
       arriving: this.arriving,
+      buyerLooking: this.lookingId,
+      buyerVisible: this.buyer.visible,
+      buyerWalking: this.buyerWalking,
+      speech: this.speech.visible ? this.speechText.text : '',
     };
   }
 
@@ -462,40 +592,49 @@ export class CarLotScene extends Phaser.Scene {
         this.glitter.explode(this.calm ? 6 : 18, this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.2);
         this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.5, 'Like new!', '#f5b700', 22);
       }
-      if (e.type === 'lotSold') this.onSold(e.car, e.amount, e.profit, e.auto);
+      if (e.type === 'lotSold') this.onSold(e.car, e.amount, e.profit, e.buyer, e.bonus);
     }
     this.bridge.onEvents(events);
   }
 
-  private onSold(car: LotCar, amount: number, profit: number, auto: boolean) {
+  private onSold(car: LotCar, amount: number, profit: number, buyer: LotBuyerKind | null, bonus: number) {
     const big = car.id === this.bigId;
     const from = big ? { x: this.bigCar.x, y: this.bigCar.y } : { x: this.scale.width / 2, y: this.px(this.focusArea().rowY) };
     if (big) {
       this.tag.setVisible(false);
       this.barG.clear();
-      this.buyerTakes(car.id, auto);
+      this.buyerTakes(car.id, buyer);
       this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, `Profit ${formatCash(profit)}`, '#f5b700', 18);
     } else this.time.delayedCall(800, () => this.releaseTextures(car.id));
+    if (buyer && bonus > 0) {
+      this.floatText(from.x, from.y - this.px(70), `${ECON.carlot.buyers[buyer].name} paid +${Math.round(bonus * 100)}%`, '#fbf3e4', 16);
+    }
     this.coinBurst(from.x, from.y, amount);
   }
 
-  /** A buyer walks up to the car, then drives it away to the right. */
-  private buyerTakes(id: number, auto: boolean) {
+  /** The buyer (already standing there after looking it over, or walking up now) drives the car away to the right. */
+  private buyerTakes(id: number, kind: LotBuyerKind | null) {
     this.carLeaving = true;
     this.bigId = null;
-    const a = this.focusArea();
-    const kind = customerKind(id);
+    this.speech.setVisible(false);
+    const standing = this.lookingId === id && this.buyer.visible && !this.buyerWalking;
+    this.lookingId = null;
+    this.buyerWalking = false;
+    const spot = this.buyerSpot();
     this.tweens.killTweensOf(this.buyer);
-    this.buyer
-      .setTexture(this.paintedTexture(`buyer-${kind}`, BUYER_W, BUYER_H, (ctx) => paintBuyer(ctx, kind)))
-      .setScale(this.px(PERSON_H) / (BUYER_H * 2))
-      .setPosition(this.scale.width + this.px(30), this.px(a.cy + a.carW * 0.13 + 14))
-      .setAlpha(1)
-      .setVisible(true);
-    const walk = this.calm ? 1 : auto ? 420 : 300;
+    if (!standing) {
+      const look: BuyerKind = kind ?? customerKind(id);
+      this.buyer
+        .setTexture(this.buyerLook(look))
+        .setScale(this.px(PERSON_H) / (BUYER_H * 2))
+        .setPosition(this.scale.width + this.px(30), spot.y)
+        .setVisible(true);
+    }
+    this.buyer.setAngle(0).setAlpha(1);
+    const walk = this.calm || standing ? 1 : kind ? 420 : 300;
     this.tweens.add({
       targets: this.buyer,
-      x: this.px(Math.min(a.cx + a.carW / 2 + 8, this.cssW - 20)),
+      x: spot.x,
       duration: walk,
       ease: 'Sine.easeOut',
       onComplete: () => this.buyer.setVisible(false),

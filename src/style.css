@@ -41,6 +41,8 @@ body {
   height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
+  /* clip, not just hidden: a hidden box can still be scrolled by focus() (the whole game slid 83 px left, run 20). */
+  overflow: clip;
   background: var(--asphalt);
 }
 
@@ -206,6 +208,10 @@ body {
   white-space: nowrap;
 }
 
+.icon-btn.hidden {
+  display: none;
+}
+
 .hud .parts.hidden {
   display: none;
 }
@@ -248,6 +254,23 @@ body {
   pointer-events: none;
 }
 
+/* ---- Tune button (Used Car Lot -> Paint & Tuning, P1.2f) ---- */
+.crush.tune {
+  background: linear-gradient(#9b6cf7, #6d3fd6);
+  box-shadow: 0 4px 0 #4a2a99, 0 6px 14px rgba(0, 0, 0, 0.35);
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.crush.tune:active:not(:disabled) {
+  box-shadow: 0 1px 0 #4a2a99;
+}
+
+/* Sell moves left to make room for the Tune button. */
+.sell.beside-tune {
+  left: calc(50% - 56px);
+}
+
 /* ---- Bottom panel ---- */
 .panel {
   position: absolute;
@@ -274,7 +297,10 @@ body {
   display: flex;
   gap: 4px;
   flex: 1;
+  min-width: 0;
 }
+
+
 
 .tab,
 .mode {
@@ -701,6 +727,19 @@ body {
 /* ---- Settings sheet ---- */
 .modal.settings {
   text-align: left;
+  /* Short phones (iPhone SE): the sheet scrolls instead of pushing Done and Reset off the screen (run 26). */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 600px) {
+  .modal.settings {
+    padding-top: 16px;
+  }
+  .modal.settings .set-row {
+    padding: 6px 0;
+  }
 }
 
 .modal.settings h2 {
@@ -822,6 +861,20 @@ body {
 
 .map-btn .dot.on {
   display: block;
+}
+
+/* The city's icon on the map button's corner outside Rust Valley (P1.3d2). */
+.map-btn .city-tag {
+  position: absolute;
+  bottom: -2px;
+  left: -3px;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.map-btn .city-tag.hidden {
+  display: none;
 }
 
 .modal.city-map {
@@ -999,4 +1052,723 @@ body {
 }
 .auction-lot.empty {
   opacity: 0.7;
+}
+
+/* Auction feel (P1.2c): a bid countdown that turns red in the last seconds, and a rubber stamp when a lot goes. */
+/* No overflow: hidden here: on a grid item it drops the automatic minimum height and the card clips its button. */
+.auction-lot {
+  position: relative;
+}
+.auction-lot .lvl {
+  white-space: nowrap;
+}
+.auction-lot.closing .lvl {
+  color: #ff8a8d;
+}
+.auction-lot.closing .bar > i {
+  background: #e5484d;
+  animation: going-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes going-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+.auction-lot .stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  padding: 4px 14px;
+  border: 4px solid currentColor;
+  border-radius: 10px;
+  font-size: 26px;
+  letter-spacing: 1px;
+  background: rgba(30, 36, 48, 0.82);
+  pointer-events: none;
+  animation: stamp-in 0.28s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.auction-lot .stamp.hidden {
+  display: none;
+}
+.auction-lot .stamp.lost {
+  color: #e5484d;
+}
+.auction-lot .stamp.won {
+  color: #3bc45a;
+}
+@keyframes stamp-in {
+  from {
+    transform: translate(-50%, -50%) rotate(-12deg) scale(2.2);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(-12deg) scale(1);
+    opacity: 1;
+  }
+}
+.reduce-motion .auction-lot .stamp,
+.reduce-motion .auction-lot.closing .bar > i {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auction-lot .stamp,
+  .auction-lot.closing .bar > i {
+    animation: none;
+  }
+}
+
+/* ---- Prestige: Sell Empire (P1.3b) ---- */
+.legacy-chip {
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.legacy-chip.hidden {
+  display: none;
+}
+
+.map-row.legacy {
+  background: linear-gradient(90deg, #fff4d1, #fff9ee);
+  border-color: #e0a800;
+}
+
+.map-row.legacy.glow {
+  animation: legacy-glow 1.6s ease-in-out infinite;
+}
+
+.modal .map-row .buy.sell-empire {
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  box-shadow: 0 4px 0 #a87e00;
+}
+
+.map-row.legacy-next {
+  border-style: dashed;
+}
+
+@keyframes legacy-glow {
+  50% {
+    box-shadow: 0 0 0 3px #f7c94899, 0 0 14px #f7c948;
+  }
+}
+
+.legacy-gain {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 20px 4px;
+  margin: 0 0 8px;
+  border-radius: 14px;
+  background: #fff4d1;
+  border: 2px solid #e0a800;
+}
+
+.legacy-gain .display {
+  font-size: 30px;
+  color: #a87e00;
+  line-height: 1.1;
+}
+
+.legacy-gain small {
+  font-weight: 800;
+  font-size: 12px;
+  color: #7a6a58;
+}
+
+.modal .legacy-mult {
+  margin-bottom: 8px;
+}
+
+.legacy-mult .next {
+  color: #2ea94a;
+}
+
+.legacy-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  text-align: left;
+  margin-bottom: 10px;
+}
+
+.legacy-cols > div {
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.legacy-cols .keep {
+  background: #e6f6e9;
+}
+
+.legacy-cols .lose {
+  background: #fde8e6;
+}
+
+.legacy-cols ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  line-height: 1.35;
+}
+
+.modal .legacy-run {
+  font-size: 13px;
+  color: #7a6a58;
+  font-weight: 700;
+}
+
+.legacy-celebrate .modal {
+  position: relative;
+  overflow: hidden;
+}
+
+.legacy-celebrate .modal .big {
+  color: #a87e00;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  left: var(--x);
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  background: hsl(calc(var(--i) * 47deg) 85% 58%);
+  animation: confetti-fall var(--d) var(--w) linear infinite;
+}
+
+@keyframes confetti-fall {
+  to {
+    transform: translateY(520px) rotate(540deg);
+  }
+}
+
+.reduce-motion .confetti {
+  display: none;
+}
+
+.reduce-motion .map-row.legacy.glow {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .map-row.legacy.glow {
+    animation: none;
+  }
+}
+
+/* The preview must fit a 375x667 phone (iPhone SE) without scrolling the page (run 20). */
+.sell-empire-preview .modal {
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  padding: 16px 16px 12px;
+}
+
+.sell-empire-preview .modal h2 {
+  font-size: 23px;
+  margin-bottom: 4px;
+}
+
+.sell-empire-preview .modal p {
+  font-size: 14px;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.sell-empire-preview .modal .buy {
+  font-size: 18px;
+  padding: 10px;
+}
+
+.sell-empire-preview .modal .secondary {
+  margin-top: 4px;
+  padding: 6px 12px;
+}
+
+/* City picker (P1.3d): where the next empire is built. Two side-by-side cards; the picked one is outlined in gold. */
+.sell-empire-preview .modal .city-q {
+  margin: 2px 0 4px;
+}
+
+.city-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.city-opt {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 6px 6px 7px;
+  border: 2px solid #e2d6c6;
+  border-radius: 12px;
+  background: #fbf6ef;
+  color: #3a2f25;
+  font: inherit;
+  cursor: pointer;
+}
+
+.city-opt .city-ic {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.city-opt b {
+  font-size: 14px;
+}
+
+.city-opt small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a6a58;
+  line-height: 1.2;
+}
+
+.city-opt.on {
+  border-color: var(--gold);
+  background: #fff4cc;
+  box-shadow: 0 0 0 2px #f5b70055;
+}
+
+.city-opt[data-city='motorCity'].on {
+  background: #e3edf8;
+  border-color: #4a7bb7;
+  box-shadow: 0 0 0 2px #4a7bb755;
+}
+
+/* With the picker the preview must still fit a 320x568 phone: drop the intro line, the points chip goes on one line,
+   and the keep / starts-over lists get smaller. */
+.has-cities .modal > div > p:first-child {
+  display: none;
+}
+
+.has-cities .legacy-gain {
+  flex-direction: row;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 14px;
+  margin-bottom: 4px;
+}
+
+.has-cities .legacy-gain .display {
+  font-size: 24px;
+}
+
+.has-cities .modal .legacy-mult {
+  margin-bottom: 4px;
+}
+
+.has-cities .legacy-cols {
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+.has-cities .legacy-cols > div {
+  padding: 5px 8px;
+  font-size: 11.5px;
+}
+
+.has-cities .legacy-cols ul {
+  line-height: 1.2;
+  padding-left: 13px;
+}
+
+.has-cities .modal .legacy-run {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.modal .city-teaser,
+.modal .city-next {
+  font-size: 13px;
+  font-weight: 800;
+  color: #4a7bb7;
+}
+
+/* Phones up to 430 px: four tabs and three buy modes overflowed the panel (run 20). */
+@media (max-width: 430px) {
+  .panel-head {
+    gap: 3px;
+  }
+  .tabs {
+    gap: 3px;
+  }
+  .tab,
+  .mode {
+    padding: 7px 6px;
+    font-size: 12.5px;
+    letter-spacing: -0.01em;
+  }
+  /* If a business's tab set still doesn't fit, the tabs scroll sideways instead of sliding under the buy modes. */
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---- Legacy tree (P1.3c): must fit a 320x560 phone; the node list scrolls inside the modal ---- */
+.legacy-chip {
+  position: relative;
+}
+
+.legacy-chip .dot,
+.tree-tab .dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 1.5px solid #fff;
+}
+
+/* The grid row must be the screen's height, or max-height: 100% resolves against the content and never limits. */
+.modal-back.legacy-tree {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 8px 12px;
+}
+
+.legacy-tree .modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  padding: 14px 14px 10px;
+}
+
+.legacy-tree .modal h2 {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.legacy-tree .tree-head {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.legacy-tree .tree-head small {
+  display: block;
+  color: #7a6a58;
+  font-size: 12px;
+}
+
+.tree-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tree-tab {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  border: 2px solid #e3c9a0;
+  background: #fff9ee;
+  color: #5a4a38;
+  border-radius: 10px;
+  padding: 6px 2px;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tree-tab span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-tab small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.tree-tab.on {
+  background: var(--rust);
+  border-color: var(--rust-dark);
+  color: #fff;
+}
+
+.tree-nodes {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  position: relative;
+}
+
+/* A short connector between the nodes of a branch (they are bought in order). */
+.tree-node + .tree-node::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: -8px;
+  width: 4px;
+  height: 8px;
+  background: #e3c9a0;
+}
+
+.tree-node.owned {
+  background: linear-gradient(90deg, #fff4d1, #fffaf0);
+  border-color: #e0a800;
+}
+
+.tree-node.owned + .tree-node::before {
+  background: #e0a800;
+}
+
+.tree-node.locked {
+  opacity: 0.6;
+}
+
+.tree-icon {
+  font-size: 24px;
+  width: 36px;
+  text-align: center;
+  flex: none;
+}
+
+.tree-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.tree-text b {
+  display: block;
+  font-size: 15px;
+}
+
+.tree-text small {
+  display: block;
+  font-size: 12px;
+  color: #6a5a48;
+}
+
+.tree-buy {
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #f7c948, #e0a800);
+  color: #3a2a00;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tree-buy:disabled {
+  background: #e7e1d6;
+  color: #8a7e6e;
+  cursor: default;
+}
+
+.tree-owned {
+  flex: none;
+  font: 800 13px 'Nunito', sans-serif;
+  color: #9a7400;
+}
+
+.tree-foot {
+  margin: 6px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree-foot .tree-respec {
+  margin-top: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tree-note {
+  color: #7a6a58;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.legacy-tree .modal .buy {
+  font-size: 18px;
+  padding: 10px;
+  flex: none;
+}
+
+/* ---- Legacy perk notes (P1.3e) ---- */
+.perk-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin: -4px 0 -2px;
+  overflow: hidden;
+  min-height: 0;
+  flex: none;
+}
+
+.perk-strip.hidden {
+  display: none;
+}
+
+.perk-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(245, 183, 0, 0.16);
+  border: 1px solid rgba(245, 183, 0, 0.6);
+  color: #ffd75e;
+  font: 800 11px/16px 'Nunito', sans-serif;
+  white-space: nowrap;
+}
+
+/* On light surfaces (welcome-back popup) the chip is darker gold. */
+.modal .perk-chip {
+  color: #7a5a00;
+  background: #fff1c2;
+  border-color: #e0a800;
+}
+
+/* Silver Tongue sits as a badge on the haggle box's top edge, so the label keeps its width. */
+.haggle .perk-chip {
+  position: absolute;
+  top: -11px;
+  right: 14px;
+  background: #3a2f12;
+  font-family: 'Nunito', sans-serif;
+}
+
+.offline-cap,
+.offline-perk {
+  font-size: 13px;
+  color: #6a5a48;
+}
+
+.tree-node.just-bought {
+  animation: node-bought 700ms ease-out;
+}
+
+.tree-node.just-bought::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow: 0 0 0 3px #f7c948, 0 0 18px 6px rgba(247, 201, 72, 0.7);
+  opacity: 0;
+  animation: node-glow 900ms ease-out;
+}
+
+.tree-node.just-bought .tree-owned {
+  display: inline-block;
+  animation: owned-stamp 380ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.tree-spend {
+  position: absolute;
+  right: 12px;
+  top: 4px;
+  font: 800 16px 'Lilita One', sans-serif;
+  color: #b07d00;
+  pointer-events: none;
+  animation: spend-up 1100ms ease-out forwards;
+}
+
+.legacy-tree .tree-head.pulse b {
+  display: inline-block;
+  animation: points-pulse 450ms ease-out;
+}
+
+@keyframes owned-stamp {
+  from { transform: rotate(-10deg) scale(2); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes points-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); color: #b07d00; }
+  100% { transform: scale(1); }
+}
+
+@keyframes node-bought {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes node-glow {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes spend-up {
+  0% { opacity: 0; transform: translateY(6px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+
+.reduce-motion .tree-node.just-bought,
+.reduce-motion .tree-node.just-bought .tree-owned,
+.reduce-motion .legacy-tree .tree-head.pulse b,
+.reduce-motion .tree-spend {
+  animation: none;
+}
+
+.reduce-motion .tree-node.just-bought::after {
+  animation: none;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-node.just-bought,
+  .tree-node.just-bought .tree-owned,
+  .tree-node.just-bought::after,
+  .legacy-tree .tree-head.pulse b,
+  .tree-spend {
+    animation: none;
+  }
+}
+
+/* City lights row (P1.3d3c): three options fit next to the label on a 320 px phone. */
+.lights-row .seg-btn {
+  padding: 6px 9px;
 }

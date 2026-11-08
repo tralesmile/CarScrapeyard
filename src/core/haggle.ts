@@ -13,9 +13,12 @@ export function hagglePosition(seconds: number, sweepsPerSec: number): number {
   return phase < 0.5 ? phase * 2 : 2 - phase * 2;
 }
 
-/** Price multiplier for a needle stopped at `pos` (0..1). Centre pays `max`, edges pay `min`. */
-export function haggleMultiplier(pos: number, lesson = false): number {
-  const { min, max, perfectZone, lessonMin } = ECON.haggle;
+/**
+ * Price multiplier for a needle stopped at `pos` (0..1). Centre pays `max`, edges pay `min`. `perfectZone` is the
+ * half-width of the PERFECT zone (wider with the Silver Tongue legacy node: see legacyTree.perfectZone).
+ */
+export function haggleMultiplier(pos: number, lesson = false, perfectZone: number = ECON.haggle.perfectZone): number {
+  const { min, max, lessonMin } = ECON.haggle;
   const p = Number.isFinite(pos) ? Math.min(1, Math.max(0, pos)) : 0;
   const d = Math.abs(p - 0.5) * 2; // 0 at centre, 1 at the edges
   const raw = d <= perfectZone ? max : max - (max - min) * ((d - perfectZone) / (1 - perfectZone));

@@ -49,6 +49,50 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       Agent and it runs on its own. Is choosing between rough (cheap, lots of tapping) and mint (quick flip) cars an
       interesting choice? Should the auction be a real bidding mini-game (rival bidders, raise or pass) instead of a
       fixed price? The sim puts the lot opening at about 45 minutes for an active player.
+      New since run 15: the auction counts down ("Going… 5s"), stamps lots SOLD! when someone else gets them and YOURS!
+      when you do, with a gavel knock. Walk-up buyers now have personalities: they walk up, look the car over, say what
+      they think and pay extra for cars they like (the Collector +30% for cars you bought in Good or Mint condition).
+      Does the countdown make you want to grab a lot before it goes?
+      New since run 16 (rules only, playable next update): the fourth business, Paint & Tuning ($50M goal), takes orders
+      of one to three services (respray, rims, vinyl wrap, engine tune) and tips you +25% when you finish an order fast
+      yourself. Do you like a tip for speed here, or would you rather have a style mini-game (pick the colour the
+      customer asked for)?
+      New since run 17: **Paint & Tuning is open for business** (fourth business: $50M earned in total, $25M to open).
+      An order ticket sits on the car's roof; tap the car and watch the new colour spray across it, gold rims fade in
+      and flames appear on the side with a tune. Finish fast for the "⚡ Quick tip". Is the tip timer (3 s per service)
+      exciting or stressful? Is the order ticket easy to read on your phone?
+      New since run 18: the lot and the paint shop work together. On the Used Car Lot a polished car shows a purple
+      "Tune" button next to Sell: it drives to a free paint booth (no customer, no fee), gets one service that suits it
+      (an engine tune for muscle cars, a wrap for sports cars, rims, or a respray) and comes back with a higher price on
+      its FOR SALE tag. It costs you a booth that a paying customer could have used. Is that trade-off clear, or would
+      you rather pick the service yourself?
+      New since run 19: paint shop customers say what they want as they step out ("Make it pop!", "The full works,
+      please!"), next to the order ticket. On a short phone the car is a little smaller so the shop sign stays readable.
+      New since run 20: **Sell Empire (prestige).** After about 3-4 hours (once selling is worth 10 Legacy Points) a
+      gold "Sell Empire" row appears on the city map. Selling resets your businesses and cash but every point adds +2%
+      to all income forever (a gold "🏛 x1.24" chip in the top bar). Is the first sale at ~3.5 hours the right moment,
+      and is the preview clear about what you keep and lose? Would you rather keep something more (e.g. the crew)?
+      New since run 21: **the Legacy tree.** Tap the gold 🏛 chip in the top bar to spend Legacy Points on 12 upgrades in
+      three branches (Mechanic, Dealer, Racer), e.g. faster tapping, cheaper auctions, rarer cars, a longer offline cap.
+      Spent points still count for the +2% income, and you get one free respec per empire. Do the choices feel
+      meaningful, or is one branch an obvious pick?
+      New since run 22: the upgrades you bought in the Legacy tree now show where they work: small gold chips such as
+      "👐 +25% taps" above the upgrade cards, a "🗣️ zone +30%" badge on the haggle slider, "🌙 4h cap" in the welcome-back
+      popup. Buying one pops with a gold glow. The welcome-back popup now tells you when you were away longer than the
+      crew works (2 hours). Are the chips helpful or clutter on your phone?
+      New since run 23: **Motor City**, the second city. From your second Sell Empire on, the preview asks "Where
+      next?": stay in Rust Valley or move to Motor City, where every price and every payout is x5. It plays at the same
+      pace but the bigger dollars give Legacy Points much faster (the next sale comes after ~2.5 h instead of 5+). Its
+      own map and art come in the next runs. Is x5 a good jump, and should Motor City feel different to play (e.g. its
+      own fifth business) rather than just bigger?
+      New since run 24: Motor City has its own map (city blocks, a highway, rooftops, a harbour) and its own business
+      names: Salvage Yard, Midtown Garage, Auto Mall and Neon Customs. Do the names fit, or would you rather keep the
+      Rust Valley names everywhere?
+      New since run 25: in Motor City the garage, the Auto Mall and Neon Customs are painted in city colours too (steel
+      blue walls, dusk towers with lit windows, a cyan stripe in the paint booth). Is the city look different enough?
+      New since run 26: **neon nights.** After 7 pm (your phone's clock) Motor City turns to night: stars, a crescent
+      moon, lit windows and neon signs, a floodlit work bay. Settings → City lights lets you pick Auto, always Day or
+      always Night. Do you like it following the real clock, or would you rather it cycle while you play?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 
@@ -70,6 +114,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 
 ## Answered decisions
 
+- 2026-11-06 (run 15): GitHub Actions had stopped starting runners (private-repo minutes). The owner made the repo
+  public, which gives free unlimited minutes; CI ran green again on PR #6 at 22:14 UTC. CI still runs only on PRs into
+  `main` and on `main`, cancelling superseded runs.
 - 2026-11-05: Team = owner + Claude as the whole studio (no freelancers).
 - 2026-11-05 (after run 5): Playtest done, about 10 minutes: the game works well and held the owner's attention.
   Wants better graphics and a city map. Decision: keep the current task order (finish Phase 0 polish incl. art
