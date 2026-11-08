@@ -3,7 +3,7 @@
 // that show each finished service on the customer's car (custom rims, vinyl wrap stripes, a tune flame decal and a
 // chrome exhaust tip) and the Painter. Pure apart from the canvas context; layout and reveal helpers are unit-tested.
 
-import type { CarFamily, PaintService } from '../core/config';
+import type { CarFamily, CityId, PaintService } from '../core/config';
 import { ECON } from '../core/config';
 import type { PaintJob } from '../core/state';
 import { BUYER_W, OUTLINE, person } from './buyerArt';
@@ -16,6 +16,43 @@ export type BoothLayout = LotLayout;
 
 /** Booth thumbnails above the car (same row as the garage bays and the lot spots). */
 export { BAY_ROW as BOOTH_ROW, BAY_ROW_BOTTOM as BOOTH_ROW_BOTTOM, GARAGE_AREA_TOP as BOOTH_AREA_TOP } from './garageArt';
+
+/** The booth's colours per city (P1.3d3b): Motor City has cooler steel-blue panels and an icy accent stripe. */
+export interface BoothTheme {
+  wall: [string, string];
+  seam: string;
+  light: string;
+  lightGlow: string;
+  /** A horizontal accent stripe along the wall (fraction of the wall's height), or none. */
+  stripe: { color: string; at: number } | null;
+  floor: [string, string];
+  skirting: string;
+}
+
+export const BOOTH_THEMES: Record<CityId, BoothTheme> = {
+  rustValley: {
+    wall: ['#26303f', '#3c4a5e'],
+    seam: 'rgba(15,20,28,0.45)',
+    light: '#eef6ff',
+    lightGlow: '225,240,255',
+    stripe: null,
+    floor: ['#aab3bf', '#808a97'],
+    skirting: '#1b222d',
+  },
+  motorCity: {
+    wall: ['#1d3a5c', '#2f5a86'],
+    seam: 'rgba(8,20,36,0.5)',
+    light: '#dff6ff',
+    lightGlow: '170,225,255',
+    stripe: { color: '#4fd1e8', at: 0.8 },
+    floor: ['#9cb0c6', '#6f8299'],
+    skirting: '#0f2238',
+  },
+};
+
+export function boothTheme(L: Pick<BoothLayout, 'city'>): BoothTheme {
+  return BOOTH_THEMES[L.city ?? 'rustValley'];
+}
 
 /** The booth's sign band (same rule as the lot's: below the HUD and the booth row, above the tallest roof). */
 export const boothSign = signBand;
@@ -234,14 +271,25 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 function wall(ctx: CanvasRenderingContext2D, L: BoothLayout) {
   const s = L.s;
+  const T = boothTheme(L);
   const g = ctx.createLinearGradient(0, 0, 0, L.floorY);
-  g.addColorStop(0, '#26303f');
-  g.addColorStop(1, '#3c4a5e');
+  g.addColorStop(0, T.wall[0]);
+  g.addColorStop(1, T.wall[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, L.w, L.floorY + 1);
+  if (T.stripe) {
+    // An accent stripe with a soft glow, low on the wall (below the sign and the shelf).
+    const y = L.floorY * T.stripe.at;
+    ctx.fillStyle = T.stripe.color;
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(0, y - 5 * s, L.w, 13 * s);
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(0, y, L.w, 3 * s);
+    ctx.globalAlpha = 1;
+  }
   // Wall panels with seams and rivets.
   const panel = 64 * s;
-  ctx.strokeStyle = 'rgba(15,20,28,0.45)';
+  ctx.strokeStyle = T.seam;
   ctx.lineWidth = 2 * s;
   for (let x = panel / 2; x < L.w; x += panel) {
     ctx.beginPath();
@@ -264,11 +312,11 @@ function wall(ctx: CanvasRenderingContext2D, L: BoothLayout) {
     [0.56, 0.94],
   ] as const) {
     const glow = ctx.createLinearGradient(0, ly, 0, ly + 70 * s);
-    glow.addColorStop(0, 'rgba(225,240,255,0.32)');
-    glow.addColorStop(1, 'rgba(225,240,255,0)');
+    glow.addColorStop(0, `rgba(${T.lightGlow},0.32)`);
+    glow.addColorStop(1, `rgba(${T.lightGlow},0)`);
     ctx.fillStyle = glow;
     ctx.fillRect(L.w * x0 - 10 * s, ly, L.w * (x1 - x0) + 20 * s, 70 * s);
-    ctx.fillStyle = '#eef6ff';
+    ctx.fillStyle = T.light;
     roundRect(ctx, L.w * x0, ly, L.w * (x1 - x0), 6 * s, 3 * s);
     ctx.fill();
   }
@@ -396,13 +444,14 @@ function sign(ctx: CanvasRenderingContext2D, L: BoothLayout) {
 
 function floor(ctx: CanvasRenderingContext2D, L: BoothLayout) {
   const s = L.s;
+  const T = boothTheme(L);
   const g = ctx.createLinearGradient(0, L.floorY, 0, L.h);
-  g.addColorStop(0, '#aab3bf');
-  g.addColorStop(1, '#808a97');
+  g.addColorStop(0, T.floor[0]);
+  g.addColorStop(1, T.floor[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, L.floorY, L.w, L.h - L.floorY);
   // Skirting where the wall meets the floor.
-  ctx.fillStyle = '#1b222d';
+  ctx.fillStyle = T.skirting;
   ctx.fillRect(0, L.floorY - 3 * s, L.w, 5 * s);
   // Overspray splats (stable positions).
   for (let i = 0; i < 9; i++) {

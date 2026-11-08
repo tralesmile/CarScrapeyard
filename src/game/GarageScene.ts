@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
+import { currentCity } from '../core/cities';
 import { ECON } from '../core/config';
 import { formatCash } from '../core/format';
 import { findJob, focusJob, garageTap } from '../core/garage';
@@ -253,6 +254,7 @@ export class GarageScene extends Phaser.Scene {
       // Keep the sign clear of the bay row even before a 2nd bay is bought.
       reservedTop: this.px(this.bridge.insets().top + BAY_ROW_BOTTOM),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2) - LIFT_RISE),
+      city: currentCity(this.bridge.state),
     });
     tex.refresh();
     this.bg.setTexture('garage-backdrop').setPosition(0, 0).setVisible(true);

@@ -6,6 +6,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
+import { currentCity } from '../core/cities';
 import { ECON, type BuyerKind, type LotBuyerKind } from '../core/config';
 import { findLotCar, focusLotCar, listPrice, lotBuyerBonus, lotCarHere, lotCarReady, refurbTap } from '../core/carlot';
 import { formatCash } from '../core/format';
@@ -196,6 +197,7 @@ export class CarLotScene extends Phaser.Scene {
       sign: businessName(this.bridge.state, 'carlot').toUpperCase(),
       reservedTop: this.px(this.bridge.insets().top + SPOT_ROW.y + SPOT_ROW.h / 2 + 4),
       roofY: this.px(a.cy - a.carW / 4 + ROOF_FRAC * (a.carW / 2)),
+      city: currentCity(this.bridge.state),
     });
     tex.refresh();
     this.bg.setTexture('carlot-backdrop').setPosition(0, 0).setVisible(true);

@@ -1,8 +1,8 @@
 // Repair Garage backdrop painted with the Canvas 2D API (P1.1c): teal back wall, an open roller door
-// showing the street, a pegboard with tools, hanging lamps, a concrete floor with hazard stripes and the two-post lift
+// showing the street (Motor City: a steel-blue wall and lit towers outside, P1.3d3b), a pegboard with tools, hanging lamps, a concrete floor with hazard stripes and the two-post lift
 // the customer's car stands on, its cross beam lettered as the garage sign (P1.1e). Pure apart from the canvas context; layout helpers are unit-tested.
 
-import type { BuyerKind, GarageFault } from '../core/config';
+import type { BuyerKind, CityId, GarageFault } from '../core/config';
 
 export interface GarageLayout {
   /** Canvas size in px. */
@@ -20,6 +20,59 @@ export interface GarageLayout {
   reservedTop: number;
   /** Highest y the tallest car's roof reaches with the lift raised, px: the beam stays above it. */
   roofY: number;
+  /** City the garage is in (default Rust Valley). */
+  city?: CityId;
+}
+
+/** The garage's colours per city (P1.3d3b). */
+export interface GarageTheme {
+  wall: [string, string, string];
+  skirting: string;
+  /** The street through the roller door: sky top and bottom, building colours, pavement and kerb. */
+  street: { sky: [string, string]; buildings: string[]; pavement: string; kerb: string };
+  /** Lit windows on the buildings outside (Motor City's towers at dusk). */
+  windows: string | null;
+  /** Building height range outside, as fractions of the door's height. */
+  towerH: [number, number];
+  floor: [string, string];
+  pegboard: string;
+}
+
+export const GARAGE_THEMES: Record<CityId, GarageTheme> = {
+  rustValley: {
+    wall: ['#137a77', '#1f9e9a', '#22aaa5'],
+    skirting: '#0f5f5c',
+    street: { sky: ['#8fd0ec', '#f3dcae'], buildings: ['#c9a682'], pavement: '#9a9fa8', kerb: '#b5bac2' },
+    windows: null,
+    towerH: [0.28, 0.5],
+    floor: ['#7d848f', '#5f6670'],
+    pegboard: '#c99a62',
+  },
+  motorCity: {
+    wall: ['#2c4766', '#3b5c82', '#44678f'],
+    skirting: '#22364f',
+    street: { sky: ['#3d5a80', '#f2c38b'], buildings: ['#4c6a8a', '#3e5a78', '#5b7da0', '#465f7c'], pavement: '#545e6c', kerb: '#8a94a3' },
+    windows: 'rgba(255,214,140,0.85)',
+    towerH: [0.42, 0.62],
+    floor: ['#7a8597', '#586374'],
+    pegboard: '#8796aa',
+  },
+};
+
+export function garageTheme(L: Pick<GarageLayout, 'city'>): GarageTheme {
+  return GARAGE_THEMES[L.city ?? 'rustValley'];
+}
+
+/** The buildings seen through the roller door (left x, width, height in px), four across, within the door. */
+export function streetBuildings(d: { x: number; y: number; w: number; h: number }, T: GarageTheme, s: number): { x: number; w: number; h: number; color: string }[] {
+  const bw = d.w / 4;
+  const [lo, hi] = T.towerH;
+  return [0, 1, 2, 3].map((i) => ({
+    x: d.x + i * bw,
+    w: bw - s * 3,
+    h: d.h * (lo + (((i * 37) % 23) / 22) * (hi - lo)),
+    color: T.street.buildings[i % T.street.buildings.length]!,
+  }));
 }
 
 /**
@@ -152,10 +205,11 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 function wall(ctx: CanvasRenderingContext2D, L: GarageLayout) {
+  const T = garageTheme(L);
   const g = ctx.createLinearGradient(0, 0, 0, L.floorY);
-  g.addColorStop(0, '#137a77');
-  g.addColorStop(0.55, '#1f9e9a');
-  g.addColorStop(1, '#22aaa5');
+  g.addColorStop(0, T.wall[0]);
+  g.addColorStop(0.55, T.wall[1]);
+  g.addColorStop(1, T.wall[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, L.w, L.floorY + 1);
   // Brick-ish panel lines.
@@ -176,28 +230,35 @@ function wall(ctx: CanvasRenderingContext2D, L: GarageLayout) {
     }
   }
   // Skirting board where the wall meets the floor.
-  ctx.fillStyle = '#0f5f5c';
+  ctx.fillStyle = T.skirting;
   ctx.fillRect(0, L.floorY - L.s * 8, L.w, L.s * 8);
 }
 
 function rollerDoor(ctx: CanvasRenderingContext2D, L: GarageLayout) {
   const d = doorRect(L);
   const s = L.s;
+  const T = garageTheme(L);
   // The street outside: sky, a far building row and the pavement.
   const sky = ctx.createLinearGradient(0, d.y, 0, d.y + d.h);
-  sky.addColorStop(0, '#8fd0ec');
-  sky.addColorStop(1, '#f3dcae');
+  sky.addColorStop(0, T.street.sky[0]);
+  sky.addColorStop(1, T.street.sky[1]);
   ctx.fillStyle = sky;
   ctx.fillRect(d.x, d.y, d.w, d.h);
-  ctx.fillStyle = '#c9a682';
-  const bw = d.w / 4;
-  for (let i = 0; i < 4; i++) {
-    const bh = d.h * (0.28 + ((i * 37) % 23) / 100);
-    ctx.fillRect(d.x + i * bw, d.y + d.h * 0.78 - bh, bw - s * 3, bh);
+  const street = d.y + d.h * 0.78;
+  for (const b of streetBuildings(d, T, s)) {
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x, street - b.h, b.w, b.h);
+    if (!T.windows) continue;
+    // Lit windows in a grid, some dark (stable pattern).
+    ctx.fillStyle = T.windows;
+    const ww = s * 3;
+    const cols = Math.max(1, Math.floor((b.w - s * 4) / (s * 7)));
+    for (let r = 0, y = street - b.h + s * 5; y < street - s * 8; r++, y += s * 8)
+      for (let c = 0; c < cols; c++) if ((r * 3 + c * 5 + Math.round(b.x)) % 4 !== 0) ctx.fillRect(b.x + s * 3 + c * s * 7, y, ww, s * 4);
   }
-  ctx.fillStyle = '#9a9fa8';
-  ctx.fillRect(d.x, d.y + d.h * 0.78, d.w, d.h * 0.22);
-  ctx.fillStyle = '#b5bac2';
+  ctx.fillStyle = T.street.pavement;
+  ctx.fillRect(d.x, street, d.w, d.h * 0.22);
+  ctx.fillStyle = T.street.kerb;
   ctx.fillRect(d.x, d.y + d.h * 0.78, d.w, s * 3);
   // Rolled-up door slats at the top and the frame.
   const slat = s * 6;
@@ -236,7 +297,7 @@ function hazard(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, 
 function pegboard(ctx: CanvasRenderingContext2D, L: GarageLayout) {
   const p = pegboardRect(L);
   const s = L.s;
-  ctx.fillStyle = '#c99a62';
+  ctx.fillStyle = garageTheme(L).pegboard;
   roundRect(ctx, p.x, p.y, p.w, p.h, s * 4);
   ctx.fill();
   ctx.fillStyle = 'rgba(70,40,15,0.35)';
@@ -309,8 +370,9 @@ function lamps(ctx: CanvasRenderingContext2D, L: GarageLayout) {
 function floor(ctx: CanvasRenderingContext2D, L: GarageLayout) {
   const s = L.s;
   const g = ctx.createLinearGradient(0, L.floorY, 0, L.h);
-  g.addColorStop(0, '#7d848f');
-  g.addColorStop(1, '#5f6670');
+  const T = garageTheme(L);
+  g.addColorStop(0, T.floor[0]);
+  g.addColorStop(1, T.floor[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, L.floorY, L.w, L.h - L.floorY);
   // Expansion joints in perspective.

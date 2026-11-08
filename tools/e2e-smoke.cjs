@@ -1644,6 +1644,40 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
       await mp.waitForTimeout(800);
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22d-midtown-garage.png') });
+      // P1.3d3b: the garage, the lot and the paint shop are painted in Motor City colours.
+      const bgPx = (key, fx, fy) =>
+        mp.evaluate(
+          ([k, x, y]) => {
+            const img = window.__jye.game.textures.get(k).getSourceImage();
+            const c = img.getContext('2d');
+            return Array.from(c.getImageData(Math.round(img.width * x), Math.round(img.height * y), 1, 1).data.slice(0, 3));
+          },
+          [key, fx, fy],
+        );
+      const gWall = await bgPx('garage-backdrop', 0.97, 0.02);
+      assert(gWall[2] > gWall[1] && gWall[2] > gWall[0], `the Midtown Garage wall is steel blue, not teal (rgb ${gWall.join(',')})`);
+      const goTo = async (biz, scene, shot) => {
+        await mp.evaluate(() => {
+          const s = window.__jye.state;
+          s.lifetimeEarnings += 1e10;
+          s.cash += 1e10;
+        });
+        await mp.click('.map-btn');
+        await mp.waitForSelector(`.map-row[data-biz="${biz}"] button:not([disabled])`);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((b) => window.__jye.state.businesses.opened[b], biz);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 5000 });
+        await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+        await mp.waitForTimeout(800);
+        await mp.screenshot({ path: path.join(SHOTS, shot) });
+      };
+      await goTo('carlot', 'carlot', 'e2e-22e-motor-city-lot.png');
+      const lSky = await bgPx('carlot-backdrop', 0.5, 0.01);
+      assert(lSky[0] < 80 && lSky[1] < 120 && lSky[2] > lSky[0], `the Motor City lot has a dusk steel-blue sky (rgb ${lSky.join(',')})`);
+      await goTo('paint', 'paint', 'e2e-22f-motor-city-paint.png');
+      const pWall = await bgPx('paint-backdrop', 0.02, 0.02);
+      assert(pWall[2] - pWall[0] > 50, `the Motor City paint booth has cool steel-blue panels (rgb ${pWall.join(',')})`);
       await mc.close();
     }
 

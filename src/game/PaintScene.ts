@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
+import { currentCity } from '../core/cities';
 import { ECON, type PaintService } from '../core/config';
 import { formatCash } from '../core/format';
 import { currentService, findPaintJob, focusPaintJob, paintTap, tipDeadline, tipFor } from '../core/paint';
@@ -247,6 +248,7 @@ export class PaintScene extends Phaser.Scene {
       reservedTop: this.px(a.hudTop + BOOTH_ROW.y + BOOTH_ROW.h / 2 + 4),
       // The sign hangs above the order ticket, which sits on the car's roof.
       roofY: this.px(a.ticketY - 4),
+      city: currentCity(this.bridge.state),
     };
     paintBoothBackdrop(tex.getContext(), L);
     this.signLettered = boothSign(L).sign;

@@ -88,6 +88,8 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 24: Motor City has its own map (city blocks, a highway, rooftops, a harbour) and its own business
       names: Salvage Yard, Midtown Garage, Auto Mall and Neon Customs. Do the names fit, or would you rather keep the
       Rust Valley names everywhere?
+      New since run 25: in Motor City the garage, the Auto Mall and Neon Customs are painted in city colours too (steel
+      blue walls, dusk towers with lit windows, a cyan stripe in the paint booth). Is the city look different enough?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

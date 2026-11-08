@@ -452,3 +452,16 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Put player-facing names behind one helper as soon as a second value exists.** Three scenes read their sign from
   `ECON.businesses.list.x.name` directly; adding `businessName(state, id)` and grepping for `.name.toUpperCase()` and
   hard-coded "Paint & Tuning" strings found every place a city name must show (signs, toasts, the lot's label).
+
+## 2026-11-08 (run 25)
+
+- **A "stable pseudo-random" `(i * 71) % n` is only random when 71 mod n is far from 0 and ±1.** I set the lot's far
+  towers to `hVar = 70`, and since 71 ≡ 1 (mod 70) every tower came out 1 px taller than the last: a flat wall hidden
+  behind the sign. The isolated rolldown render showed "no skyline" in seconds; the cause took a debug dump. When a
+  theme number feeds a modular hash, assert the spread (here: tallest/shortest > 1.25 on 3 screens) in a unit test.
+- **Check a new colour against what it sits on, not on its own.** The first Motor City far row (#9fb4cb) was almost the
+  sky's colour at that height, so the towers vanished. Pick the backdrop's colour at the overlap and keep a clear step.
+- **Extract a theme by replacing literals one for one, so the default city is pixel-identical.** Each hex literal became
+  `T.x` with the old value as Rust Valley's entry, and the garage's building formula was rewritten as
+  `lo + k/22 * (hi - lo)` that equals the old `0.28 + k/100` exactly; the side-by-side render showed Rust Valley
+  unchanged, so no old screenshot needed a second look.

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-07 (run 24; next run is run 25). Runs now start every 3 hours.
+Last updated: 2026-11-08 (run 25; next run is run 26). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -145,8 +145,11 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       - [x] P1.3d3a Yard (run 24): `YARD_THEMES` per city in backdropArt.ts; Motor City paints a dusk steel-blue sky, a
             two-row skyline (`skylineTowers`, lit windows, antenna light) instead of hills, asphalt instead of dirt and a
             chain-link fence. Unit-tested on 4 screens; e2e samples the backdrop's ground colour in both cities.
-      - [ ] P1.3d3b Garage, lot and paint shop in Motor City colours (theme objects like `YARD_THEMES`, e.g. a
-            steel-blue garage wall, a city skyline behind the lot's showroom, cooler booth panels).
+      - [x] P1.3d3b Garage, lot and paint shop in Motor City colours (run 25): `GARAGE_THEMES` (steel-blue wall and
+            pegboard, dusk towers with lit windows through the door, `streetBuildings`), `LOT_THEMES` (dusk sky, taller
+            hazy towers above the showroom, lit near row, `lotSkyline` capped at 80% of the horizon), `BOOTH_THEMES`
+            (steel-blue panels, icy lights, cyan accent stripe); scenes pass `city`. Unit-tested; e2e samples all three
+            backdrops in Motor City (e2e-22d/e/f).
       - [ ] P1.3d3c Night-time neon variant (maybe tied to the real clock; check readability of signs and text first).
     - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
           first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
@@ -158,6 +161,8 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       held 3-unit order during the resize. The order is held again (work 20) right before the resize.
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
+- [ ] P1.3q2 Quality (run 25): on a 320x568 phone the paint shop's tap hint pill covers the lower half of the car's
+      name/price label (e2e-22f). Move the label or the hint (check the yard, garage and lot at the same size too).
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano

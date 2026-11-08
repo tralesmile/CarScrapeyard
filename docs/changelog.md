@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.25.0 - 2026-11-08 (run 25)
+
+- **Motor City businesses (P1.3d3b):** the Midtown Garage has a steel-blue wall and pegboard, with dusk towers and lit
+  windows outside the roller door; the Auto Mall stands under a dusk sky with tall hazy towers rising behind the
+  showroom; Neon Customs has cooler steel-blue booth panels, icy light strips and a cyan accent stripe. Rust Valley looks
+  exactly as before.
+- Tests: 5 new unit tests (`cityThemes.test.ts`: a theme per city, the garage wall and booth panels are bluer in Motor
+  City, the towers stay inside the door, the lot skyline covers the width, varies in height and leaves sky above it);
+  e2e opens all three Motor City businesses and samples their backdrops (e2e-22e lot, e2e-22f paint shop).
+
 ## 0.24.0 - 2026-11-07 (run 24)
 
 - **Motor City map (P1.3d2):** Motor City has its own map: steel-blue city blocks with pale sidewalks, a highway with
