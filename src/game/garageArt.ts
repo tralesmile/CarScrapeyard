@@ -22,6 +22,8 @@ export interface GarageLayout {
   roofY: number;
   /** City the garage is in (default Rust Valley). */
   city?: CityId;
+  /** Night-time look (P1.3d3c; only cities with one change). */
+  night?: boolean;
 }
 
 /** The garage's colours per city (P1.3d3b). */
@@ -36,6 +38,8 @@ export interface GarageTheme {
   towerH: [number, number];
   floor: [string, string];
   pegboard: string;
+  /** Night (P1.3d3c): a neon tube along the top of one building outside, or none. */
+  neon: string | null;
 }
 
 export const GARAGE_THEMES: Record<CityId, GarageTheme> = {
@@ -47,6 +51,7 @@ export const GARAGE_THEMES: Record<CityId, GarageTheme> = {
     towerH: [0.28, 0.5],
     floor: ['#7d848f', '#5f6670'],
     pegboard: '#c99a62',
+    neon: null,
   },
   motorCity: {
     wall: ['#2c4766', '#3b5c82', '#44678f'],
@@ -56,11 +61,22 @@ export const GARAGE_THEMES: Record<CityId, GarageTheme> = {
     towerH: [0.42, 0.62],
     floor: ['#7a8597', '#586374'],
     pegboard: '#8796aa',
+    neon: null,
   },
 };
 
-export function garageTheme(L: Pick<GarageLayout, 'city'>): GarageTheme {
-  return GARAGE_THEMES[L.city ?? 'rustValley'];
+/** Motor City after dark (P1.3d3c): the workshop stays lit; through the door, a night street with neon. */
+export const GARAGE_NIGHT: GarageTheme = {
+  ...GARAGE_THEMES.motorCity,
+  wall: ['#25405e', '#33557a', '#3c6088'],
+  street: { sky: ['#0a1230', '#3d3270'], buildings: ['#1b2443', '#151c36', '#222c4e', '#18213e'], pavement: '#3b4250', kerb: '#6c7586' },
+  windows: 'rgba(255,212,128,0.95)',
+  neon: '#ff4fd8',
+};
+
+export function garageTheme(L: Pick<GarageLayout, 'city' | 'night'>): GarageTheme {
+  const city = L.city ?? 'rustValley';
+  return L.night && city === 'motorCity' ? GARAGE_NIGHT : GARAGE_THEMES[city];
 }
 
 /** The buildings seen through the roller door (left x, width, height in px), four across, within the door. */
@@ -101,6 +117,21 @@ export const BAY_ROW = { w: 96, h: 60, gap: 10, y: 40, alpha: 0.78 } as const;
 export const BAY_ROW_BOTTOM = BAY_ROW.y + BAY_ROW.h / 2 + 4;
 /** Top of the area the car on the lift is laid out in, below the HUD (CSS px). */
 export const GARAGE_AREA_TOP = BAY_ROW_BOTTOM + 10;
+
+/** The tap hint pill's top sits this far below the scene's area (CSS px; the area ends where the sell strip starts). */
+export const HINT_BELOW_AREA = 16;
+/** How far the hint bobs up (the `bob` keyframes in style.css), CSS px. */
+export const HINT_BOB = 5;
+/** Height of the car's name/price label (18 px Lilita One with its 4 px stroke), CSS px. */
+export const CAR_LABEL_H = 24;
+
+/**
+ * Top of the car's name/price label under the car (P1.3q2): just below the body, but never so low that the tap hint
+ * pill covers its lettering (a 320x568 phone put the label's lower half under the pill). CSS px.
+ */
+export function carLabelTop(cy: number, carW: number, areaBottom: number): number {
+  return Math.min(cy + carW * 0.16, areaBottom + HINT_BELOW_AREA - HINT_BOB - 1 - CAR_LABEL_H);
+}
 
 /** What the customer says about their car when they step out (P1.1f). Short, so one line fits a phone. */
 export const CUSTOMER_LINES: Record<GarageFault, readonly string[]> = {
@@ -255,6 +286,20 @@ function rollerDoor(ctx: CanvasRenderingContext2D, L: GarageLayout) {
     const cols = Math.max(1, Math.floor((b.w - s * 4) / (s * 7)));
     for (let r = 0, y = street - b.h + s * 5; y < street - s * 8; r++, y += s * 8)
       for (let c = 0; c < cols; c++) if ((r * 3 + c * 5 + Math.round(b.x)) % 4 !== 0) ctx.fillRect(b.x + s * 3 + c * s * 7, y, ww, s * 4);
+  }
+  if (T.neon) {
+    // A neon tube along the roof of the tallest building outside, glowing into the night sky.
+    const tall = streetBuildings(d, T, s).reduce((a, b) => (b.h > a.h ? b : a));
+    ctx.save();
+    ctx.shadowColor = T.neon;
+    ctx.shadowBlur = s * 8;
+    ctx.strokeStyle = T.neon;
+    ctx.lineWidth = s * 2;
+    ctx.beginPath();
+    ctx.moveTo(tall.x + s * 2, street - tall.h + s * 1.5);
+    ctx.lineTo(tall.x + tall.w - s * 2, street - tall.h + s * 1.5);
+    ctx.stroke();
+    ctx.restore();
   }
   ctx.fillStyle = T.street.pavement;
   ctx.fillRect(d.x, street, d.w, d.h * 0.22);

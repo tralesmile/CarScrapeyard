@@ -16,7 +16,7 @@ import type { PaintJob } from '../core/state';
 import type { Bridge } from './bridge';
 import { BUYER_H, BUYER_W, paintBuyer } from './buyerArt';
 import { SHAPES, WHEEL_Y, carTextureSize, paintCar } from './carArt';
-import { customerKind, SPEECH_TIME } from './garageArt';
+import { carLabelTop, customerKind, SPEECH_TIME } from './garageArt';
 import {
   BOOTH_ROW,
   BOOTH_ROW_BOTTOM,
@@ -81,6 +81,8 @@ export class PaintScene extends Phaser.Scene {
   private boothsKey = '';
   private floaters: Floater[] = [];
   private layoutInsets = '';
+  /** Whether the backdrop on screen was painted with the night look (P1.3d3c): repainted when the clock or setting flips it. */
+  private drawnNight = false;
   private insetCheck = 0;
   private painterTimer = 0;
   private bump = { v: 0 };
@@ -228,6 +230,7 @@ export class PaintScene extends Phaser.Scene {
     this.insetCheck = 0.5;
     const { top, bottom } = this.bridge.insets();
     if (`${Math.round(top)},${Math.round(bottom)}` !== this.layoutInsets) this.layout();
+    else if (this.bridge.night() !== this.drawnNight) this.drawBackground();
   }
 
 
@@ -248,7 +251,7 @@ export class PaintScene extends Phaser.Scene {
       reservedTop: this.px(a.hudTop + BOOTH_ROW.y + BOOTH_ROW.h / 2 + 4),
       // The sign hangs above the order ticket, which sits on the car's roof.
       roofY: this.px(a.ticketY - 4),
-      city: currentCity(this.bridge.state),
+      city: currentCity(this.bridge.state), night: (this.drawnNight = this.bridge.night()),
     };
     paintBoothBackdrop(tex.getContext(), L);
     this.signLettered = boothSign(L).sign;
@@ -320,7 +323,7 @@ export class PaintScene extends Phaser.Scene {
       o.setScale(this.bigScale);
       if (!this.carLeaving) o.setPosition(this.px(a.cx), this.px(a.cy));
     }
-    this.label.setPosition(this.px(a.cx), this.px(a.cy + a.carW * 0.16));
+    this.label.setPosition(this.px(a.cx), this.px(carLabelTop(a.cy, a.carW, this.cssH - this.bridge.insets().bottom)));
   }
 
   private syncBigCar() {

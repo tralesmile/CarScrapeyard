@@ -727,6 +727,19 @@ body {
 /* ---- Settings sheet ---- */
 .modal.settings {
   text-align: left;
+  /* Short phones (iPhone SE): the sheet scrolls instead of pushing Done and Reset off the screen (run 26). */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 600px) {
+  .modal.settings {
+    padding-top: 16px;
+  }
+  .modal.settings .set-row {
+    padding: 6px 0;
+  }
 }
 
 .modal.settings h2 {
@@ -1753,4 +1766,9 @@ body {
   .tree-spend {
     animation: none;
   }
+}
+
+/* City lights row (P1.3d3c): three options fit next to the label on a 320 px phone. */
+.lights-row .seg-btn {
+  padding: 6px 9px;
 }

@@ -10,7 +10,7 @@ import { sanitizeGarage } from './garage';
 import { sanitizeCarLot } from './carlot';
 import { sanitizeLotShopLinks, sanitizePaint } from './paint';
 import { sanitizeLegacy } from './legacy';
-import { cityPrice } from './cities';
+import { CITY_LIGHTS, cityPrice } from './cities';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
 export interface KeyValueStore {
@@ -143,6 +143,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     sanitizeLotShopLinks(state);
     sanitizeLegacy(state.legacy);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
+    if (!CITY_LIGHTS.includes(state.settings.cityLights)) state.settings.cityLights = 'auto';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;
     return { state, savedAt: env.savedAt };

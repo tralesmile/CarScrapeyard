@@ -24,7 +24,7 @@ export interface BoothTheme {
   light: string;
   lightGlow: string;
   /** A horizontal accent stripe along the wall (fraction of the wall's height), or none. */
-  stripe: { color: string; at: number } | null;
+  stripe: { color: string; at: number; neon?: boolean } | null;
   floor: [string, string];
   skirting: string;
 }
@@ -50,8 +50,16 @@ export const BOOTH_THEMES: Record<CityId, BoothTheme> = {
   },
 };
 
-export function boothTheme(L: Pick<BoothLayout, 'city'>): BoothTheme {
-  return BOOTH_THEMES[L.city ?? 'rustValley'];
+/** Motor City after dark (P1.3d3c): a deeper blue booth with the accent stripe as a glowing magenta neon tube. */
+export const BOOTH_NIGHT: BoothTheme = {
+  ...BOOTH_THEMES.motorCity,
+  wall: ['#141f3d', '#263f6b'],
+  stripe: { color: '#ff4fd8', at: 0.8, neon: true },
+};
+
+export function boothTheme(L: Pick<BoothLayout, 'city' | 'night'>): BoothTheme {
+  const city = L.city ?? 'rustValley';
+  return L.night && city === 'motorCity' ? BOOTH_NIGHT : BOOTH_THEMES[city];
 }
 
 /** The booth's sign band (same rule as the lot's: below the HUD and the booth row, above the tallest roof). */
@@ -284,7 +292,16 @@ function wall(ctx: CanvasRenderingContext2D, L: BoothLayout) {
     ctx.globalAlpha = 0.18;
     ctx.fillRect(0, y - 5 * s, L.w, 13 * s);
     ctx.globalAlpha = 0.85;
-    ctx.fillRect(0, y, L.w, 3 * s);
+    if (T.stripe.neon) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.shadowColor = T.stripe.color;
+      ctx.shadowBlur = 12 * s;
+      ctx.fillRect(0, y, L.w, 3 * s);
+      ctx.fillStyle = 'rgba(255,230,250,0.9)';
+      ctx.fillRect(0, y + s, L.w, s);
+      ctx.restore();
+    } else ctx.fillRect(0, y, L.w, 3 * s);
     ctx.globalAlpha = 1;
   }
   // Wall panels with seams and rivets.

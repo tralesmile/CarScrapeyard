@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.26.0 - 2026-11-08 (run 26)
+
+- **Neon nights in Motor City (P1.3d3c):** from 7 pm to 6 am on your device's clock, Motor City turns to night: a navy
+  sky with stars and a crescent moon over the Salvage Yard, dark towers full of lit windows with glowing neon rooftop
+  signs, and a floodlight over the work bay; a night street with a pink neon roof line outside the Midtown Garage; a
+  warmly lit Auto Mall showroom with a glowing sign; a magenta neon tube in the Neon Customs booth. New **Settings →
+  City lights: Auto / Day / Night** (shown in Motor City). Signs and lettering keep their daytime colours. Rust Valley
+  stays sunny.
+- **Fix (P1.3q2):** on small phones (320x568) the tap hint pill covered the lower half of the car's name and price in
+  the paint shop. The hint sits 6 px lower and the label rises just enough to clear the pill's bob (garage, lot and
+  paint shop share `carLabelTop`).
+- **Fix:** on an iPhone SE the Settings sheet was taller than the screen in Motor City (the new City lights row pushed
+  Done and Reset progress off the bottom, with no way to scroll). The sheet now scrolls and its rows are tighter on
+  short screens; e2e asserts it fits or scrolls.
+- Tests: 17 new unit tests (`nightThemes.test.ts`: only Motor City changes, night skies darker, towers visible against
+  the sky, the lot's skyline and yard towers keep their shapes, stars and neon signs on 4 screens; the night rule by the
+  hour and the setting; save repair of the setting; the label clamp). e2e: Settings → City lights → Night fits an
+  iPhone SE on one line, then the paint shop, lot, garage and yard are sampled at night (e2e-22g to e2e-22k), and the
+  paint shop's hint is checked to clear the car label. The day checks now pin City lights to Day, so they no longer
+  depend on the test machine's clock.
+
 ## 0.25.0 - 2026-11-08 (run 25)
 
 - **Motor City businesses (P1.3d3b):** the Midtown Garage has a steel-blue wall and pegboard, with dusk towers and lit

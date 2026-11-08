@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON, type CityId } from '../src/core/config';
-import { CITY_IDS, citiesForNextEmpire, cityPrice, cityScale, defaultNextCity, nextCityToUnlock, sanitizeCity } from '../src/core/cities';
+import { CITY_IDS, CITY_LIGHTS, citiesForNextEmpire, isCityNight, cityPrice, cityScale, defaultNextCity, nextCityToUnlock, sanitizeCity } from '../src/core/cities';
 import { bulkCost, idleIncomePerSecond, managerCost, slotCost, upgradeCost } from '../src/core/formulas';
 import { incomeMultiplier, legacyMultiplier, sellEmpire } from '../src/core/legacy';
 import { openCost, unlockGoal, businessStatus } from '../src/core/businesses';
@@ -202,5 +202,23 @@ describe('cities (P1.3d)', () => {
     expect(p.cityTeaser).toBeNull();
     expect(grandpaLine(1, 'motorCity', 'rustValley')).toContain('Motor City');
     expect(grandpaLine(1, 'rustValley', 'rustValley')).not.toContain('Motor City');
+  });
+});
+
+describe('city lights (P1.3d3c)', () => {
+  it('Rust Valley never turns to night', () => {
+    for (const lights of CITY_LIGHTS) for (let h = 0; h < 24; h++) expect(isCityNight('rustValley', lights, h)).toBe(false);
+  });
+
+  it('Motor City follows the clock on auto: night from 7 pm to before 6 am', () => {
+    const night = [...Array(24).keys()].filter((h) => isCityNight('motorCity', 'auto', h));
+    expect(night).toEqual([0, 1, 2, 3, 4, 5, 19, 20, 21, 22, 23]);
+  });
+
+  it('day and night override the clock', () => {
+    for (let h = 0; h < 24; h++) {
+      expect(isCityNight('motorCity', 'day', h)).toBe(false);
+      expect(isCityNight('motorCity', 'night', h)).toBe(true);
+    }
   });
 });

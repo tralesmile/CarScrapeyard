@@ -1,4 +1,4 @@
-import type { BusinessId, BuyerKind, CityId, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
+import type { BusinessId, BuyerKind, CityId, CityLights, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 
@@ -262,6 +262,8 @@ export interface GameState {
     vibration: boolean;
     /** Sell at the asking price without the haggle slider. */
     skipHaggle: boolean;
+    /** Night-time neon look in cities that have one: by the device clock, or always day / night (P1.3d3c). */
+    cityLights: CityLights;
   };
   /**
    * Collection book counts (P0.14i, the book itself is P1.4): cars sold per family. Saves from before run 9 start
@@ -399,7 +401,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     rng: seed >>> 0 || 1,
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false },
+    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
     collection: { sold: emptyFamilyCounts() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),

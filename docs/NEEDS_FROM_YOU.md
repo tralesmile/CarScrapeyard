@@ -90,6 +90,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       Rust Valley names everywhere?
       New since run 25: in Motor City the garage, the Auto Mall and Neon Customs are painted in city colours too (steel
       blue walls, dusk towers with lit windows, a cyan stripe in the paint booth). Is the city look different enough?
+      New since run 26: **neon nights.** After 7 pm (your phone's clock) Motor City turns to night: stars, a crescent
+      moon, lit windows and neon signs, a floodlit work bay. Settings → City lights lets you pick Auto, always Day or
+      always Night. Do you like it following the real clock, or would you rather it cycle while you play?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

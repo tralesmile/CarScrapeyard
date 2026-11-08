@@ -465,3 +465,25 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   `T.x` with the old value as Rust Valley's entry, and the garage's building formula was rewritten as
   `lo + k/22 * (hi - lo)` that equals the old `0.28 + k/100` exactly; the side-by-side render showed Rust Valley
   unchanged, so no old screenshot needed a second look.
+
+## 2026-11-08 (run 26)
+
+- **Any feature tied to the real clock makes every visual e2e check clock-dependent.** The test machine's clock read
+  03:00, so "auto" would have painted Motor City at night and the run-25 day checks (booth panels blue - red > 50)
+  would have failed only at night, a flake that looks random. The e2e now pins `cityLights = 'day'` before the day
+  checks and turns night on through the Settings UI. When adding time-of-day, locale or device-dependent looks, pin the
+  input in the test first and test each value on purpose.
+- **Even-odd fill of two overlapping circles leaves a ring where the inner one pokes out.** My first crescent moon had
+  a thin sliver on its far side because the cut-out disc reached past the moon. Clip to the moon's disc, then fill a
+  rect with the cut-out circle even-odd. The isolated rolldown render (run 24's lesson) showed it in seconds, with a
+  3x crop of the moon.
+- **Check "overlap" against an animated element's full range, not one frame.** The tap hint bobs up 5 px, so a label
+  that clears the pill at rest still touches it at the top of the bob. The clamp and the e2e both use the bob's peak
+  (the e2e reads the current `translate` and subtracts it).
+- **A night variant should change colours only, not layout.** Building `LOT_NIGHT.rows` from the day rows' sizes (and
+  a test that the skyline layout is equal by day and night) means no sign, ticket or label position can move when the
+  clock flips; only the backdrop texture is repainted, not a full `layout()`.
+- **Adding a row to a modal is a layout change on the smallest phone.** The City lights row made the Settings sheet
+  taller than 568 px and the modal had no scroll, so Done sat off-screen; Playwright's "element is outside of the
+  viewport" after 30 s was the only sign. Every modal that can grow should have `max-height` + `overflow-y: auto`, and
+  the e2e that adds a row should assert the sheet's bottom is on screen (it does now for Settings).

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-08 (run 25; next run is run 26). Runs now start every 3 hours.
+Last updated: 2026-11-08 (run 26; next run is run 27). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -141,7 +141,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
           (`data-city` on the SVG); city business names (`ECON.cities.list.*.names`, `businessName(state, id)`) on the
           map, list, drive wipe, toasts and the garage / lot / paint scene signs; the 🗺 button is labelled with the
           city and wears its icon outside Rust Valley. e2e: map, names, button and the Midtown Garage (e2e-22d).
-    - [ ] P1.3d3 Motor City art: a city palette (steel blue by day / night-time neon backdrop variants for each scene).
+    - [x] P1.3d3 Motor City art: a city palette (steel blue by day / night-time neon backdrop variants for each scene).
       - [x] P1.3d3a Yard (run 24): `YARD_THEMES` per city in backdropArt.ts; Motor City paints a dusk steel-blue sky, a
             two-row skyline (`skylineTowers`, lit windows, antenna light) instead of hills, asphalt instead of dirt and a
             chain-link fence. Unit-tested on 4 screens; e2e samples the backdrop's ground colour in both cities.
@@ -150,7 +150,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
             hazy towers above the showroom, lit near row, `lotSkyline` capped at 80% of the horizon), `BOOTH_THEMES`
             (steel-blue panels, icy lights, cyan accent stripe); scenes pass `city`. Unit-tested; e2e samples all three
             backdrops in Motor City (e2e-22d/e/f).
-      - [ ] P1.3d3c Night-time neon variant (maybe tied to the real clock; check readability of signs and text first).
+      - [x] P1.3d3c Night-time neon variant (run 26): `isCityNight(city, lights, localHour)` in cities.ts (7 pm to
+            before 6 am on "auto"; `hasNight` per city, Rust Valley never), `settings.cityLights` (Auto / Day / Night,
+            save repair, Settings row only in a city with a night look), `bridge.night()`; each scene repaints its
+            backdrop when the flag flips (checked twice a second with the insets). `YARD_NIGHT` (stars, crescent moon,
+            dark towers with more lit windows, neon rooftop signs, a floodlight on the bay, piles in shadow),
+            `GARAGE_NIGHT` (night street, neon roof line), `LOT_NIGHT` (moon, lit showroom, neon halo behind the sign;
+            same skyline layout), `BOOTH_NIGHT` (magenta neon stripe). Signs and lettering keep day colours.
+            Unit-tested; e2e switches to Night in Settings and samples all four scenes (e2e-22g..k).
     - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
           first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
@@ -161,8 +168,12 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       held 3-unit order during the resize. The order is held again (work 20) right before the resize.
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
-- [ ] P1.3q2 Quality (run 25): on a 320x568 phone the paint shop's tap hint pill covers the lower half of the car's
-      name/price label (e2e-22f). Move the label or the hint (check the yard, garage and lot at the same size too).
+- [x] P1.3q2 Quality (run 25, fixed run 26): on a 320x568 phone the paint shop's tap hint pill covered the lower half
+      of the car's name/price label. The hint sits 6 px lower (`HINT_BELOW_AREA`) and `carLabelTop` lifts the label of
+      the garage, lot and paint shop just enough to clear the pill at the top of its bob; e2e asserts it on an iPhone SE.
+      (The yard hides its label while the hint shows; the garage label had ~6 px to spare.) Also found: the Settings
+      sheet overflowed an iPhone SE once the City lights row was added (Done unreachable); it scrolls now
+      (`max-height: 100%`, tighter rows under 600 px tall), e2e-checked.
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano

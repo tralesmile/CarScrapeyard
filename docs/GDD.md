@@ -74,8 +74,8 @@ to automate it, open new car businesses, then sell your empire and start again i
   Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
   (e.g. Stallion Wildfire '67).
 - **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
-  the OS asks for it), number format (short 1.5M or scientific 1.5e6), reset progress (two-step confirm),
-  credits with the version.
+  the OS asks for it), number format (short 1.5M or scientific 1.5e6), City lights (Auto / Day / Night, only in a
+  city with a night look such as Motor City), reset progress (two-step confirm), credits with the version.
 - **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
   earned in total, then $100K to open), Used Car Lot ($5M goal) and Paint & Tuning ($50M goal). Locked plots are grey
   with a padlock whose ring shows progress; the list shows open businesses and the next goal. "Go" puts that business
@@ -245,6 +245,12 @@ to automate it, open new car businesses, then sell your empire and start again i
   instead of dirt and a chain-link fence (`YARD_THEMES`). **Motor City businesses (run 25):** the Midtown Garage has a
   steel-blue wall, a steel pegboard and dusk towers with lit windows through the roller door (`GARAGE_THEMES`); the Auto
   Mall sits under the dusk sky with tall hazy towers behind the showroom and lit windows on the near row (`LOT_THEMES`);
-  Neon Customs has cooler steel-blue booth panels, icy light strips and a cyan accent stripe (`BOOTH_THEMES`). Still to
-  come: a night-time neon variant (P1.3d3c). Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
+  Neon Customs has cooler steel-blue booth panels, icy light strips and a cyan accent stripe (`BOOTH_THEMES`). **Neon
+  nights (run 26):** from 7 pm to 6 am on the device's clock (or always, with Settings → City lights → Night; "Day"
+  keeps daylight) every Motor City scene turns to night: a navy sky with stars and a crescent moon, dark towers with
+  many lit windows and glowing neon rooftop signs, a floodlight pool on the yard's work bay, a night street with a pink
+  neon roof line through the garage door, a warmly lit Auto Mall showroom with a glowing sign, and a magenta neon tube
+  in the Neon Customs booth (`YARD_NIGHT`, `GARAGE_NIGHT`, `LOT_NIGHT`, `BOOTH_NIGHT`; `isCityNight` in cities.ts).
+  Signs, lettering and the work areas keep their daytime colours so they read the same. Rust Valley stays in daylight.
+  The setting row only shows in a city with a night look. Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 

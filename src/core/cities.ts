@@ -2,7 +2,7 @@
 // four businesses; a city's `scale` multiplies every value and every price, so a run plays at the pace the sim tunes
 // while earnings (and so Legacy Points) grow with the city. Imports only config and state types (no cycles).
 
-import { ECON, type CityId } from './config';
+import { ECON, type CityId, type CityLights } from './config';
 import type { GameState } from './state';
 
 export const CITY_IDS = Object.keys(ECON.cities.list) as CityId[];
@@ -47,4 +47,22 @@ export function nextCityToUnlock(state: Pick<GameState, 'legacy'>): { id: CityId
 export function sanitizeCity(legacy: GameState['legacy']): void {
   const id = legacy.city;
   if (!CITY_IDS.includes(id) || cityInfo(id).fromSale > legacy.sold) legacy.city = 'rustValley';
+}
+
+export type { CityLights };
+export const CITY_LIGHTS: readonly CityLights[] = ['auto', 'day', 'night'];
+
+/** Local hours that count as night for the "auto" setting: from 7 pm to before 6 am. */
+export const NIGHT_FROM_HOUR = 19;
+export const NIGHT_TO_HOUR = 6;
+
+/**
+ * Whether a city's scenes use their night-time look. Only cities with a night look (Motor City's neon) change;
+ * Rust Valley always stays in daylight. `localHour` is the device's local hour (0-23), used for "auto".
+ */
+export function isCityNight(city: CityId, lights: CityLights, localHour: number): boolean {
+  if (!cityInfo(city).hasNight) return false;
+  if (lights === 'day') return false;
+  if (lights === 'night') return true;
+  return localHour >= NIGHT_FROM_HOUR || localHour < NIGHT_TO_HOUR;
 }

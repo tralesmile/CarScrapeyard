@@ -1579,8 +1579,11 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForFunction(() => window.__jye && window.__jye.state && window.__jye.state.cars.length > 0, null, { timeout: 8000 });
       const mcs = await mp.evaluate(() => ({ city: window.__jye.state.legacy.city, pts: window.__jye.state.legacy.points, car: window.__jye.state.cars[0].value }));
       assert(mcs.city === 'motorCity' && mcs.pts === 22, `Motor City survives the reload (${JSON.stringify(mcs)})`);
+      // P1.3d3c: the day checks below must not depend on the machine's clock ("auto" turns Motor City to night after
+      // 7 pm); the night look is checked at the end of this section through the Settings sheet.
+      await mp.evaluate(() => { window.__jye.state.settings.cityLights = 'day'; });
       // P1.3d3: the yard is painted in Motor City's colours: asphalt (blue over red) and a skyline in the sky.
-      await mp.waitForTimeout(600);
+      await mp.waitForTimeout(800);
       const mYard = await mp.evaluate(() => {
         const img = window.__jye.game.textures.get('backdrop').getSourceImage();
         const ctx = img.getContext('2d');
@@ -1676,8 +1679,71 @@ async function waitForServer(url, ms = 15000) {
       const lSky = await bgPx('carlot-backdrop', 0.5, 0.01);
       assert(lSky[0] < 80 && lSky[1] < 120 && lSky[2] > lSky[0], `the Motor City lot has a dusk steel-blue sky (rgb ${lSky.join(',')})`);
       await goTo('paint', 'paint', 'e2e-22f-motor-city-paint.png');
+      // P1.3q2: on an iPhone SE the tap hint pill sits below the car's name/price label, not over its lettering.
+      const labelVsHint = await mp.evaluate(() => {
+        const sc = window.__jye.game.scene.getScene('paint');
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        const z = window.__jye.game.scale.zoom;
+        const b = sc.label.getBounds();
+        const hint = document.querySelector('.hint');
+        const hr = hint.getBoundingClientRect();
+        // The pill bobs up by 5 px: compare with the top of its bob, wherever the animation is right now.
+        const ty = parseFloat((getComputedStyle(hint).translate || '0 0').split(' ')[1] || '0') || 0;
+        return { text: sc.label.text, labelBottom: c.top + b.bottom * z, hintTop: hr.top - ty - 5, hint: hint.textContent, shown: !hint.classList.contains('hidden') };
+      });
+      assert(
+        labelVsHint.text && labelVsHint.shown && labelVsHint.labelBottom <= labelVsHint.hintTop + 1,
+        `the paint shop's tap hint clears the car label on a 320x568 phone (${JSON.stringify(labelVsHint)})`,
+      );
       const pWall = await bgPx('paint-backdrop', 0.02, 0.02);
       assert(pWall[2] - pWall[0] > 50, `the Motor City paint booth has cool steel-blue panels (rgb ${pWall.join(',')})`);
+
+      // P1.3d3c: City lights -> Night in the Settings sheet turns every Motor City scene to its neon night look.
+      await mp.click('.settings-btn');
+      await mp.waitForSelector('.modal.settings .lights-row');
+      await mp.waitForTimeout(500);
+      const litFit = await mp.$eval('.modal.settings .lights-row', (r) => {
+        const box = r.closest('.modal').getBoundingClientRect();
+        const btns = [...r.querySelectorAll('.seg-btn')].map((b) => b.getBoundingClientRect());
+        return { n: btns.length, fits: btns.every((b) => b.right <= box.right + 0.5 && b.left >= box.left - 0.5), oneLine: btns.every((b) => Math.abs(b.top - btns[0].top) < 2), on: r.querySelector('.seg-btn.on')?.dataset.lights };
+      });
+      assert(litFit.n === 3 && litFit.fits && litFit.oneLine && litFit.on === 'day', `the City lights row shows Auto/Day/Night on one line on an iPhone SE (${JSON.stringify(litFit)})`);
+      const sheet = await mp.$eval('.modal.settings', (m) => {
+        const r = m.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, vh: innerHeight, scrolls: m.scrollHeight > m.clientHeight + 1, overflow: getComputedStyle(m).overflowY };
+      });
+      assert(sheet.top >= 0 && sheet.bottom <= sheet.vh + 0.5 && (!sheet.scrolls || sheet.overflow === 'auto'), `the Settings sheet fits an iPhone SE or scrolls, so Done stays reachable (${JSON.stringify(sheet)})`);
+      await mp.click('.modal.settings .lights-row .seg-btn[data-lights="night"]');
+      assert((await mp.evaluate(() => window.__jye.state.settings.cityLights)) === 'night', 'tapping Night sets City lights to night');
+      await mp.$eval('.modal.settings .lights-row', (r) => r.scrollIntoView({ block: 'center' }));
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22g-city-lights-setting.png') });
+      await mp.click('.modal.settings .buy');
+      await mp.waitForTimeout(900); // the scene repaints within half a second
+      const lum = (c) => c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+      const pNight = await bgPx('paint-backdrop', 0.02, 0.02);
+      assert(lum(pNight) < lum(pWall) * 0.8 && pNight[2] > pNight[0], `the paint booth turns a deeper night blue (rgb ${pWall.join(',')} -> ${pNight.join(',')})`);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22h-motor-city-paint-night.png') });
+      const goBack = async (biz, scene, shot) => {
+        await mp.click('.map-btn');
+        await mp.waitForSelector(`.map-row[data-biz="${biz}"] button:not([disabled])`);
+        await mp.click(`.map-row[data-biz="${biz}"] button`);
+        await mp.waitForFunction((sc) => window.__jye.game.scene.isActive(sc), scene, { timeout: 5000 });
+        await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
+        await mp.waitForTimeout(800);
+        await mp.screenshot({ path: path.join(SHOTS, shot) });
+      };
+      await goBack('carlot', 'carlot', 'e2e-22i-motor-city-lot-night.png');
+      const lNight = await bgPx('carlot-backdrop', 0.5, 0.01);
+      assert(lum(lNight) < lum(lSky) * 0.5, `the lot's sky turns to night (rgb ${lSky.join(',')} -> ${lNight.join(',')})`);
+      await goBack('garage', 'garage', 'e2e-22j-midtown-garage-night.png');
+      const gNight = await bgPx('garage-backdrop', 0.97, 0.02);
+      assert(gNight[2] > gNight[0] && lum(gNight) <= lum(gWall), `the garage stays lit, a little dimmer at night (rgb ${gWall.join(',')} -> ${gNight.join(',')})`);
+      await goBack('scrapyard', 'yard', 'e2e-22k-motor-city-yard-night.png');
+      const yNight = await mp.evaluate(() => {
+        const img = window.__jye.game.textures.get('backdrop').getSourceImage();
+        return Array.from(img.getContext('2d').getImageData(4, 4, 1, 1).data.slice(0, 3));
+      });
+      assert(lum(yNight) < 60 && yNight[2] > yNight[0], `the yard's sky is a night sky (rgb ${yNight.join(',')})`);
       await mc.close();
     }
 

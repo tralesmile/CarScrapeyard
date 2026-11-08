@@ -13,6 +13,7 @@ import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
 import { sellEmpire } from './core/legacy';
+import { isCityNight } from './core/cities';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
@@ -163,6 +164,7 @@ const bridge: Bridge = {
   onEvents,
   onInput: () => sfx.unlock(),
   onBarnTap: () => ui.showYard(),
+  night: () => isCityNight(state.legacy.city, state.settings.cityLights, new Date(platform.now()).getHours()),
   // After the yard's create() has returned (a scene can't be put to sleep while it is still creating).
   onYardReady: () => window.setTimeout(showBusiness, 0),
 };

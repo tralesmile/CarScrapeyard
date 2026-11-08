@@ -8,6 +8,8 @@ export type CarFamily = 'sedan' | 'hatch' | 'pickup' | 'muscle' | 'van' | 'suv' 
 /** Businesses on the city map, in unlock order (P1.1). */
 export type BusinessId = 'scrapyard' | 'garage' | 'carlot' | 'paint';
 export type CityId = 'rustValley' | 'motorCity';
+/** \"City lights\" setting (P1.3d3c): follow the device clock, or always day / always night. */
+export type CityLights = 'auto' | 'day' | 'night';
 export type GarageFault = 'tyre' | 'battery' | 'brakes' | 'exhaust' | 'engine';
 export type GarageUpgradeKind = 'tools' | 'rep';
 export type CarLotUpgradeKind = 'valet' | 'showroom';
@@ -211,7 +213,7 @@ export const ECON = {
    */
   cities: {
     list: {
-      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began', names: {} },
+      rustValley: { name: 'Rust Valley', icon: '🏜️', scale: 1, fromSale: 0, tagline: 'Dusty little town where it all began', names: {}, hasNight: false },
       motorCity: {
         name: 'Motor City',
         icon: '🏙️',
@@ -221,8 +223,10 @@ export const ECON = {
         // City names for the businesses (P1.3d2), shown on the map, in the list and on the scenes' signs. Keep each at
         // most as long as the longest default name ("Paint & Tuning"), so the signs keep their lettering.
         names: { scrapyard: 'Salvage Yard', garage: 'Midtown Garage', carlot: 'Auto Mall', paint: 'Neon Customs' },
+        // Neon night-time look for every scene (P1.3d3c), by the device clock or the "City lights" setting.
+        hasNight: true,
       },
-    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string; names: Partial<Record<BusinessId, string>> }>,
+    } satisfies Record<CityId, { name: string; icon: string; scale: number; fromSale: number; tagline: string; names: Partial<Record<BusinessId, string>>; hasNight: boolean }>,
   },
 
   /** Barn find: a covered classic at the back of the yard, restored in stages for a big payout. */

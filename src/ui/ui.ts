@@ -42,7 +42,7 @@ import {
   hireForeman,
   repMultiplier,
 } from '../core/garage';
-import type { BusinessId, CityId, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, LegacyBranch, PaintUpgradeKind } from '../core/config';
+import type { BusinessId, CityId, CityLights, CarLotCrewKind, CarLotUpgradeKind, GarageUpgradeKind, LegacyBranch, PaintUpgradeKind } from '../core/config';
 import { boothCost, painterCost, buyBooth, buyPaintUpgrade, currentService, findPaintJob, hirePainter, hypeMultiplier, lotCarService, lotSendBlock, lotTuneValue, paintUpgradeCost, paintWorkPerTap, painterRate, sendLotCarToShop } from '../core/paint';
 import {
   buyCarLotUpgrade,
@@ -65,6 +65,7 @@ import {
   spotCost,
 } from '../core/carlot';
 import { conditionStars } from '../game/carlotArt';
+import { HINT_BELOW_AREA } from '../game/garageArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 import { barnStageSeconds, buyNode, offlineCap, perfectZone, respecTree } from '../core/legacyTree';
 
@@ -1421,7 +1422,7 @@ export class Ui {
     // Sits where the sell button appears; the two never show at the same time.
     const { bottom } = this.insets();
     const h = this.root.getBoundingClientRect().height;
-    this.hint.style.setProperty('--hint-top', `${h - bottom + 10}px`);
+    this.hint.style.setProperty('--hint-top', `${h - bottom + HINT_BELOW_AREA}px`);
   }
 
   // ---- banners, toasts and modals -----------------------------------------
@@ -1805,6 +1806,35 @@ export class Ui {
     seg.append(...segBtns);
     fmtRow.append(seg);
     box.append(fmtRow);
+
+    // City lights (P1.3d3c): only in a city with a night-time look.
+    if (cityInfo(currentCity(s)).hasNight) {
+      const litRow = el('div', 'set-row lights-row');
+      const litText = el('div', 'set-label', 'City lights');
+      litText.append(el('small', '', 'Auto: neon nights 7 pm–6 am'));
+      litRow.append(litText);
+      const litSeg = el('div', 'seg');
+      const litOpts: [CityLights, string][] = [
+        ['auto', 'Auto'],
+        ['day', 'Day'],
+        ['night', 'Night'],
+      ];
+      const litBtns = litOpts.map(([v, label]) => {
+        const b = el('button', 'seg-btn', label) as HTMLButtonElement;
+        b.dataset.lights = v;
+        b.onclick = () => {
+          s.settings.cityLights = v;
+          for (const x of litBtns) x.classList.toggle('on', x === b);
+          sfx.tap();
+          this.deps.onChange();
+        };
+        b.classList.toggle('on', s.settings.cityLights === v);
+        return b;
+      });
+      litSeg.append(...litBtns);
+      litRow.append(litSeg);
+      box.append(litRow);
+    }
 
     const reset = el('button', 'danger', 'Reset progress') as HTMLButtonElement;
     reset.onclick = () => {

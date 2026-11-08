@@ -24,6 +24,8 @@ export interface LotLayout {
   roofY: number;
   /** City the business is in (default Rust Valley). */
   city?: CityId;
+  /** Night-time look (P1.3d3c; only cities with one change). */
+  night?: boolean;
 }
 
 /** A skyline row: colour, min height, height variation and min width (CSS px). */
@@ -39,6 +41,10 @@ export interface LotTheme {
   forecourt: [string, string];
   kerb: string;
   showroomKerb: string;
+  /** Showroom glass, top to bottom (lit warm from inside at night). */
+  glass: [string, string];
+  /** Night (P1.3d3c): a moon instead of the sun, and a neon glow around the sign; null by day. */
+  night: { moon: string; signGlow: string } | null;
 }
 
 export const LOT_THEMES: Record<CityId, LotTheme> = {
@@ -53,6 +59,8 @@ export const LOT_THEMES: Record<CityId, LotTheme> = {
     forecourt: ['#6b6f78', '#4a4e57'],
     kerb: '#d9d4c7',
     showroomKerb: '#c4b7a3',
+    glass: ['#2c4a63', '#4f7894'],
+    night: null,
   },
   motorCity: {
     sky: ['#3d5a80', '#8fb3d1', '#f2c38b'],
@@ -65,11 +73,29 @@ export const LOT_THEMES: Record<CityId, LotTheme> = {
     forecourt: ['#5a6475', '#3c4452'],
     kerb: '#b8c2ce',
     showroomKerb: '#8a94a3',
+    glass: ['#2c4a63', '#4f7894'],
+    night: null,
   },
 };
 
-export function lotTheme(L: Pick<LotLayout, 'city'>): LotTheme {
-  return LOT_THEMES[L.city ?? 'rustValley'];
+/** Motor City after dark (P1.3d3c): navy sky, dark towers with lit windows, a lit showroom and a glowing sign.
+ * Row sizes are the day's, so the skyline's layout is the same by day and night. */
+export const LOT_NIGHT: LotTheme = {
+  ...LOT_THEMES.motorCity,
+  sky: ['#0a1230', '#1c2856', '#4b3a72'],
+  sunGlow: '190,205,255',
+  rows: LOT_THEMES.motorCity.rows.map(([, ...rest], i) => [i === 0 ? '#2b3762' : '#18213e', ...rest] as const),
+  windows: 'rgba(255,212,128,0.95)',
+  forecourt: ['#3e4656', '#262c37'],
+  kerb: '#8a94a3',
+  showroomKerb: '#5d6676',
+  glass: ['#7a5a3a', '#e2b27a'],
+  night: { moon: '#f1f4ff', signGlow: '#ff9a4f' },
+};
+
+export function lotTheme(L: Pick<LotLayout, 'city' | 'night'>): LotTheme {
+  const city = L.city ?? 'rustValley';
+  return L.night && city === 'motorCity' ? LOT_NIGHT : LOT_THEMES[city];
 }
 
 /**
@@ -191,6 +217,19 @@ function sky(ctx: CanvasRenderingContext2D, L: LotLayout) {
   // Sun glow on the right.
   const sx = L.w * 0.84;
   const sy = L.reservedTop + (L.floorY - L.reservedTop) * 0.25;
+  if (T.night) {
+    // Moonlight: a soft halo and a small moon (no blinding sun-white centre behind the towers).
+    const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, 60 * L.s);
+    halo.addColorStop(0, `rgba(${T.sunGlow},0.4)`);
+    halo.addColorStop(1, `rgba(${T.sunGlow},0)`);
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, L.w, L.floorY);
+    ctx.fillStyle = T.night.moon;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 11 * L.s, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
   const sun = ctx.createRadialGradient(sx, sy, 0, sx, sy, 90 * L.s);
   sun.addColorStop(0, 'rgba(255,246,214,0.95)');
   sun.addColorStop(0.25, `rgba(${T.sunGlow},0.6)`);
@@ -221,9 +260,10 @@ function showroom(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const r = showroomRect(L);
   if (r.h <= 2 * s) return;
   // Glass front with mullions and a soft reflection.
+  const T = lotTheme(L);
   const glass = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-  glass.addColorStop(0, '#2c4a63');
-  glass.addColorStop(1, '#4f7894');
+  glass.addColorStop(0, T.glass[0]);
+  glass.addColorStop(1, T.glass[1]);
   ctx.fillStyle = glass;
   ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.fillStyle = 'rgba(255,255,255,0.14)';
@@ -238,16 +278,27 @@ function showroom(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const panes = 6;
   for (let i = 0; i <= panes; i++) ctx.fillRect(r.x + (r.w / panes) * i - 2 * s, r.y, 4 * s, r.h);
   // Base kerb of the building.
-  ctx.fillStyle = lotTheme(L).showroomKerb;
+  ctx.fillStyle = T.showroomKerb;
   ctx.fillRect(r.x - 4 * s, L.floorY - 6 * s, r.w + 8 * s, 6 * s);
 }
 
 function sign(ctx: CanvasRenderingContext2D, L: LotLayout) {
   const s = L.s;
   const b = signBand(L);
+  const glow = lotTheme(L).night?.signGlow;
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   roundRect(ctx, b.x + 2 * s, b.y + 3 * s, b.w, b.h, 6 * s);
   ctx.fill();
+  if (glow) {
+    // Neon halo behind the band at night (the band and its lettering stay the same, so they read as by day).
+    ctx.save();
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 16 * s;
+    ctx.fillStyle = glow;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 6 * s);
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.fillStyle = '#e8762b';
   roundRect(ctx, b.x, b.y, b.w, b.h, 6 * s);
   ctx.fill();
