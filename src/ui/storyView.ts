@@ -1,7 +1,9 @@
-// Story scenes (P1.6): the words of chapter 1 and the small view model the modal is built from. Strings stay here
+// Story scenes (P1.6): the words of chapters 1 and 2, the small view model the modal is built from. Strings stay here
 // (short, one place) so they move into a translation file with P1.9.
 
-import type { StoryBeatId } from '../core/story';
+import { CHAPTERS, storySeen, type ChapterId, type StoryBeatId } from '../core/story';
+import { cityInfo } from '../core/cities';
+import type { GameState } from '../core/state';
 
 export type Speaker = 'joe' | 'vince';
 
@@ -69,7 +71,83 @@ export const STORY_SCENES: Record<StoryBeatId, StoryScene> = {
     button: 'On to the map',
     footer: '📖 Chapter 1 complete: Rust Valley',
   },
+  vinceCity: {
+    title: 'Welcome to Motor City',
+    lines: [
+      { who: 'vince', text: 'Well, well. The kid from the junkyard. Welcome to MY city.' },
+      { who: 'vince', text: 'See the gold tower by the harbour? Valvano Motors HQ. Forty floors of cars.' },
+      { who: 'joe', text: 'Bigger city, same game. Wash them, fix them, sell them. We start again from a yard.' },
+    ],
+    button: "Let's go",
+  },
+  vinceMidtown: {
+    title: 'Midtown Garage',
+    lines: [
+      { who: 'vince', text: 'A garage in Midtown? My mechanics fix half the cars in this city.' },
+      { who: 'joe', text: 'Half the city, and a lot of them unhappy. Treat every customer right, kid.' },
+    ],
+    button: 'Open the doors',
+  },
+  vinceMall: {
+    title: 'The Auto Mall',
+    lines: [
+      { who: 'vince', text: 'The Auto Mall auctions are my turf. I buy the best lots before breakfast.' },
+      { who: 'joe', text: 'Then we get up earlier. Lots you buy are yours, whatever he says.' },
+    ],
+    button: 'Bring it on',
+  },
+  vinceNeon: {
+    title: 'Neon Customs',
+    lines: [
+      { who: 'vince', text: 'My own nephew wants his car painted at YOUR shop. Do you know how that makes me look?' },
+      { who: 'joe', text: 'Like a man who should have opened a paint shop. Ha!' },
+    ],
+    button: 'Ha!',
+  },
+  chapter2End: {
+    title: 'Motor City Is Yours',
+    lines: [
+      { who: 'vince', text: "Alright, kid. You win. Nobody in Motor City buys from Valvano anymore." },
+      { who: 'vince', text: "I'm selling the tower. There's always another city, and I'll get there first." },
+      { who: 'joe', text: "Forty years I waited to see that. Sell up when you're ready, kid. We'll follow him." },
+    ],
+    button: 'On to the map',
+    footer: '📖 Chapter 2 complete: Motor City',
+  },
 };
+
+/** Chapter titles for the story log. */
+export const CHAPTER_TITLES: Record<ChapterId, string> = { 1: 'The Rival', 2: 'The Big City' };
+
+export interface StoryLogChapter {
+  id: ChapterId;
+  title: string;
+  city: string;
+  have: number;
+  of: number;
+  /** Seen scenes can be read again; unseen ones show as a locked row. */
+  beats: { id: StoryBeatId; title: string; seen: boolean }[];
+}
+
+/**
+ * The story log (P1.6c): every chapter that has started, its scenes in order. A chapter with no scene seen yet is
+ * shown only as a teaser line (`next`), so the log never spoils it.
+ */
+export function storyLog(state: Pick<GameState, 'story'>): { chapters: StoryLogChapter[]; next: string | null; have: number; of: number } {
+  const chapters: StoryLogChapter[] = [];
+  let next: string | null = null;
+  let have = 0;
+  let of = 0;
+  for (const c of CHAPTERS) {
+    const beats = c.beats.map((id) => ({ id, title: STORY_SCENES[id].title, seen: storySeen(state, id) }));
+    const n = beats.filter((b) => b.seen).length;
+    have += n;
+    of += beats.length;
+    if (n > 0) chapters.push({ id: c.id, title: CHAPTER_TITLES[c.id], city: cityInfo(c.city).name, have: n, of: beats.length, beats });
+    else if (next === null) next = `Chapter ${c.id} starts in ${cityInfo(c.city).name}`;
+  }
+  return { chapters, next, have, of };
+}
 
 /** The scene for a beat. */
 export function storyScene(id: StoryBeatId): StoryScene {

@@ -48,11 +48,11 @@ import {
 import { calendarCells, resetText, taskDoneToast, taskLabel, waitText, waitingLines } from './dailyView';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
-import { cityMapSvg, mapRows } from './cityMap';
+import { cityMapSvg, mapRows, rivalRow } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import { dueBeat, markBeatSeen, type StoryBeatId } from '../core/story';
-import { SPEAKERS, storyScene } from './storyView';
+import { SPEAKERS, storyLog, storyScene } from './storyView';
 import { portraitUrl } from '../game/portraitArt';
 import {
   buyGarageBay,
@@ -156,7 +156,9 @@ export class Ui {
   private bookBtn!: HTMLButtonElement;
   /** The 📒 button was on at the last render (null before the first): a toast when it first appears in play. */
   private bookWasOn: boolean | null = null;
-  private bookPage: BookPage | 'awards' = 'cars';
+  private bookPage: BookPage | 'awards' | 'story' = 'cars';
+  /** Story log (P1.6c): the scene opened for reading in the book, if any. */
+  private storyOpen: StoryBeatId | null = null;
   /** Medal tiers reached per award at the last render (null until the book opens up), for the "medal!" toast. */
   private awardTiers: Record<AwardId, number> | null = null;
   /** The map banner was shown this session (it repeats each session until the map is opened). */
@@ -1494,6 +1496,19 @@ export class Ui {
           return row;
         }),
       );
+      // Story (P1.6b): Vince's HQ in Motor City.
+      const rival = rivalRow(st);
+      if (rival) {
+        const row = el('div', 'map-row rival');
+        const text = el('div', 'map-text');
+        const name = el('div', 'map-name display');
+        name.textContent = rival.name;
+        const line = el('div', 'map-line');
+        line.textContent = rival.line;
+        text.append(name, line);
+        row.append(el('div', 'map-icon', '😎'), text);
+        list.append(row);
+      }
       // Prestige (P1.3b): the Sell Empire row once a sale is worth it, else how far the next one is.
       if (sellRow) {
         const row = el('div', `map-row legacy${sellRow.glow ? ' glow' : ''}`);
@@ -1732,14 +1747,7 @@ export class Ui {
     markBeatSeen(s, id);
     this.deps.onChange();
     const scene = storyScene(id);
-    const lines = scene.lines
-      .map((l) => {
-        const who = SPEAKERS[l.who];
-        const url = portraitUrl(l.who);
-        const img = url ? `<img class="portrait" src="${url}" alt="" width="48" height="48">` : '<span class="portrait"></span>';
-        return `<div class="story-line ${l.who}">${img}<div class="bubble"><b>${who.name}</b>${l.text}</div></div>`;
-      })
-      .join('');
+    const lines = storyLinesHtml(id);
     const footer = scene.footer ? `<p class="story-footer">${scene.footer}</p>` : '';
     sfx.fanfare();
     this.modal({
@@ -1748,7 +1756,7 @@ export class Ui {
       button: scene.button,
       cls: 'story',
       onClose: () => {
-        if (id === 'chapter1End' && mapUnlocked(s)) setTimeout(() => this.openMap(), 0);
+        if ((id === 'chapter1End' || id === 'chapter2End') && mapUnlocked(s)) setTimeout(() => this.openMap(), 0);
       },
     });
   }
@@ -2014,12 +2022,55 @@ export class Ui {
     const paint = () => {
       const s = this.deps.state();
       const page = this.bookPage;
-      const v = bookView(s, page === 'awards' ? 'cars' : page);
+      const v = bookView(s, page === 'awards' || page === 'story' ? 'cars' : page);
       const aw = awardsView(s);
+      const log = storyLog(s);
       header.innerHTML =
         page === 'awards'
           ? `<b>🏅 ${aw.header}</b><small>Medals count every empire you have built</small>`
-          : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+          : page === 'story'
+            ? `<b>📖 Story: ${log.have} of ${log.of} scenes</b><small>Tap a scene to read it again</small>`
+            : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      const storyTab = el('button', `tree-tab${page === 'story' ? ' on' : ''}`, `<span>Story</span><small>${log.have}/${log.of}</small>`) as HTMLButtonElement;
+      storyTab.setAttribute('role', 'tab');
+      storyTab.setAttribute('aria-selected', String(page === 'story'));
+      storyTab.dataset.page = 'story';
+      storyTab.onclick = () => {
+        this.bookPage = 'story';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'story') {
+        const secs: HTMLElement[] = log.chapters.map((c) => {
+          const sec = el('section', 'book-set story-chapter');
+          sec.dataset.chapter = String(c.id);
+          sec.append(el('div', 'book-set-head', `<b>Chapter ${c.id}: ${c.title}</b><span class="book-count">${c.have}/${c.of}</span><small class="book-bonus">${c.city}</small>`));
+          for (const b of c.beats) {
+            if (!b.seen) {
+              sec.append(el('div', 'story-row locked', '🔒 <span>A scene still to come</span>'));
+              continue;
+            }
+            const open = this.storyOpen === b.id;
+            const row = el('button', `story-row${open ? ' open' : ''}`, `${open ? '▾' : '▸'} <span>${b.title}</span>`) as HTMLButtonElement;
+            row.dataset.beat = b.id;
+            row.setAttribute('aria-expanded', String(open));
+            row.onclick = () => {
+              this.storyOpen = open ? null : b.id;
+              sfx.tap();
+              paint();
+            };
+            sec.append(row);
+            if (open) {
+              const scene = storyScene(b.id);
+              sec.append(el('div', 'story-lines story-replay', storyLinesHtml(b.id) + (scene.footer ? `<p class="story-footer">${scene.footer}</p>` : '')));
+            }
+          }
+          return sec;
+        });
+        if (log.next) secs.push(el('p', 'story-next', `📖 ${log.next}`));
+        list.replaceChildren(...secs);
+      }
       const awardTab = el('button', `tree-tab${page === 'awards' ? ' on' : ''}`, `<span>Awards</span><small>${aw.have}/${aw.of}</small>${aw.ready > 0 ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
       awardTab.setAttribute('role', 'tab');
       awardTab.setAttribute('aria-selected', String(page === 'awards'));
@@ -2073,8 +2124,9 @@ export class Ui {
           return t;
         }),
         awardTab,
+        ...(log.have > 0 ? [storyTab] : []),
       );
-      if (page === 'awards') return;
+      if (page === 'awards' || page === 'story') return;
       list.replaceChildren(
         ...v.sets.map((set) => {
           const sec = el('section', `book-set${set.complete ? ' complete' : ''}`);
@@ -2302,4 +2354,16 @@ function perkChipEl(c: PerkChip): HTMLElement {
   e.setAttribute('aria-label', c.title);
   e.dataset.perk = c.node;
   return e;
+}
+
+/** A scene's lines with portraits (story modal and story log). */
+function storyLinesHtml(id: StoryBeatId): string {
+  return storyScene(id)
+    .lines.map((l) => {
+      const who = SPEAKERS[l.who];
+      const url = portraitUrl(l.who);
+      const img = url ? `<img class="portrait" src="${url}" alt="" width="48" height="48">` : '<span class="portrait"></span>';
+      return `<div class="story-line ${l.who}">${img}<div class="bubble"><b>${who.name}</b>${l.text}</div></div>`;
+    })
+    .join('');
 }

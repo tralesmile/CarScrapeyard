@@ -224,6 +224,8 @@ export const ECON = {
    */
   story: {
     vinceVisitSales: 20,
+    /** Chapter 2: Vince greets you in Motor City after this many sales there. */
+    cityArrivalSales: 5,
     gapSeconds: 20,
     rivalEvery: 3,
   },

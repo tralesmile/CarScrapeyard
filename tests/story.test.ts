@@ -5,8 +5,9 @@ import { tickBuyers } from '../src/core/buyers';
 import { earningsForTotalPoints, sellEmpire } from '../src/core/legacy';
 import { checksum, deserialize, serialize } from '../src/core/save';
 import { newGame, type GameState } from '../src/core/state';
-import { STORY_BEATS, beatReady, chapterDone, dueBeat, markBeatSeen, noteBuyerLost, noteLotLost, sanitizeStory, vinceMet } from '../src/core/story';
-import { STORY_SCENES, rivalToast, rivalToastDue } from '../src/ui/storyView';
+import { CHAPTER_1, CHAPTER_2, STORY_BEATS, beatReady, chapterOf, rivalHqShown, chapterDone, dueBeat, markBeatSeen, noteBuyerLost, noteLotLost, sanitizeStory, vinceMet } from '../src/core/story';
+import { STORY_SCENES, rivalToast, rivalToastDue, storyLog } from '../src/ui/storyView';
+import { cityMapSvg, rivalRow } from '../src/ui/cityMap';
 
 const T0 = 1_800_000_000_000;
 
@@ -52,7 +53,7 @@ describe('story chapter 1 (P1.6)', () => {
     s.stats.playSeconds += 1;
     const order = ['joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'];
     expect([show(s), show(s), show(s), show(s), show(s)]).toEqual([...order, null]);
-    expect(s.story.seen).toEqual(STORY_BEATS);
+    expect(s.story.seen).toEqual(CHAPTER_1);
     expect(chapterDone(s)).toBe(true);
   });
 
@@ -110,7 +111,8 @@ describe('story chapter 1 (P1.6)', () => {
     const s = game();
     s.carsSold = 100;
     s.legacy.city = 'motorCity';
-    expect(dueBeat(s)).toBeNull();
+    expect(CHAPTER_1.some((id) => beatReady(s, id))).toBe(false);
+    expect(dueBeat(s)).toBe('vinceCity'); // chapter 2 instead
   });
 
   it('is kept on a Sell Empire, so no scene repeats in a later empire', () => {
@@ -156,5 +158,107 @@ describe('story chapter 1 (P1.6)', () => {
     expect(rivalToastDue(0)).toBe(false);
     expect(rivalToast('lot', 1)).not.toContain('(');
     expect(rivalToast('buyer', 3)).toContain('(Vince: 3)');
+  });
+});
+
+/** A fresh empire in Motor City (sold twice before). */
+function motorCity(): GameState {
+  const s = game();
+  s.legacy.sold = 2;
+  s.legacy.city = 'motorCity';
+  return s;
+}
+
+describe('story chapter 2, Motor City (P1.6b)', () => {
+  it('Vince greets you after the first sales in Motor City, then the businesses follow in order', () => {
+    const s = motorCity();
+    s.carsSold = ECON.story.cityArrivalSales - 1;
+    expect(dueBeat(s)).toBeNull();
+    s.carsSold = ECON.story.cityArrivalSales;
+    s.businesses.opened.garage = true;
+    s.businesses.opened.carlot = true;
+    s.businesses.opened.paint = true;
+    s.lifetimeEarnings = earningsForTotalPoints(ECON.legacy.minPoints);
+    expect(beatReady(s, 'vinceMidtown')).toBe(false); // not before Vince's welcome
+    expect([show(s), show(s), show(s), show(s), show(s), show(s)]).toEqual([...CHAPTER_2, null]);
+    expect(chapterDone(s, 2)).toBe(true);
+    expect(chapterDone(s, 1)).toBe(false);
+    expect(CHAPTER_2.every((id) => chapterOf(id) === 2) && CHAPTER_1.every((id) => chapterOf(id) === 1)).toBe(true);
+  });
+
+  it('does not need chapter 1 (an old save may already be in Motor City) and never plays in Rust Valley', () => {
+    const s = motorCity();
+    s.carsSold = 50;
+    expect(dueBeat(s)).toBe('vinceCity');
+    markBeatSeen(s, 'vinceCity');
+    expect(vinceMet(s)).toBe(true); // Vince now takes lots here too
+    const r = game();
+    r.carsSold = 50;
+    markBeatSeen(r, 'vinceVisit');
+    r.stats.playSeconds += ECON.story.gapSeconds;
+    r.businesses.opened.garage = true;
+    expect(CHAPTER_2.some((id) => beatReady(r, id))).toBe(false);
+  });
+
+  it('a skipped business does not block the end of chapter 2', () => {
+    const s = motorCity();
+    s.carsSold = 50;
+    markBeatSeen(s, 'vinceCity');
+    s.stats.playSeconds += ECON.story.gapSeconds;
+    s.lifetimeEarnings = earningsForTotalPoints(ECON.legacy.minPoints);
+    expect(dueBeat(s)).toBe('chapter2End');
+  });
+
+  it("Vince's HQ is on the Motor City map once he has greeted you, with a line in the list", () => {
+    const s = motorCity();
+    expect(rivalHqShown(s)).toBe(false);
+    expect(cityMapSvg(s)).not.toContain('rival-hq');
+    expect(rivalRow(s)).toBeNull();
+    markBeatSeen(s, 'vinceCity');
+    expect(rivalHqShown(s)).toBe(true);
+    const svg = cityMapSvg(s);
+    expect(svg).toContain('class="rival-hq"');
+    expect((svg.match(/class="roof"/g) ?? []).length).toBe(9); // the HQ takes one rooftop's place
+    expect(rivalRow(s)!.line).toMatch(/rival/);
+    s.story.rivalWins = 1;
+    expect(rivalRow(s)!.line).toMatch(/beaten you 1 time$/);
+    s.story.rivalWins = 5;
+    expect(rivalRow(s)!.line).toMatch(/5 times/);
+    markBeatSeen(s, 'chapter2End');
+    expect(rivalRow(s)!.line).toMatch(/for sale/i);
+    s.legacy.city = 'rustValley';
+    expect(rivalHqShown(s)).toBe(false);
+    expect(cityMapSvg(s)).not.toContain('rival-hq');
+  });
+
+  it('old saves with only chapter 1 beats keep them; chapter 2 beats survive save repair', () => {
+    const st = { seen: ['vinceVisit', 'vinceCity', 'chapter2End', 'vinceCity'] as never[], lastAt: 5, lotsLost: 0, buyersLost: 0, rivalWins: 0 };
+    sanitizeStory(st);
+    expect(st.seen).toEqual(['vinceVisit', 'vinceCity', 'chapter2End']);
+  });
+});
+
+describe('story log (P1.6c)', () => {
+  it('lists started chapters with their scenes, hides unseen titles, and teases the next chapter', () => {
+    const s = game();
+    let log = storyLog(s);
+    expect(log.chapters).toEqual([]);
+    expect(log.have).toBe(0);
+    expect(log.of).toBe(STORY_BEATS.length);
+    expect(log.next).toBe('Chapter 1 starts in Rust Valley');
+    markBeatSeen(s, 'vinceVisit');
+    markBeatSeen(s, 'vincePaint');
+    log = storyLog(s);
+    expect(log.chapters.length).toBe(1);
+    const c1 = log.chapters[0]!;
+    expect(c1).toMatchObject({ id: 1, city: 'Rust Valley', have: 2, of: 5 });
+    expect(c1.beats.map((b) => b.seen)).toEqual([true, false, false, true, false]);
+    expect(c1.beats[0]!.title).toBe(STORY_SCENES.vinceVisit.title);
+    expect(log.next).toBe('Chapter 2 starts in Motor City');
+    markBeatSeen(s, 'vinceCity');
+    log = storyLog(s);
+    expect(log.chapters.map((c) => c.id)).toEqual([1, 2]);
+    expect(log.next).toBeNull();
+    expect(log.have).toBe(3);
   });
 });

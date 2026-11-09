@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.32.0 - 2026-11-09 (run 32)
+
+- **Story chapter 2, Motor City (P1.6b):** "The Big City". Vince greets you after your first 5 sales in Motor City and
+  points at his gold tower by the harbour; he grumbles when the Midtown Garage, the Auto Mall and Neon Customs open;
+  and when your Motor City empire can be sold he gives up and puts his tower up for sale (chapter 2 complete, "On to
+  the map"). Valvano Motors HQ now stands on the Motor City map (a gold tower with a purple V) with its own row in the
+  list counting how often Vince has beaten you. Flavour only: no price, odds or pacing change.
+- **Story log (P1.6c):** a new Story page in the 📒 book lists every chapter you have started and its scenes; tap a
+  scene to read it again. Scenes still to come are locked, and the next chapter's city is teased.
+- **Fix: the book could be wider than a small phone** once it had five tabs; the book's column now never grows past
+  the screen and the first tab is called "Cars".
+- Tests: 6 new story tests (chapter 2 order, no need for chapter 1, Rust Valley never plays it, a skipped business,
+  the HQ on the map and its row, save repair, the story log). e2e: Vince's Motor City scene on an iPhone SE
+  (e2e-22b3), the HQ on the Motor City map, five book tabs on a 320 px phone, the story log with a replayed scene
+  (e2e-24d).
+
 ## 0.31.0 - 2026-11-09 (run 31)
 
 - **Story chapter 1 and the rival Vince Valvano (P1.6):** Rust Valley now has a story. Five short scenes with painted

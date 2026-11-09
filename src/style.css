@@ -1248,6 +1248,11 @@ body {
   border-style: dashed;
 }
 
+.map-row.rival {
+  background: linear-gradient(90deg, #f1e8ff, #fff9ee);
+  border-color: #7c3aed;
+}
+
 @keyframes legacy-glow {
   50% {
     box-shadow: 0 0 0 3px #f7c94899, 0 0 14px #f7c948;
@@ -1598,6 +1603,8 @@ body {
 
 .tree-tab small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
   font-weight: 700;
   opacity: 0.8;
@@ -1868,6 +1875,8 @@ body {
 /* ---- Collection book (P1.4b): must fit a 320x568 phone; the set list scrolls inside the modal ---- */
 .modal-back.book {
   grid-template-rows: minmax(0, 1fr);
+  /* The tab row's text must not widen the column past the screen (five tabs since the Story page, run 32). */
+  grid-template-columns: minmax(0, 1fr);
   padding: 8px 12px;
 }
 
@@ -2396,6 +2405,45 @@ body {
     font-size: 13px;
     padding: 5px 9px;
   }
+}
+.story-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 2px solid #e3c9a0;
+  border-radius: 10px;
+  background: #fff9ee;
+  color: #3a2c1e;
+  font: 800 14px 'Nunito', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.story-row.open {
+  border-color: #7c3aed;
+  background: #f5f0ff;
+}
+.story-row.locked {
+  cursor: default;
+  color: #9a8a78;
+  border-style: dashed;
+  background: transparent;
+  font-weight: 700;
+}
+.story-replay {
+  margin: 8px 0 4px;
+}
+.story-replay .story-line {
+  animation-duration: 0.25s;
+}
+.story-next {
+  margin: 10px 2px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b5a48;
+  text-align: center;
 }
 .auction-lot .stamp.rival {
   color: #a78bfa;

@@ -199,6 +199,15 @@ to automate it, open new car businesses, then sell your empire and start again i
   third after it (by lot id) get a purple VINCE! stamp instead of SOLD!, and every third yard customer who runs out of
   patience is "lured to his lot"; toasts only for his first three wins and every tenth. The economy, the RNG and the
   sims are unchanged. Chapter 1 plays in Rust Valley only; the story is kept on a Sell Empire.
+- **Story chapter 2, Motor City (P1.6b):** "The Big City", five scenes in Motor City only, not needing chapter 1 (old
+  saves may already be there): Vince greets you after 5 sales ("Welcome to MY city", points at his gold tower), then
+  one scene each when the Midtown Garage, the Auto Mall and Neon Customs open, and the chapter's end when the Motor
+  City empire can be sold (Vince gives up and sells his tower; "On to the map"). From his welcome on, Valvano Motors
+  HQ stands on the Motor City map as a gold tower with a purple V by the harbour, with a purple list row ("Vince's HQ ·
+  he has beaten you N times", "Tower for sale" after the chapter). Still flavour only.
+- **Story log (P1.6c):** a Story page in the 📒 book (shown once a scene has been seen) lists each started chapter
+  with its city and scenes; tapping a seen scene opens its lines inline, unseen ones are locked rows without titles, and
+  a line teases the next chapter's city.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

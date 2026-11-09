@@ -297,6 +297,7 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForSelector('.book .modal .book-card');
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-03c-book.png') });
+    assert(!(await page.$('.book-tabs [data-page="story"]')), 'no Story page in the book before the first scene');
     const bookUi = await page.evaluate(() => {
       const van = document.querySelector('.book-set[data-set="family:van"]');
       const courier = document.querySelector('.book-card[data-model="Stallion Courier"]');
@@ -1934,6 +1935,20 @@ async function waitForServer(url, ms = 15000) {
       const washBtn = await mp.textContent('.cards .card:first-child .buy');
       assert(/\$450/.test(washBtn), `Motor City prices are x3 (Wash Bay ${washBtn})`);
       await mp.evaluate(() => { window.__jye.state.carsSold = 30; });
+      // P1.6b: chapter 2 opens with Vince greeting you in Motor City (after 5 sales there).
+      await mp.waitForSelector('.modal-back.story .modal [data-beat="vinceCity"]', { timeout: 4000 });
+      const c2 = await mp.evaluate(() => {
+        const m = document.querySelector('.story .modal');
+        const r = m.getBoundingClientRect();
+        return { text: m.textContent, lines: m.querySelectorAll('.story-line').length, fits: r.top >= 0 && r.bottom <= window.innerHeight };
+      });
+      assert(/Welcome to Motor City/.test(c2.text) && /Valvano Motors HQ/.test(c2.text) && c2.lines === 3 && c2.fits, `chapter 2 opens with Vince in Motor City (${c2.lines} lines, fits ${c2.fits})`);
+      await mp.waitForTimeout(1200);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b3-story-motor-city.png') });
+      await mp.click('.story .modal .buy');
+      await mp.waitForSelector('.modal-back.story', { state: 'detached' });
+      // The rest of chapter 2 is unit-tested; mark it seen so no scene covers the map, garage and night checks below.
+      await mp.evaluate(() => window.__jye.state.story.seen.push('vinceMidtown', 'vinceMall', 'vinceNeon'));
       await mp.waitForSelector('.map-btn:not(.hidden)');
       await mp.waitForTimeout(2600); // let the CITY MAP banner clear
       await mp.click('.map-btn');
@@ -1959,6 +1974,15 @@ async function waitForServer(url, ms = 15000) {
       assert(mMap.city === 'motorCity' && mMap.aria === 'Motor City city map' && mMap.highway && mMap.roofs >= 8, `Motor City draws its own map (${JSON.stringify(mMap)})`);
       assert(/^Salvage Yard/.test(mMap.rows[0]) && /^Midtown Garage/.test(mMap.rows[1] || ''), `the map list uses Motor City's names (${mMap.rows.join(' | ')})`);
       assert(mMap.w <= mMap.vw, `the Motor City map fits the phone (${mMap.w} <= ${mMap.vw})`);
+      // P1.6b: Vince's gold HQ tower by the harbour and his row in the list.
+      const hq = await mp.evaluate(() => {
+        const g = document.querySelector('.modal.city-map .rival-hq');
+        const row = document.querySelector('.map-row.rival');
+        return { g: !!g, label: g && g.getAttribute('aria-label'), row: row && row.textContent.trim() };
+      });
+      assert(hq.g && hq.label === 'Valvano Motors HQ' && /^.*Valvano Motors.*Vince's HQ/.test(hq.row || ''), `Vince's HQ is on the Motor City map (${JSON.stringify(hq)})`);
+      // The big cash below makes this empire sellable, which would end chapter 2 over the next checks (unit-tested).
+      await mp.evaluate(() => window.__jye.state.story.seen.push('chapter2End'));
       await mp.click('.modal.city-map > .buy');
       await mp.waitForSelector('.modal.city-map', { state: 'detached', timeout: 3000 });
       const mBtn = await mp.evaluate(() => {
@@ -2109,7 +2133,7 @@ async function waitForServer(url, ms = 15000) {
       await np.evaluate(() => {
         const s = window.__jye.state;
         Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
-        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'];
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End', 'vinceCity', 'vinceMidtown', 'vinceMall', 'vinceNeon', 'chapter2End'];
         s.carsSold = 400;
         s.cash = 123456789;
         s.parts = 1234;
@@ -2158,6 +2182,35 @@ async function waitForServer(url, ms = 15000) {
       await np.screenshot({ path: path.join(SHOTS, 'e2e-24c-book-brands.png') });
       const brandSets = await np.$$eval('.book-set', (ss) => ss.map((x) => x.dataset.set));
       assert(brandSets.join() === 'brand:Vortex,brand:Stallion,brand:Kaze,brand:Regalia', `the Brands page lists the four brand sets (${brandSets.join()})`);
+      // P1.6c: the Story page lists both chapters; a scene opens inline to be read again.
+      await np.click('.book-tabs [data-page="story"]');
+      await np.waitForSelector('.book .story-chapter');
+      const tabsFit = await np.evaluate(() => {
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        const ts = [...document.querySelectorAll('.book-tabs .tree-tab')].map((t) => t.getBoundingClientRect());
+        return { n: ts.length, fit: ts.every((t) => t.left >= m.left && t.right <= m.right + 0.5) };
+      });
+      assert(tabsFit.n === 5 && tabsFit.fit, `five book tabs fit a 320 px phone (${JSON.stringify(tabsFit)})`);
+      const log = await np.evaluate(() => ({
+        head: document.querySelector('.book-head').textContent,
+        chapters: [...document.querySelectorAll('.story-chapter')].map((c) => c.dataset.chapter).join(),
+        rows: document.querySelectorAll('.story-row[data-beat]').length,
+        locked: document.querySelectorAll('.story-row.locked').length,
+      }));
+      assert(/10 of 10 scenes/.test(log.head) && log.chapters === '1,2' && log.rows === 10 && log.locked === 0, `the story log lists both chapters (${JSON.stringify(log)})`);
+      await np.click('.story-row[data-beat="chapter2End"]');
+      await np.waitForSelector('.story-replay .story-line');
+      await np.evaluate(() => document.querySelector('.story-replay').scrollIntoView({ block: 'center' }));
+      await np.waitForTimeout(500);
+      const replay = await np.evaluate(() => {
+        const r = document.querySelector('.story-replay');
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        return { text: r.textContent, lines: r.querySelectorAll('.story-line').length, fit: r.getBoundingClientRect().right <= m.right, open: document.querySelector('.story-row[data-beat="chapter2End"]').getAttribute('aria-expanded') };
+      });
+      assert(/Motor City Is Yours|You win/.test(replay.text) && /Chapter 2 complete/.test(replay.text) && replay.lines === 3 && replay.fit && replay.open === 'true', `a seen scene opens again in the story log (${replay.lines} lines)`);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24d-story-log.png') });
+      await np.click('.story-row[data-beat="chapter2End"]');
+      assert((await np.$$('.story-replay')).length === 0, 'tapping the scene again closes it');
       await nc.close();
     }
 

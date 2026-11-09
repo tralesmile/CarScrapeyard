@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 31; next run is run 32). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 32; next run is run 33). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -227,7 +227,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         Gems in the daily rewards moved to P1.7. Also: the popup scrolls on short phones (`cls: 'welcome'`), e2e at 320x568.
   - [ ] P1.5e Idea (not scheduled): a HUD shortcut to the Jobs board from the other businesses, if playtests show the
         toast is missed.
-- [ ] P1.6 Story chapter 1 + rival Vince Valvano (chapter 1 done in run 31; chapter 2 and a story log follow)
+- [x] P1.6 Story chapter 1 + rival Vince Valvano (chapter 1 in run 31; chapter 2 and the story log in run 32)
   - [x] P1.6a Chapter 1, Rust Valley (run 31): `src/core/story.ts` (`state.story`: beats seen, gap, Vince's tally;
         kept on a sale, save repair), five beats in order (`vinceVisit` at 20 sales, `joeGarage`, `vinceAuction` after the
         first lot let go, `vincePaint`, `chapter1End` when the empire can be sold; a skipped business never blocks the
@@ -235,10 +235,18 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         toasts, `src/game/portraitArt.ts` Canvas 2D busts of Joe and Vince); the chapter's end opens the map before the
         sale banner. Vince as flavour on the events (`lotExpired.rival`: purple VINCE! stamp; `buyerLeft.rival`), no
         economy change (sims untouched). 9 unit tests; e2e at 20 sales, on the auction board and on an iPhone SE.
-  - [ ] P1.6b Chapter 2, Motor City: Vince's Valvano Motors HQ on the Motor City map, 4-5 beats tied to the Midtown
-        Garage / Auto Mall / Neon Customs and the second Motor City sale, a closing scene; maybe a rival goal (beat
-        Vince's monthly sales) if the owner wants a real rival mechanic (asked in NEEDS_FROM_YOU).
-  - [ ] P1.6c Story log: replay seen scenes (a Story page in the 📒 book or a Settings row).
+  - [x] P1.6b Chapter 2, Motor City (run 32): `CHAPTER_2` in story.ts (`vinceCity` after 5 Motor City sales, then
+        `vinceMidtown` / `vinceMall` / `vinceNeon` when each business opens, `chapter2End` when the Motor City empire
+        can be sold; each chapter plays in its own city, chapter 2 does not need chapter 1), `vinceMet` also from the
+        Motor City welcome, Valvano Motors HQ on the Motor City map (`rivalHq` gold tower in place of a rooftop) and a
+        `rivalRow` in the list. Flavour only, no sim change. 5 unit tests; e2e scene on an iPhone SE and the HQ.
+  - [x] P1.6c Story log (run 32): a Story page in the 📒 book (`storyLog` in storyView.ts, shown once a scene is seen):
+        chapters with city and count, seen scenes open inline (`storyLinesHtml`), locked rows for the rest, a teaser
+        for the next chapter. Unit-tested; e2e at 320 px (five tabs fit) with a replayed scene.
+  - [ ] P1.6q Quality (run 32): on a 320 px phone the five book tabs ellipsize "Bran…", "Clas…", "Awar…" (the book
+        fits; "Car types" became "Cars"). Try icons with counts, or two rows under 360 px.
+  - [ ] P1.6d Optional (owner question in NEEDS_FROM_YOU): a real rival mechanic (Vince bidding at the auction or a
+        monthly sales race). Chapter 3 waits for city 3.
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
 - [ ] P1.8 Music layers per business; volume settings
 - [ ] P1.9 i18n string files (English first)

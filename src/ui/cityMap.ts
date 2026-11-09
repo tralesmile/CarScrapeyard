@@ -7,6 +7,7 @@ import { cityInfo, currentCity } from '../core/cities';
 import { perkChip } from './legacyView';
 import { BUSINESS_IDS, MAX_TIER, unlockGoal, businessInfo, businessName, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
+import { chapterDone, rivalHqShown } from '../core/story';
 import type { GameState } from '../core/state';
 
 export const MAP_W = 360;
@@ -109,7 +110,7 @@ function streetLamp(x: number, y: number): string {
 }
 
 /** Motor City: concrete blocks, a highway along the top, a harbour corner, rooftops in the gaps (P1.3d2). */
-function motorCityGround(): string {
+function motorCityGround(hq: boolean): string {
   const parts: string[] = [];
   parts.push(`<rect width="${MAP_W}" height="${MAP_H}" rx="18" fill="${M.base}"/>`);
   // City blocks under the plots: a pale sidewalk ring around each quarter.
@@ -161,8 +162,9 @@ function motorCityGround(): string {
     [2, 178, 14, 34],
     [2, 220, 14, 26],
     [344, 178, 14, 28],
-    [344, 212, 14, 40],
+    ...(hq ? [] : [[344, 212, 14, 40]]),
   ].forEach(([x, y, w, h], i) => parts.push(rooftop(x!, y!, w!, h!, i)));
+  if (hq) parts.push(rivalHq(344, 210, 14, 44));
   // Street lamps along the avenue and planters at the corners.
   for (const x of [40, 110, 230, 300]) parts.push(streetLamp(x, 138), streetLamp(x + 20, 170));
   for (const [x, y] of [
@@ -175,8 +177,33 @@ function motorCityGround(): string {
   return parts.join('');
 }
 
-function cityGround(city: CityId): string {
-  return city === 'motorCity' ? motorCityGround() : ground();
+/** Valvano Motors HQ (P1.6b): Vince's gold tower by the harbour, seen from above, with a big V on the roof. */
+function rivalHq(x: number, y: number, w: number, h: number): string {
+  const cx = x + w / 2;
+  return (
+    `<g class="rival-hq" role="img" aria-label="Valvano Motors HQ">` +
+    `<rect x="${x - 1.5}" y="${y - 1.5}" width="${w + 3}" height="${h + 3}" rx="3" fill="#f5c542" opacity=".35"/>` +
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#d4a017" stroke="#7a5a00" stroke-width="1.2"/>` +
+    `<rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="1.5" fill="none" stroke="#fff3b0" stroke-width="1"/>` +
+    `<circle cx="${cx}" cy="${y + 10}" r="5" fill="#7c3aed" stroke="#fff3b0" stroke-width="1"/>` +
+    `<text x="${cx}" y="${y + 13.2}" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="8.5" fill="#fff">V</text>` +
+    `<rect x="${x + 3}" y="${y + 20}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `<rect x="${x + 3}" y="${y + 26}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `<rect x="${x + 3}" y="${y + 32}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `</g>`
+  );
+}
+
+function cityGround(city: CityId, hq: boolean): string {
+  return city === 'motorCity' ? motorCityGround(hq) : ground();
+}
+
+/** The map list's line about Vince's HQ in Motor City (P1.6b), or null before he has greeted you there. */
+export function rivalRow(state: GameState): { name: string; line: string } | null {
+  if (!rivalHqShown(state)) return null;
+  if (chapterDone(state, 2)) return { name: 'Valvano Motors', line: 'Tower for sale: Vince is leaving town' };
+  const w = state.story.rivalWins;
+  return { name: 'Valvano Motors', line: w > 0 ? `Vince's HQ · he has beaten you ${w} time${w === 1 ? '' : 's'}` : "Vince's HQ · your rival in Motor City" };
 }
 
 function mapCar(x: number, y: number, body: string, roof: string): string {
@@ -364,7 +391,7 @@ function youAreHere(p: { x: number; y: number; w: number; h: number }): string {
 /** The whole map as an SVG string. Plots carry `data-biz` so the UI can make them tappable. */
 export function cityMapSvg(state: GameState): string {
   const city = currentCity(state);
-  const parts: string[] = [cityGround(city)];
+  const parts: string[] = [cityGround(city, rivalHqShown(state))];
   for (const id of BUSINESS_IDS) {
     const p = PLOTS[id];
     const status = businessStatus(state, id);

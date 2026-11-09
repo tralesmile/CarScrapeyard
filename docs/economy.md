@@ -445,3 +445,4 @@ No economy change. Vince Valvano only relabels events that already happen: lots 
 from the player and no RNG draw is added (`noteLotLost`/`noteBuyerLost` count with plain counters), so the seeded
 sims and the pacing targets are untouched; `npm run sim` was not needed. If Vince becomes a real rival (owner
 question), A/B it like the showcase: a bot run with and without, time to the first Sell Empire.
+Chapter 2 (P1.6b, run 32) adds scenes and the map HQ only; still no economy change and no sim run needed.

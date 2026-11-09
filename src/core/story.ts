@@ -1,15 +1,28 @@
-// Story (P1.6): chapter 1 in Rust Valley. A handful of short scenes with Grandpa Joe and the rival tycoon Vince
-// Valvano, each shown once when its moment comes. Pure rules: which beat is due, marking it seen, and whether Vince
+// Story (P1.6): chapter 1 in Rust Valley, chapter 2 in Motor City. A handful of short scenes with Grandpa Joe and the
+// rival tycoon Vince Valvano, each shown once when its moment comes. Pure rules: which beat is due, marking it seen, and whether Vince
 // is the one who took an auction lot or a yard customer (flavour only, the economy does not change).
 // Kept on a Sell Empire, so a later empire never repeats a scene.
 
-import { ECON } from './config';
+import { ECON, type CityId } from './config';
 import { currentCity } from './cities';
 import { canSellEmpire } from './legacy';
 import type { GameState } from './state';
 
-export const STORY_BEATS = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'] as const;
+export const CHAPTER_1 = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'] as const;
+export const CHAPTER_2 = ['vinceCity', 'vinceMidtown', 'vinceMall', 'vinceNeon', 'chapter2End'] as const;
+export const STORY_BEATS = [...CHAPTER_1, ...CHAPTER_2] as const;
 export type StoryBeatId = (typeof STORY_BEATS)[number];
+export type ChapterId = 1 | 2;
+
+/** Chapters in order with their city and beats (chapter 2 does not need chapter 1: old saves may be in Motor City). */
+export const CHAPTERS: readonly { id: ChapterId; city: CityId; beats: readonly StoryBeatId[] }[] = [
+  { id: 1, city: 'rustValley', beats: CHAPTER_1 },
+  { id: 2, city: 'motorCity', beats: CHAPTER_2 },
+];
+
+export function chapterOf(id: StoryBeatId): ChapterId {
+  return (CHAPTER_2 as readonly string[]).includes(id) ? 2 : 1;
+}
 
 export interface Story {
   /** Beats already shown, in the order they were shown. */
@@ -32,14 +45,15 @@ export function storySeen(state: Pick<GameState, 'story'>, id: StoryBeatId): boo
   return state.story.seen.includes(id);
 }
 
-/** Vince is in the story once he has visited the yard. */
+/** Vince is in the story once he has visited the yard (or greeted you in Motor City). */
 export function vinceMet(state: Pick<GameState, 'story'>): boolean {
-  return storySeen(state, 'vinceVisit');
+  return storySeen(state, 'vinceVisit') || storySeen(state, 'vinceCity');
 }
 
-/** Whether a beat's moment has come (ignores order and the gap). Chapter 1 plays in Rust Valley only. */
+/** Whether a beat's moment has come (ignores order and the gap). Each chapter plays in its own city only. */
 export function beatReady(state: GameState, id: StoryBeatId): boolean {
-  if (currentCity(state) !== 'rustValley') return false;
+  if (currentCity(state) !== CHAPTERS[chapterOf(id) - 1]!.city) return false;
+  const opened = state.businesses.opened;
   switch (id) {
     case 'vinceVisit':
       return state.carsSold >= ECON.story.vinceVisitSales;
@@ -51,6 +65,16 @@ export function beatReady(state: GameState, id: StoryBeatId): boolean {
       return vinceMet(state) && state.businesses.opened.paint === true;
     case 'chapter1End':
       return canSellEmpire(state);
+    case 'vinceCity':
+      return state.carsSold >= ECON.story.cityArrivalSales;
+    case 'vinceMidtown':
+      return storySeen(state, 'vinceCity') && opened.garage === true;
+    case 'vinceMall':
+      return storySeen(state, 'vinceCity') && opened.carlot === true;
+    case 'vinceNeon':
+      return storySeen(state, 'vinceCity') && opened.paint === true;
+    case 'chapter2End':
+      return storySeen(state, 'vinceCity') && canSellEmpire(state);
   }
 }
 
@@ -68,9 +92,14 @@ export function markBeatSeen(state: GameState, id: StoryBeatId): void {
   state.story.lastAt = state.stats.playSeconds;
 }
 
-/** All of chapter 1 has been shown. */
-export function chapterDone(state: Pick<GameState, 'story'>, chapter: 1 = 1): boolean {
-  return chapter === 1 && state.story.seen.includes('chapter1End');
+/** A chapter's last scene has been shown. */
+export function chapterDone(state: Pick<GameState, 'story'>, chapter: ChapterId = 1): boolean {
+  return state.story.seen.includes(chapter === 1 ? 'chapter1End' : 'chapter2End');
+}
+
+/** Vince's HQ stands on the Motor City map once he has greeted you there (P1.6b). */
+export function rivalHqShown(state: GameState): boolean {
+  return currentCity(state) === 'motorCity' && storySeen(state, 'vinceCity');
 }
 
 /**

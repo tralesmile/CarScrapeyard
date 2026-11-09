@@ -119,6 +119,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       when you can sell your empire (Vince leaves for Motor City). Right now Vince is only story and flavour: he never
       costs you money. Do you want him to be a real rival (e.g. bidding against you at the auction, a monthly sales
       race with a prize), or is light flavour better for a relaxing idle game? Are the scenes too long or too many?
+      New since run 32: **story chapter 2 in Motor City.** Vince greets you in his city, his gold Valvano Motors tower
+      stands on the Motor City map, and he gives up at the end of your first Motor City empire. The 📒 book has a new
+      Story page where you can read every scene again. The real-rival question above is still open.
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

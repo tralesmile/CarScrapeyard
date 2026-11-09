@@ -606,3 +606,22 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   flavour?" question went to NEEDS_FROM_YOU instead of being guessed.
 - **Plan detail lives in the Claude Docs plan:** `read` the project, then a `search` with `pattern` on the tab's root
   node (`kind: "search"`, not `query`) returns only the matching blocks: one call instead of paging the whole doc.
+
+## 2026-11-09 (run 32)
+
+- **A baseline check proves nothing about the start if I edit `src/` while it builds and runs unit tests.** I started
+  `npm run check` in the background and began editing story.ts during its build/vitest phase; the e2e served the
+  earlier build, but vitest may have read half-edited files. Next time: edit only docs and tests-to-be (in the
+  scratchpad) until the log shows the vitest summary, then edit `src/` freely while the e2e runs on the built `dist`.
+- **Replays inside an existing modal: expand inline, don't open a second modal.** `openStory` refuses while
+  `modalOpen` (the book is a modal), so the story log shows the scene's lines under its row (`storyLinesHtml`, shared
+  with the modal) instead of closing and reopening the book. Reuse the markup helper, not the modal.
+- **When a chapter's beats depend on a city, gate each beat by its chapter's city in one place.** `beatReady` now
+  looks up `CHAPTERS[chapterOf(id)].city` before the switch, so chapter 1 can never fire in Motor City and vice versa;
+  the old "chapter 1 plays in Rust Valley only" test had to change because Motor City now has its own scene due.
+- **Self-opening UI checklist applied (run 31 lesson):** before writing chapter 2 I grepped the e2e for every
+  `legacy.city = 'motorCity'` and Motor City flow; two contexts needed the new beats marked or tested.
+- **A grid `.modal-back` with `place-items: center` grows its column to the content's min-content.** A fifth book tab
+  (nowrap labels and counts) pushed the whole book past a 320 px screen; the existing "book fits an iPhone SE" e2e
+  caught it (`inView: false`). Every scrolling modal backdrop needs `grid-template-columns: minmax(0, 1fr)` as well as
+  the rows; also give nowrap tab text `overflow: hidden`.

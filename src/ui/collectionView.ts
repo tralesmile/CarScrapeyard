@@ -144,7 +144,7 @@ export function bookCard(state: Pick<GameState, 'collection'>, model: string): B
 }
 
 const PAGE_OF: Record<CollectionSet['kind'], BookPage> = { family: 'cars', brand: 'brands', classics: 'classics' };
-const PAGE_NAMES: Record<BookPage, string> = { cars: 'Car types', brands: 'Brands', classics: 'Classics' };
+const PAGE_NAMES: Record<BookPage, string> = { cars: 'Cars', brands: 'Brands', classics: 'Classics' };
 
 /** Everything the book screen shows for one page. */
 export function bookView(state: Pick<GameState, 'collection'>, page: BookPage): BookView {
