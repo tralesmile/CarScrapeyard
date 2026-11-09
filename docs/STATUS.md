@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 29; next run is run 30). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 30; next run is run 31). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -201,7 +201,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         Sim A/B: +1% made keeping never slower (no choice), +0.5% costs ~1 min in the first empire. Book Classics page
         shows the showcase line and kept cards on a gold plinth; Sell Empire preview lists it. e2e keep, repeat, book.
         Follow-up idea (not scheduled): draw the kept classics in the yard (a trophy shelf by the barn).
-- [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
+- [x] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
   - [x] P1.5a Daily core (run 29): `src/core/daily.ts`, `state.daily` (kept on a sale, save repair). A game day starts
         at 04:00 UTC (`gameDay`, never earlier than `lastSeen`); after 80 sales `refreshDaily` rolls 3 of 8 task kinds
         that are open (sell, haggle, buyers, crush, jobs, garage, lot, paint; hashed by day, game RNG untouched).
@@ -212,11 +212,23 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.5b Daily UI (run 29): Jobs tab: the 📅 Daily reward card (7-cell strip, claim, "Next in 5h 12m") and three
         task cards below the orders; Jobs tab dot; "DAILY TASKS!", "ALL DAILIES DONE!", "GIFT CAR!" banners; a toast when
         a new day starts while playing. e2e: unlock, claim, tomorrow wait, all-done bonus, a new day, the gift car.
-  - [ ] P1.5c Achievements (lifetime goals with a badge list; rewards wait for gems in P1.7, or cash for now).
-  - [ ] P1.5d Daily follow-ups: show the dailies outside the scrapyard (a HUD entry or the welcome-back popup), and
-        add gems to the rewards with P1.7.
+  - [x] P1.5c Achievements (run 30): `src/core/achievements.ts`, `ECON.achievements` (14 awards x 4 medals: Bronze,
+        Silver, Gold, Diamond = 56). Lifetime numbers are read directly (stats, the book, Legacy, calendar claims, yard
+        sales per family, all-time earnings); numbers a Sell Empire resets (garage jobs, lot sales, paint orders, barn
+        restorations) are followed by growth in `tick` (`state.achievements.tracked`; old saves backfill from the
+        current empire; `sellEmpire` tracks once more before the reset). A medal is claimed by hand for cash worth
+        3/6/12/24 average yard cars (sim A/B: 12 medals in 30 min, the first sale 1-2% sooner; 5/10/20/40 moved it 3-4%).
+        UI: an Awards tab in the 📒 book (`src/ui/awardsView.ts`: claimable first, medal row, progress bar, claim
+        button), the book opens on Awards when a medal waits and no car is new, 📒 dot, "🥉 Crusher: Bronze medal!" toast.
+        Gems replace part of the cash with P1.7.
+  - [x] P1.5d Daily follow-ups (run 30): the welcome-back popup lists what waits (today's calendar reward, finished
+        tasks, the all-done bonus, medals; `waitingLines` in dailyView.ts; a new day is rolled before the popup), and a
+        daily task finished in the garage, lot or paint shop shows a toast pointing to the scrapyard's Jobs board.
+        Gems in the daily rewards moved to P1.7. Also: the popup scrolls on short phones (`cls: 'welcome'`), e2e at 320x568.
+  - [ ] P1.5e Idea (not scheduled): a HUD shortcut to the Jobs board from the other businesses, if playtests show the
+        toast is missed.
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
-- [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub
+- [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
 - [ ] P1.8 Music layers per business; volume settings
 - [ ] P1.9 i18n string files (English first)
 - [ ] P1.10 PWA: manifest, icons, service worker, offline play

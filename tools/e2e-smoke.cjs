@@ -321,9 +321,54 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.book-tabs [data-page="classics"]');
     const classicCards = await page.$$eval('.book-set .book-card', (cs) => cs.length);
     assert(classicCards === 16, `the Classics page lists the 16 barn classics (${classicCards})`);
-    await page.click('.book .modal .buy');
+    await page.click('.book .book-done');
     await page.waitForSelector('.book .modal', { state: 'detached' });
-    assert(!(await page.isVisible('.book-btn .dot.on')), 'the red dot clears after the visit');
+
+    console.log('achievements (P1.5c)');
+    // A first Legendary find reaches the Lucky Find bronze medal: a toast, a dot on 📒, a claim on the Awards page.
+    await page.evaluate(() => {
+      window.__jye.state.stats.legendaryFound = Math.max(1, window.__jye.state.stats.legendaryFound);
+    });
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => /medal/.test(t.textContent)), null, { timeout: 5000 });
+    const medalToastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /medal/.test(t)));
+    assert(/Lucky Find: Bronze medal!|new medals!/.test(medalToastText), `a new medal shows a toast (${medalToastText})`);
+    assert(await page.isVisible('.book-btn .dot.on'), 'the 📒 button shows a dot while a medal waits');
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal .award');
+    const awardsUi = await page.evaluate(() => ({
+      tab: document.querySelector('.book-tabs [data-page="awards"]')?.classList.contains('on'),
+      head: document.querySelector('.book-head b').textContent,
+      rows: document.querySelectorAll('.award').length,
+      first: document.querySelector('.award')?.classList.contains('ready'),
+      lucky: document.querySelector('.award[data-award="legendary"]')?.textContent ?? '',
+      claim: document.querySelector('.award[data-award="legendary"] .award-claim')?.textContent ?? '',
+      cash: window.__jye.state.cash,
+    }));
+    assert(awardsUi.tab, 'with a medal to claim and no new cars the book opens on Awards');
+    assert(/^🏅 \d+\/56 medals$/.test(awardsUi.head) && awardsUi.rows === 14, `the Awards page lists 14 awards (${awardsUi.head}, ${awardsUi.rows})`);
+    assert(awardsUi.first && /Lucky Find/.test(awardsUi.lucky) && /Find Legendary cars: \d+ \/ 10/.test(awardsUi.lucky), `ready awards come first with their progress (${awardsUi.lucky})`);
+    assert(/^🥉 Claim \$/.test(awardsUi.claim), `the claim button names the medal and the cash (${awardsUi.claim})`);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03d-awards.png') });
+    await page.click('.award[data-award="legendary"] .award-claim');
+    const afterClaim = await page.evaluate(() => ({
+      claimed: window.__jye.state.achievements.claimed.legendary,
+      cash: window.__jye.state.cash,
+      medal: document.querySelector('.award[data-award="legendary"] .medal')?.className ?? '',
+      button: !!document.querySelector('.award[data-award="legendary"] .award-claim'),
+    }));
+    assert(afterClaim.claimed === 1 && afterClaim.cash > awardsUi.cash && /claimed/.test(afterClaim.medal) && !afterClaim.button, `claiming pays once and marks the medal (${JSON.stringify(afterClaim)})`);
+    // Claim whatever else is waiting, so the dot clears.
+    for (let i = 0; i < 60 && (await page.$('.award-claim')); i++) await page.click('.award-claim');
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+    await page.waitForTimeout(300);
+    assert(!(await page.isVisible('.book-btn .dot.on')), 'the 📒 dot clears once every medal is claimed');
+    const savedAwards = await page.evaluate(() => {
+      window.__jye.saveNow();
+      return window.__jye.state.achievements.claimed.legendary;
+    });
+    assert(savedAwards === 1, 'claimed medals are in the save');
 
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
@@ -609,7 +654,7 @@ async function waitForServer(url, ms = 15000) {
     }), keepModel);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-12c-book-showcase.png') });
     assert(/Showcase 1\/16 · \+0\.5% all income/.test(shelf.line) && /In your showcase/.test(shelf.card), `the book shows the showcase (${shelf.line} | ${shelf.card})`);
-    await page.click('.book .modal .buy');
+    await page.click('.book .book-done');
     await page.waitForSelector('.book .modal', { state: 'detached' });
 
     console.log('daily tasks and calendar (P1.5)');
@@ -771,6 +816,17 @@ async function waitForServer(url, ms = 15000) {
     assert(tabs.join(',') === 'Garage,Crew', `the panel shows the garage's tabs (${tabs.join(', ')})`);
     const yardCtl = await page.evaluate(() => ['.sell', '.crush', '.buyer', '.haggle'].filter((q) => !document.querySelector(q).classList.contains('hidden')));
     assert(yardCtl.length === 0, `the yard controls are hidden in the garage (${yardCtl.join(', ') || 'none shown'})`);
+    // P1.5d: a daily task that finishes while the garage is on screen points back to the Jobs board.
+    const doneKind = await page.evaluate(() => {
+      const t = window.__jye.state.daily.tasks.find((x) => x.progress < x.target && !x.claimed);
+      if (t) t.progress = t.target;
+      return t ? t.kind : null;
+    });
+    if (doneKind) {
+      await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => /Daily task done/.test(t.textContent)), null, { timeout: 3000 });
+      const dailyToast = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /Daily task done/.test(t)));
+      assert(/Claim it on the scrapyard's Jobs board/.test(dailyToast), `a daily task done in the garage shows a toast (${dailyToast})`);
+    } else console.log('  (skip) no open daily task to finish in the garage');
     await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
     // P1.1f: the customer says what's wrong in a speech bubble; the fault bubble pops up after it.
     // Catch the speech bubble and hold it (it lasts 1.8 s; the checks and the screenshot take longer).
@@ -1414,6 +1470,9 @@ async function waitForServer(url, ms = 15000) {
       const s = window.__jye.state;
       s.lastSeen = Date.now() - 3600 * 1000;
       s.parts = 0; // the Scrapper refills the bin while away
+      // Something waits to be claimed (P1.5d): today's calendar reward and a medal.
+      s.daily.claimedDay = s.daily.day - 1;
+      s.stats.legendaryFound = Math.max(s.stats.legendaryFound, 10);
     });
     await page.evaluate(() => {
       // Write the save directly without touching lastSeen.
@@ -1441,7 +1500,27 @@ async function waitForServer(url, ms = 15000) {
     assert(/lot crew bought, polished and sold cars: \$/.test(lotLine), `the welcome-back popup shows the lot's earnings (${lotLine.trim()})`);
     const paintLine = (await page.textContent('.modal .offline-paint').catch(() => '')) || '';
     assert(/Painter finished paint and tuning orders: \$/.test(paintLine), `the welcome-back popup shows the paint shop's earnings (${paintLine.trim()})`);
+    const waitingLines = await page.$$eval('.modal .offline-waiting', (ps) => ps.map((p) => p.textContent));
+    assert(
+      waitingLines.some((l) => /📅 Daily: today's reward/.test(l)) && waitingLines.some((l) => /🏅 \d+ medals? to claim/.test(l)),
+      `the welcome-back popup says what waits to be claimed (${waitingLines.join(' | ')})`,
+    );
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
+    // The popup grew (P1.5d): on an iPhone SE it must still fit, scrolling inside, with Collect reachable.
+    const fullView = page.viewportSize();
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.waitForTimeout(300);
+    const seFit = await page.evaluate(() => {
+      const m = document.querySelector('.modal-back.welcome .modal');
+      m.scrollTop = m.scrollHeight;
+      const r = m.getBoundingClientRect();
+      const b = m.querySelector('.buy').getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), btnBottom: Math.round(b.bottom), h: innerHeight };
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-04b-offline-se.png') });
+    assert(seFit.top >= 0 && seFit.bottom <= seFit.h && seFit.btnBottom <= seFit.bottom + 1, `the welcome-back popup fits an iPhone SE (${JSON.stringify(seFit)})`);
+    await page.setViewportSize(fullView);
+    await page.waitForTimeout(300);
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');
     const cashAfter = await page.evaluate(() => window.__jye.state.cash);
@@ -2015,7 +2094,7 @@ async function waitForServer(url, ms = 15000) {
       await np.screenshot({ path: path.join(SHOTS, 'e2e-24b-book-320.png') });
       const fit = await np.evaluate(() => {
         const m = document.querySelector('.book .modal').getBoundingClientRect();
-        const done = document.querySelector('.book .modal .buy').getBoundingClientRect();
+        const done = document.querySelector('.book .book-done').getBoundingClientRect();
         const cards = [...document.querySelectorAll('.book-set')[0].querySelectorAll('.book-card')].map((c) => c.getBoundingClientRect());
         const cols = new Set(cards.map((c) => Math.round(c.left))).size;
         const list = document.querySelector('.book-sets');

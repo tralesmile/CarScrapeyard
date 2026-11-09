@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.30.0 - 2026-11-09 (run 30)
+
+- **Achievements (P1.5c):** 14 lifetime awards with four medals each (🥉 Bronze, 🥈 Silver, 🥇 Gold, 💎 Diamond): sell
+  yard cars, earn in total, crush cars, perfect haggles, serve buyers, finish orders, find Legendary cars, restore barn
+  classics, garage repairs, lot sales, paint orders, cars in the book, empires sold and daily rewards claimed. They
+  count across every empire you build. A new medal shows a toast and a dot on 📒; the book has a new Awards tab
+  (claimable awards first, a medal row and a progress bar to the next medal each) where you claim it for cash worth
+  3-24 average yard cars. The book opens on Awards when a medal waits and no car is new.
+- **Dailies outside the scrapyard (P1.5d):** the welcome-back popup now says what waits for you (today's calendar
+  reward, finished daily tasks, the all-done bonus, medals to claim), and a daily task you finish in the garage, the
+  lot or the paint shop shows a toast pointing to the scrapyard's Jobs board.
+- **Fix: a long welcome-back popup on short phones.** With every business, a perk and the new waiting lines the popup
+  could grow past an iPhone SE's screen and push Collect off it; it now scrolls inside (tighter lines under 600 px).
+- Tests: 14 achievement tests (`achievements.test.ts`: definitions, direct and followed numbers through a reset, claim
+  order and rewards, Legacy scaling, kept on a sale including the last moments, save round-trip, old-save backfill,
+  repair, page view and toast texts), 1 daily test (popup lines and the toast) and a balance A/B (claiming every medal
+  moves the first sale by 0.97-1.0x). e2e: medal toast, 📒 dot, Awards page, claim, dot clears, saved (e2e-03d); the
+  welcome-back popup's waiting lines (e2e-04); the daily toast in the garage.
+
 ## 0.29.0 - 2026-11-09 (run 29)
 
 - **Showcase (P1.4c):** a restored barn classic no longer has to be sold. The reveal now offers "🏆 Keep it (+0.5%

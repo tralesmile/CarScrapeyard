@@ -261,3 +261,27 @@ describe('daily texts (P1.5b)', () => {
     expect(cells.map((c) => c.state).slice(0, 2)).toEqual(['claimed', 'next']);
   });
 });
+
+describe('dailies outside the scrapyard (P1.5d)', () => {
+  it('the welcome-back popup lists what waits: calendar, finished tasks, bonus and medals', async () => {
+    const { waitingLines, taskDoneToast } = await import('../src/ui/dailyView');
+    const locked = newGame(NOON, 1);
+    expect(waitingLines(locked)).toEqual([]);
+    const s = open();
+    expect(waitingLines(s)).toEqual(["📅 Daily: today's reward on the scrapyard's Jobs board"]);
+    claimCalendar(s);
+    expect(waitingLines(s)).toEqual([]);
+    s.daily.tasks[0]!.progress = s.daily.tasks[0]!.target;
+    s.daily.tasks[1]!.progress = s.daily.tasks[1]!.target;
+    expect(waitingLines(s)[0]).toBe("📅 Daily: 2 finished tasks on the scrapyard's Jobs board");
+    for (const t of s.daily.tasks) t.progress = t.target;
+    claimTask(s, 0);
+    claimTask(s, 1);
+    claimTask(s, 2);
+    expect(waitingLines(s)[0]).toBe("📅 Daily: the all-done bonus on the scrapyard's Jobs board");
+    claimBonus(s);
+    s.stats.carsCrushed = 10;
+    expect(waitingLines(s)).toEqual(['🏅 1 medal to claim in the 📒 book']);
+    expect(taskDoneToast('garage', 25)).toBe("📅 Daily task done: 🔧 Fix 25 cars in the garage. Claim it on the scrapyard's Jobs board");
+  });
+});

@@ -265,6 +265,11 @@ setInterval(() => {
 // ---- offline earnings -----------------------------------------------------
 function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint = 0) {
   if (state.pendingOffline <= 0) return;
+  // A new day may have started while away: roll it first, so the popup can say what waits (P1.5d).
+  if (refreshDaily(state, platform.now())) {
+    dirty = true;
+    ui.rebuildCards();
+  }
   ui.offlineModal(
     seconds,
     state.pendingOffline,

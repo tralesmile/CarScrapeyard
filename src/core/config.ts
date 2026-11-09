@@ -216,6 +216,32 @@ export const ECON = {
     giftRarity: 'epic' as Rarity,
   },
 
+  /**
+   * Achievements (P1.5c): lifetime goals with four medal tiers each, kept across Sell Empire. Every tier pays cash
+   * worth `rewardCars[tier]` average yard cars at claim time (gems replace part of it with P1.7).
+   */
+  achievements: {
+    medals: ['Bronze', 'Silver', 'Gold', 'Diamond'],
+    medalIcons: ['🥉', '🥈', '🥇', '💎'],
+    rewardCars: [3, 6, 12, 24],
+    list: {
+      sold: { name: 'Wheeler Dealer', icon: '🚗', goal: 'Sell yard cars', tiers: [25, 250, 2500, 25_000] },
+      earned: { name: 'Money Maker', icon: '💰', goal: 'Earn in total', tiers: [100_000, 10_000_000, 1e9, 1e11] },
+      crush: { name: 'Crusher', icon: '🔨', goal: 'Crush cars', tiers: [10, 100, 1000, 5000] },
+      haggle: { name: 'Silver Tongue', icon: '🎯', goal: 'Perfect haggles', tiers: [5, 50, 250, 1000] },
+      buyer: { name: 'People Person', icon: '🤝', goal: 'Serve buyers', tiers: [10, 100, 1000, 5000] },
+      contract: { name: 'Order Up', icon: '📋', goal: 'Finish orders', tiers: [5, 50, 250, 1000] },
+      legendary: { name: 'Lucky Find', icon: '✨', goal: 'Find Legendary cars', tiers: [1, 10, 50, 200] },
+      barn: { name: 'Barn Stormer', icon: '🏚', goal: 'Restore barn classics', tiers: [1, 5, 20, 50] },
+      garage: { name: 'Grease Monkey', icon: '🔧', goal: 'Garage repairs', tiers: [50, 500, 5000, 25_000] },
+      lot: { name: 'Lot Boss', icon: '🏷', goal: 'Sell lot cars', tiers: [10, 100, 1000, 5000] },
+      paint: { name: 'Spray King', icon: '🎨', goal: 'Paint shop orders', tiers: [25, 250, 2500, 10_000] },
+      book: { name: 'Collector', icon: '📒', goal: 'Cars in the book', tiers: [8, 16, 32, 48] },
+      empire: { name: 'Tycoon', icon: '🏛', goal: 'Sell your empire', tiers: [1, 3, 10, 25] },
+      days: { name: 'Regular', icon: '📅', goal: 'Daily rewards claimed', tiers: [3, 7, 30, 100] },
+    },
+  },
+
   /** Haggle: timing slider on big manual sales. A needle sweeps the bar; the centre pays most. */
   haggle: {
     min: 0.9,

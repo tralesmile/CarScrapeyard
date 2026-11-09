@@ -27,6 +27,7 @@ import { barnStageCost, barnUnlocked, canKeepBarnCar, keepBarnCar, nextBarnStage
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
+import { awardsToClaim, claimAward, medalCount } from '../src/core/achievements';
 import { canSellEmpire, legacyMultiplier, showcaseMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
 import { buyNode, spentPoints } from '../src/core/legacyTree';
 import { canOpenBusiness, openBusiness, switchBusiness, unlockGoal } from '../src/core/businesses';
@@ -59,6 +60,8 @@ interface BotProfile {
   tuneLotCars?: boolean;
   /** Keep each new barn classic for the showcase instead of selling it (P1.4c); repeats are sold. */
   keepClassics?: boolean;
+  /** Claim every reached achievement medal as soon as it is reached (P1.5c). */
+  claimAwards?: boolean;
 }
 
 const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5, haggle: 1.2 };
@@ -174,6 +177,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameSta
   let barnCash = 0;
   let scrapperCrushes = 0;
   let lotTunes = 0;
+  let awardCash = 0;
   for (let t = 0; t < seconds; t += dt) {
     for (const e of tick(s, dt)) if (e.type === 'crushed' && e.auto) scrapperCrushes++;
     // In the garage (once the yard runs on its own) the bot taps customer cars instead of working the yard.
@@ -281,6 +285,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameSta
         if (profile.keepClassics && canKeepBarnCar(s)) keepBarnCar(s);
         else barnCash += sellBarnCar(s);
       }
+      if (profile.claimAwards) for (const id of awardsToClaim(s)) awardCash += claimAward(s, id)?.cash ?? 0;
       earlyUpgrades(s);
       spendSmart(s);
     }
@@ -301,7 +306,7 @@ function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameSta
       if (stopAtOffer) break;
     }
   }
-  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes, lotTunes };
+  return { s, marks, contractCash, contractsClaimed, extraCash, barnCash, scrapperCrushes, lotTunes, awardCash };
 }
 
 describe('opening pacing', () => {
@@ -573,6 +578,41 @@ describe('Showcase (P1.4c)', () => {
         expect(b / a).toBeGreaterThan(0.98);
       }
       console.log(['--- Showcase: keep vs sell barn classics (first empire) ---', ...rows].join('\n'));
+    } finally {
+      list.paint!.ready = was;
+    }
+  }, 180_000);
+});
+
+describe('Achievements (P1.5c)', () => {
+  it('medal rewards are a small thank-you, not a new income', () => {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      const rows: string[] = [];
+      for (const seed of [12345, 7]) {
+        const base = run(ACTIVE, 6 * 3600, seed, undefined, true);
+        const claim = run({ ...ACTIVE, name: 'active+awards', claimAwards: true }, 6 * 3600, seed, undefined, true);
+        const a = base.marks.legacy!;
+        const b = claim.marks.legacy!;
+        const share = claim.awardCash / claim.s.lifetimeEarnings;
+        const early = run({ ...ACTIVE, claimAwards: true }, 1800, seed);
+        rows.push(
+          `seed ${seed}: sale offered ${formatDuration(a)} without claims vs ${formatDuration(b)} claiming ` +
+            `(${medalCount(claim.s).have} medals, ${formatCash(claim.awardCash)} = ${(share * 100).toFixed(2)}% of earnings; ` +
+            `first 30 min: ${medalCount(early.s).have} medals, ${((early.awardCash / early.s.lifetimeEarnings) * 100).toFixed(1)}%)`,
+        );
+        // A handful of medals land in the first half hour (something to claim early on)...
+        expect(medalCount(early.s).have).toBeGreaterThanOrEqual(4);
+        // ...but they stay a bonus: under 6% of early earnings and the first sale moves by less than 3% (run 30: 5/10/20/40
+        // cars per medal moved it by 3-4%, now 3/6/12/24: 1-2%).
+        expect(early.awardCash / early.s.lifetimeEarnings).toBeLessThan(0.06);
+        expect(share).toBeLessThan(0.02);
+        expect(b / a).toBeGreaterThan(0.97);
+        expect(b / a).toBeLessThanOrEqual(1);
+      }
+      console.log(['--- Achievements: claiming medals vs not (first empire) ---', ...rows].join('\n'));
     } finally {
       list.paint!.ready = was;
     }

@@ -183,6 +183,13 @@ to automate it, open new car businesses, then sell your empire and start again i
   floats "✓ Respray"; the paid order drives away with coins and a gold "⚡ Quick tip" note. The Painter (white overalls,
   goggles, respirator, spray gun) stands left of the car and sprays the oldest order. With 2-3 booths a thumbnail row
   shows each car and its current service. Tabs: Shop (Spray Booth, Hype, Extra Booth) and Crew (Painter).
+- **Achievements (P1.5c):** 14 lifetime awards with Bronze, Silver, Gold and Diamond medals (yard sales, total
+  earnings, crushes, perfect haggles, buyers served, orders, Legendary finds, barn restorations, garage repairs, lot
+  sales, paint orders, book entries, empires sold, daily rewards). They count across every empire. A new medal shows a
+  toast ("🥉 Crusher: Bronze medal! Claim it in the 📒 book") and a dot on 📒; the book's Awards tab lists claimable
+  awards first, each with its four medals (grey until reached, bobbing when ready) and a bar to the next one. Claiming
+  pays cash worth a few average yard cars (gems later). The welcome-back popup lists medals and dailies waiting, and a
+  daily task finished in another business shows a toast pointing to the scrapyard's Jobs board (P1.5d).
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

@@ -402,3 +402,38 @@ At +1% keeping was never slower even in the first empire, so it was not a choice
 ($34.7M of barn sales over 16 restorations) for +5% in every later empire. Balance test: keeping moves the first
 sale by 0.98-1.05x.
 
+
+## Achievements (P1.5c, run 30)
+
+All numbers in `ECON.achievements`. 14 awards x 4 medals; a medal pays `carsWorth(rewardCars[tier])` at claim time
+(the same "N average yard cars" as the dailies, so it scales with Legacy and the city).
+
+| Award | Bronze / Silver / Gold / Diamond |
+| --- | --- |
+| Sell yard cars | 25 / 250 / 2,500 / 25,000 |
+| Earn in total (all empires) | $100K / $10M / $1B / $100B |
+| Crush cars | 10 / 100 / 1,000 / 5,000 |
+| Perfect haggles | 5 / 50 / 250 / 1,000 |
+| Serve buyers | 10 / 100 / 1,000 / 5,000 |
+| Finish orders | 5 / 50 / 250 / 1,000 |
+| Find Legendary cars | 1 / 10 / 50 / 200 |
+| Restore barn classics | 1 / 5 / 20 / 50 |
+| Garage repairs | 50 / 500 / 5,000 / 25,000 |
+| Sell lot cars | 10 / 100 / 1,000 / 5,000 |
+| Paint shop orders | 25 / 250 / 2,500 / 10,000 |
+| Cars in the book | 8 / 16 / 32 / 48 |
+| Sell your empire | 1 / 3 / 10 / 25 |
+| Daily rewards claimed | 3 / 7 / 30 / 100 |
+
+Reward per medal (cars): A/B with an active bot that claims every medal at once vs one that never claims, first empire,
+sale offered at (seed 12345 / 7):
+
+| rewardCars | Without | Claiming | Medals by the offer | Share of earnings | First 30 min |
+| --- | --- | --- | --- | --- | --- |
+| 5/10/20/40 (draft) | 3h27m / 3h29m | 3h21m / 3h20m | 26 | 0.43% | 12 medals, 4.7% |
+| **3/6/12/24** | 3h27m / 3h29m | 3h25m / 3h25m | 26 | 0.24% | 12-13 medals, 3.4-4.8% |
+| 2/4/8/16 | 3h27m / 3h29m | 3h23m / 3h29m | 26 | 0.17% | 11-12 medals, 2.4% |
+
+The early medals land when income is small, so they compound: the draft moved the first sale 3-4%. 3/6/12/24 keeps
+it at 1-2% while a new player still sees a dozen medals in the first half hour. Balance test: claiming moves the first
+sale by 0.97-1.0x, under 2% of earnings in total and under 6% in the first 30 minutes.

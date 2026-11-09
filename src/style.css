@@ -2164,3 +2164,127 @@ body {
     height: 8px;
   }
 }
+
+/* Achievements page in the book (P1.5c): one row per award with its four medals and a claim button. */
+.award {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  padding: 8px;
+  color: #3d3024;
+}
+
+.award.ready {
+  border-color: var(--rust);
+  background: linear-gradient(180deg, #fff1e3, #fff 70%);
+}
+
+.award.complete {
+  background: linear-gradient(180deg, #fff4d1, #fffaf0 60%);
+  border-color: #e0a800;
+}
+
+.award-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f6efe3;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+}
+
+.award-body {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+}
+
+.award-body b {
+  font-size: 14px;
+}
+
+.award-body small {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #7a6a58;
+  overflow-wrap: anywhere;
+}
+
+.award-body .book-bar {
+  width: 100%;
+}
+
+.award-medals {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.medal {
+  font-style: normal;
+}
+
+.medal.locked {
+  filter: grayscale(1);
+  opacity: 0.3;
+}
+
+.medal.ready {
+  animation: medal-bob 0.9s ease-in-out infinite alternate;
+  display: inline-block;
+}
+
+@keyframes medal-bob {
+  to {
+    transform: translateY(-2px) scale(1.12);
+  }
+}
+
+.modal .award-claim {
+  flex-basis: 100%;
+  width: auto;
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  font-size: 15px;
+}
+
+.reduce-motion .medal.ready {
+  animation: none;
+}
+
+/* Welcome-back popup (P1.5d): what waits to be claimed, a little quieter than the earnings lines. */
+.offline-waiting {
+  margin: 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a5a1c;
+}
+
+/* The welcome-back popup can list many lines (businesses, perks, what waits): on short phones it scrolls so Collect
+   always stays on screen. The grid row must be the screen's height for max-height: 100% to limit (see legacy-tree). */
+.modal-back.welcome {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.welcome .modal {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 600px) {
+  .welcome .modal p {
+    margin: 6px 0;
+    font-size: 14px;
+  }
+}

@@ -563,3 +563,25 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **`git pull --rebase` drops the "merge origin/main into dev" commit.** The rebase linearised my commits onto
   origin/dev and the merge of the owner's PR merge commit vanished, so dev was "behind main" again. After rebasing,
   check `git log origin/dev..origin/main`; if it is not empty, merge origin/main again and push without rebasing.
+
+## 2026-11-09 (run 30)
+
+- **This machine has 2 cores: the background e2e owns them.** `nproc` said 2 and the load was 2.7 while the baseline
+  e2e ran, so I wrote code, tests and e2e steps without running anything heavier than one vitest file
+  (`--maxWorkers=1`, under a second) until it reported EXIT. Check `nproc` at the start of a run before deciding what
+  can run in parallel.
+- **Early rewards compound: A/B any new payout against the first Sell Empire, not only its share of earnings.** The
+  medal draft paid only 0.43% of a run's earnings, yet moved the first sale 3-4% sooner because a dozen medals land in
+  the first half hour when income is small. Measure "time to the offer, with vs without" (`stopAtOffer`, ~5 s).
+- **vitest hides `console.log` of passing tests in the default reporter.** My tuning loop printed nothing until I added
+  `--reporter=verbose` (what `npm run sim` uses). Use it whenever a test prints a timeline.
+- **A second `.buy` button inside a modal breaks `.modal .buy` selectors.** The Awards page puts claim buttons (class
+  `buy`) above the book's Done button, so the e2e's `.book .modal .buy` would have clicked a claim. Give the closing
+  button its own class (`book-done`) and grep the e2e for the old selector when adding buttons to an existing modal.
+- **Followed counters need one last look before a reset.** Achievements follow garage/lot/paint/barn counters by their
+  growth after each tick; a sale made by an action between ticks would have dropped that growth, so `sellEmpire` calls
+  `trackAchievements` first (unit-tested with a counter bumped after the last tick).
+- **Adding lines to a shared popup: re-check it on the smallest phone.** The welcome-back popup had no scroll and the
+  e2e screenshot on an iPhone 13 already filled the screen once the waiting lines were in; on 320x568 Collect would
+  have been off screen. Any modal that grows with game state gets `max-height: 100%` + scroll (and the backdrop's
+  `grid-template-rows: minmax(0, 1fr)`) and an SE-size e2e assertion.

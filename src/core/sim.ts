@@ -36,6 +36,7 @@ import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
 import { trackDaily } from './daily';
+import { trackAchievements } from './achievements';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
@@ -257,6 +258,7 @@ export function tick(state: GameState, dt: number): GameEvent[] {
     remaining -= s;
   }
   trackDaily(state);
+  trackAchievements(state);
   return events;
 }
 

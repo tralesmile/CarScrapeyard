@@ -2,6 +2,7 @@
 // come from the square root of everything ever earned (all sold empires plus this run), so each restart rewards more
 // play with diminishing returns. Each point adds 2% to all income, forever. Pure rules; the UI is P1.3b.
 
+import { trackAchievements } from './achievements';
 import { ECON, type CityId } from './config';
 import { newGame, type GameState, type Legacy } from './state';
 import { hasNode, sanitizeTree } from './legacyTree';
@@ -81,7 +82,7 @@ export interface SoldEmpire {
 
 /**
  * Sell the empire: bank its points and start a fresh scrapyard (cash, upgrades, crew, cars, every business and the
- * barn reset). Kept: Legacy Points, settings, tutorial flags, the collection book, lifetime stats, the clock and the
+ * barn reset). Kept: Legacy Points, settings, tutorial flags, the collection book, lifetime stats, dailies, achievements, the clock and the
  * RNG stream. Offline cash waiting to be collected is paid in first, so it counts. Mutates `state` in place.
  * `city` picks where the new empire is built (default: the biggest city open on this sale).
  * Returns null (and changes nothing) when the sale isn't allowed yet or the city isn't open on this sale.
@@ -91,6 +92,8 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
   if (!citiesForNextEmpire(state).includes(city)) return null;
   state.lifetimeEarnings += Math.max(0, state.pendingOffline);
   state.pendingOffline = 0;
+  // Count what the businesses did since the last tick before their counters reset.
+  trackAchievements(state);
   const points = pendingLegacyPoints(state);
   const earned = state.lifetimeEarnings;
   const seconds = state.legacy.runSeconds;
@@ -106,6 +109,10 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
   };
   fresh.stats = { ...state.stats };
   fresh.daily = { ...state.daily, tasks: state.daily.tasks.map((t) => ({ ...t })) };
+  fresh.achievements = {
+    tracked: Object.fromEntries(Object.entries(state.achievements.tracked).map(([k, t]) => [k, { total: t.total, last: 0 }])) as GameState['achievements']['tracked'],
+    claimed: { ...state.achievements.claimed },
+  };
   fresh.legacy = {
     points: state.legacy.points + points,
     allTime: state.legacy.allTime + earned,

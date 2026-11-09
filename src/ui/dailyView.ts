@@ -1,7 +1,8 @@
 // Daily tasks and login calendar texts (P1.5b). Pure: no DOM.
 
 import { ECON } from '../core/config';
-import { calendarIndex, canClaimCalendar, type DailyKind } from '../core/daily';
+import { calendarIndex, canClaimBonus, canClaimCalendar, dailyUnlocked, taskDone, type DailyKind } from '../core/daily';
+import { awardsToClaim } from '../core/achievements';
 import { formatDuration } from '../core/format';
 import type { GameState } from '../core/state';
 
@@ -53,4 +54,26 @@ export function calendarCells(state: GameState): CalendarCell[] {
     gift: 'gift' in c && c.gift === true,
     state: i < idx ? 'claimed' : i === idx ? (open ? 'today' : 'next') : 'later',
   }));
+}
+
+/**
+ * What waits to be claimed, for the welcome-back popup (P1.5d): today's calendar reward and finished daily tasks (on
+ * the scrapyard's Jobs board) and medals (in the book). Empty when nothing waits.
+ */
+export function waitingLines(state: GameState): string[] {
+  const out: string[] = [];
+  if (dailyUnlocked(state)) {
+    const ready = state.daily.tasks.filter((t) => !t.claimed && taskDone(t)).length;
+    const cal = canClaimCalendar(state);
+    const bits = [cal ? "today's reward" : '', ready > 0 ? `${ready} finished task${ready === 1 ? '' : 's'}` : '', canClaimBonus(state) ? 'the all-done bonus' : ''].filter(Boolean);
+    if (bits.length) out.push(`📅 Daily: ${bits.join(' and ')} on the scrapyard's Jobs board`);
+  }
+  const medals = awardsToClaim(state).length;
+  if (medals > 0) out.push(`🏅 ${medals} medal${medals === 1 ? '' : 's'} to claim in the 📒 book`);
+  return out;
+}
+
+/** Toast when a daily task finishes while another business is on screen (P1.5d). */
+export function taskDoneToast(kind: DailyKind, target: number): string {
+  return `📅 Daily task done: ${taskLabel(kind, target)}. Claim it on the scrapyard's Jobs board`;
 }

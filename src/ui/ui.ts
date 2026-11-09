@@ -3,6 +3,8 @@
 
 import { bookUnlocked, inShowcase, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
 import { bookView, pctText, showcaseLine, type BookPage } from './collectionView';
+import { awardsView, medalToast } from './awardsView';
+import { AWARD_IDS, awardsToClaim, claimAward, tiersReached, type AwardId } from '../core/achievements';
 import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
@@ -43,7 +45,7 @@ import {
   taskReward,
   type DailyReward,
 } from '../core/daily';
-import { calendarCells, resetText, taskLabel, waitText } from './dailyView';
+import { calendarCells, resetText, taskDoneToast, taskLabel, waitText, waitingLines } from './dailyView';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
@@ -151,7 +153,9 @@ export class Ui {
   private bookBtn!: HTMLButtonElement;
   /** The 📒 button was on at the last render (null before the first): a toast when it first appears in play. */
   private bookWasOn: boolean | null = null;
-  private bookPage: BookPage = 'cars';
+  private bookPage: BookPage | 'awards' = 'cars';
+  /** Medal tiers reached per award at the last render (null until the book opens up), for the "medal!" toast. */
+  private awardTiers: Record<AwardId, number> | null = null;
   /** The map banner was shown this session (it repeats each session until the map is opened). */
   private mapAnnounced = false;
   /** The "empire for sale" banner was shown this session (P1.3b). */
@@ -1339,8 +1343,10 @@ export class Ui {
     this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
     const bookOn = bookUnlocked(s);
     this.bookBtn.classList.toggle('hidden', !bookOn);
-    this.bookBtn.querySelector('.dot')!.classList.toggle('on', bookOn && unseenEntries(s).length > 0);
+    this.bookBtn.querySelector('.dot')!.classList.toggle('on', bookOn && (unseenEntries(s).length > 0 || awardsToClaim(s).length > 0));
     if (bookOn && this.bookWasOn === false) this.toast('📒 Collection book: tap 📒 to see every car you have sold', 4000);
+    if (bookOn) this.checkMedals(s);
+    this.checkDailyDone(s);
     this.bookWasOn = bookOn;
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);
@@ -1896,6 +1902,35 @@ export class Ui {
     header.classList.add('pulse');
   }
 
+  /** Daily tasks finished at the last render (day and kinds), for the toast outside the scrapyard (P1.5d). */
+  private dailyDoneKey: string | null = null;
+
+  /** A daily task that finishes while the garage, lot or paint shop is on screen gets a toast pointing home. */
+  private checkDailyDone(s: GameState) {
+    const done = s.daily.tasks.filter((t) => taskDone(t));
+    const key = `${s.daily.day}:${done.map((t) => t.kind).join(',')}`;
+    const before = this.dailyDoneKey;
+    this.dailyDoneKey = key;
+    if (before === null || before === key || s.businesses.active === 'scrapyard') return;
+    const [day, kinds] = before.split(':');
+    if (Number(day) !== s.daily.day) return;
+    const fresh = done.find((t) => !t.claimed && !(kinds ?? '').split(',').includes(t.kind));
+    if (fresh) this.toast(taskDoneToast(fresh.kind, fresh.target), 4000);
+  }
+
+  /** A medal reached since the last look shows a toast (achievements, P1.5c). The first look only takes a snapshot. */
+  private checkMedals(s: GameState) {
+    const now = {} as Record<AwardId, number>;
+    for (const id of AWARD_IDS) now[id] = tiersReached(s, id);
+    const before = this.awardTiers;
+    this.awardTiers = now;
+    if (!before) return;
+    const up = AWARD_IDS.filter((id) => now[id] > before[id] && now[id] > s.achievements.claimed[id]);
+    if (up.length === 0) return;
+    this.toast(up.length === 1 ? medalToast(s, up[0]!) : `🏅 ${up.length} new medals! Claim them in the 📒 book`, 4000);
+    sfx.bonus();
+  }
+
   /**
    * Collection book (P1.4b): three pages (car types, brands, barn classics), each a list of sets with their bonus and
    * a grid of model cards (silhouette until found, rarity badge, mastery stars and a bar to the next star). Opening
@@ -1918,7 +1953,9 @@ export class Ui {
     // Read the view before marking entries as seen, so this visit still shows what is new.
     const st = this.deps.state();
     const fresh = new Set(unseenEntries(st));
-    const freshPages = new Set(bookView(st, this.bookPage).pages.filter((p) => p.isNew).map((p) => p.id));
+    const freshPages = new Set(bookView(st, 'cars').pages.filter((p) => p.isNew).map((p) => p.id));
+    // A medal to claim and no new cars: open on the Awards page.
+    if (freshPages.size === 0 && awardsToClaim(st).length > 0) this.bookPage = 'awards';
     if (markBookSeen(st) > 0) this.deps.onChange();
     const close = () => {
       if (!back.isConnected) return;
@@ -1927,8 +1964,50 @@ export class Ui {
       this.render();
     };
     const paint = () => {
-      const v = bookView(this.deps.state(), this.bookPage);
-      header.innerHTML = `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      const s = this.deps.state();
+      const page = this.bookPage;
+      const v = bookView(s, page === 'awards' ? 'cars' : page);
+      const aw = awardsView(s);
+      header.innerHTML =
+        page === 'awards'
+          ? `<b>🏅 ${aw.header}</b><small>Medals count every empire you have built</small>`
+          : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      const awardTab = el('button', `tree-tab${page === 'awards' ? ' on' : ''}`, `<span>Awards</span><small>${aw.have}/${aw.of}</small>${aw.ready > 0 ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+      awardTab.setAttribute('role', 'tab');
+      awardTab.setAttribute('aria-selected', String(page === 'awards'));
+      awardTab.dataset.page = 'awards';
+      awardTab.onclick = () => {
+        this.bookPage = 'awards';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'awards') {
+        list.replaceChildren(
+          ...aw.cards.map((c) => {
+            const row = el('section', `award${c.claimable ? ' ready' : ''}${c.complete ? ' complete' : ''}`);
+            row.dataset.award = c.id;
+            const medals = c.medals.map((m, i) => `<i class="medal ${m}" title="${ECON.achievements.medals[i]}">${ECON.achievements.medalIcons[i]}</i>`).join('');
+            row.innerHTML =
+              `<span class="award-icon" aria-hidden="true">${c.icon}</span><div class="award-body"><b>${c.name}</b>` +
+              `<span class="award-medals" aria-label="${c.medals.filter((m) => m === 'claimed').length} of ${c.medals.length} medals">${medals}</span>` +
+              `<small>${c.line}</small><span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span></div>`;
+            if (c.claimable) {
+              const btn = el('button', 'buy award-claim', c.claimText) as HTMLButtonElement;
+              btn.onclick = () => {
+                const r = claimAward(this.deps.state(), c.id);
+                if (!r) return;
+                sfx.coin();
+                this.toast(`${ECON.achievements.medalIcons[r.tier]} ${ECON.achievements.list[c.id].name}: +${formatCash(r.cash)}`, 2500);
+                this.deps.onChange();
+                paint();
+              };
+              row.append(btn);
+            }
+            return row;
+          }),
+        );
+      }
       tabs.replaceChildren(
         ...v.pages.map((p) => {
           const isNew = freshPages.has(p.id) && p.id !== this.bookPage;
@@ -1945,7 +2024,9 @@ export class Ui {
           };
           return t;
         }),
+        awardTab,
       );
+      if (page === 'awards') return;
       list.replaceChildren(
         ...v.sets.map((set) => {
           const sec = el('section', `book-set${set.complete ? ' complete' : ''}`);
@@ -1981,7 +2062,7 @@ export class Ui {
       );
     };
     paint();
-    const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    const ok = el('button', 'buy book-done', 'Done') as HTMLButtonElement;
     ok.onclick = close;
     box.append(header, tabs, list, ok);
     back.append(box);
@@ -2151,12 +2232,17 @@ export class Ui {
     const away = awayText(this.deps.state(), seconds, offlineCap(this.deps.state()));
     const capLine = away.capped ? `<p class="offline-cap">${away.capped}</p>` : '';
     const perk = away.perk ? `<p class="offline-perk">${perkChipEl(away.perk).outerHTML} Night Shift: your crew works longer while you're away</p>` : '';
+    // What waits to be claimed (P1.5d); main.ts rolls a new day before opening the popup.
+    const waiting = waitingLines(this.deps.state())
+      .map((l) => `<p class="offline-waiting">${l}</p>`)
+      .join('');
     this.modal({
       title: 'Welcome back!',
-      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}`,
+      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}${waiting}`,
       big: formatCash(earned),
       button: 'Collect',
       onClose: onCollect,
+      cls: 'welcome',
     });
   }
 }

@@ -3,6 +3,7 @@ import { ECON } from './config';
 import type { NumberFormat } from './format';
 import { newBook, type BookEntry } from './collection';
 import type { Daily } from './daily';
+import { newAchievements, type Achievements } from './achievements';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
 export const SAVE_VERSION = 2;
@@ -293,6 +294,8 @@ export interface GameState {
   legacy: Legacy;
   /** Daily tasks and the login calendar (P1.5a, see daily.ts). Kept on a sale. */
   daily: Daily;
+  /** Achievements (P1.5c, see achievements.ts): lifetime totals and medals claimed. Kept on a sale. */
+  achievements: Achievements;
 }
 
 export interface Legacy {
@@ -418,5 +421,6 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),
     daily: { day: -1, tasks: [], bonusClaimed: false, claims: 0, claimedDay: -1, giftCars: 0 },
+    achievements: newAchievements(),
   };
 }
