@@ -284,6 +284,47 @@ async function waitForServer(url, ms = 15000) {
     assert(courier.sold === 1 && courier.best === 1, `the sale is in the book with its rarity (${JSON.stringify(courier)})`);
     await page.waitForTimeout(3200); // let the banner pass
 
+    console.log('collection book screen (P1.4b)');
+    const early = await page.evaluate(() => window.__jye.state.carsSold);
+    if (early <= 10) assert(!(await page.isVisible('.book-btn')), `the 📒 button waits for the quiet tutorial sales (${early} sold)`);
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.carsSold = Math.max(s.carsSold, 11);
+    });
+    await page.waitForSelector('.book-btn:not(.hidden)', { timeout: 3000 });
+    assert(await page.isVisible('.book-btn .dot.on'), 'the 📒 button shows a red dot for new entries');
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal .book-card');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03c-book.png') });
+    const bookUi = await page.evaluate(() => {
+      const van = document.querySelector('.book-set[data-set="family:van"]');
+      const courier = document.querySelector('.book-card[data-model="Stallion Courier"]');
+      const missing = document.querySelector('.book-card.missing');
+      return {
+        head: document.querySelector('.book-head').textContent,
+        sets: document.querySelectorAll('.book-set').length,
+        vanDone: van?.classList.contains('complete'),
+        vanGot: van?.querySelectorAll('.book-card.got').length,
+        courier: courier?.textContent,
+        courierImg: courier?.querySelector('img').src.slice(0, 21),
+        missing: missing?.textContent,
+        unseen: Object.values(window.__jye.state.collection.models).filter((e) => e.sold > 0 && !e.seen).length,
+      };
+    });
+    assert(/\d+\/48 cars · \d+\/13 sets complete/.test(bookUi.head) && bookUi.sets === 8, `the book opens on the car types page (${bookUi.head}, ${bookUi.sets} sets)`);
+    assert(bookUi.vanDone && bookUi.vanGot === 4, 'the completed Van set is highlighted with its four cars');
+    assert(/NEW/.test(bookUi.courier) && /Rare/.test(bookUi.courier) && /1 sold · 10 for/.test(bookUi.courier), `a new entry shows NEW, its best rarity and mastery progress (${bookUi.courier})`);
+    assert(bookUi.courierImg === 'data:image/png;base64', 'cards show a painted car thumbnail');
+    assert(/\?\?\?.*Not found yet/.test(bookUi.missing), `cars not found yet are silhouettes (${bookUi.missing})`);
+    assert(bookUi.unseen === 0, 'opening the book marks every entry as seen');
+    await page.click('.book-tabs [data-page="classics"]');
+    const classicCards = await page.$$eval('.book-set .book-card', (cs) => cs.length);
+    assert(classicCards === 16, `the Classics page lists the 16 barn classics (${classicCards})`);
+    await page.click('.book .modal .buy');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+    assert(!(await page.isVisible('.book-btn .dot.on')), 'the red dot clears after the visit');
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');
@@ -585,9 +626,21 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.map-row[data-biz="garage"] button');
     await page.waitForFunction(() => window.__jye.state.businesses.opened.garage);
     assert((await page.textContent('.map-row[data-biz="garage"] button')) === 'Go', 'opening the garage costs cash and offers "Go"');
+    // P1.1d: the drive between businesses is a road wipe showing where we're going. It lives under a second, so a
+    // MutationObserver records it (a busy machine let waitForSelector miss it once, run 28).
+    await page.evaluate(() => {
+      window.__wipeText = null;
+      const mo = new MutationObserver(() => {
+        const w = document.querySelector('.drive-wipe');
+        if (w && window.__wipeText === null) {
+          window.__wipeText = w.textContent;
+          mo.disconnect();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    });
     await page.click('.map-row[data-biz="garage"] button');
-    // P1.1d: the drive between businesses is a road wipe showing where we're going.
-    const wipe = await page.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+    const wipe = await page.waitForFunction(() => window.__wipeText, null, { timeout: 3000 }).then((h) => h.jsonValue()).catch(() => null);
     assert(wipe && wipe.includes('Repair Garage'), `"Go" drives to the garage behind a road wipe (${wipe})`);
     await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
     await page.waitForSelector('.modal.city-map', { state: 'detached' });
@@ -1778,6 +1831,70 @@ async function waitForServer(url, ms = 15000) {
       });
       assert(lum(yNight) < 60 && yNight[2] > yNight[0], `the yard's sky is a night sky (rgb ${yNight.join(',')})`);
       await mc.close();
+    }
+
+    console.log('narrow top bar and book (run 28)');
+    {
+      const nc = await browser.newContext({ ...devices['iPhone SE'] });
+      const np = await nc.newPage();
+      np.on('pageerror', (e) => errors.push('narrow pageerror: ' + e.message));
+      await np.goto(URL);
+      await np.waitForSelector('.modal .buy');
+      await np.click('.modal .buy');
+      await np.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A late-game top bar: big cash and rate, the Legacy chip, parts, 📒, the city map and Settings.
+      await np.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        s.carsSold = 400;
+        s.cash = 123456789;
+        s.parts = 1234;
+        s.legacy.points = 40;
+        s.legacy.sold = 2;
+        s.legacy.city = 'motorCity';
+        const ms = Object.keys(s.collection.models);
+        ms.forEach((m, i) => {
+          if (i % 3 !== 2) s.collection.models[m] = { sold: [1, 12, 60, 230][i % 4], best: i % 4, seen: i % 5 !== 0 };
+        });
+        window.__jye.ui.deps.incomePerSecond = () => 123456;
+      });
+      await np.waitForTimeout(1500);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24a-narrow-hud.png') });
+      const bar = await np.evaluate(() => {
+        const h = document.querySelector('.hud').getBoundingClientRect();
+        const items = [...document.querySelectorAll('.hud .money > *, .hud .chips > *, .hud > .icon-btn')]
+          .filter((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0)
+          .map((e) => ({ c: e.className.split(' ').slice(0, 2).join('.'), r: e.getBoundingClientRect() }));
+        const inside = items.every((i) => i.r.left >= h.left - 0.5 && i.r.right <= h.right + 0.5 && i.r.top >= h.top - 0.5 && i.r.bottom <= h.bottom + 0.5);
+        const overlaps = [];
+        for (let a = 0; a < items.length; a++)
+          for (let b = a + 1; b < items.length; b++) {
+            const p = items[a].r;
+            const q = items[b].r;
+            if (p.left < q.right - 0.5 && q.left < p.right - 0.5 && p.top < q.bottom - 0.5 && q.top < p.bottom - 0.5) overlaps.push(`${items[a].c}/${items[b].c}`);
+          }
+        return { n: items.length, inside, overlaps, cash: document.querySelector('.hud .cash').textContent, rate: document.querySelector('.hud .rate').textContent };
+      });
+      assert(bar.n === 7 && bar.inside && bar.overlaps.length === 0, `a full top bar fits a 320 px phone without overlaps (${JSON.stringify(bar)})`);
+      await np.click('.book-btn');
+      await np.waitForSelector('.book .modal .book-card');
+      await np.waitForTimeout(500);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24b-book-320.png') });
+      const fit = await np.evaluate(() => {
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        const done = document.querySelector('.book .modal .buy').getBoundingClientRect();
+        const cards = [...document.querySelectorAll('.book-set')[0].querySelectorAll('.book-card')].map((c) => c.getBoundingClientRect());
+        const cols = new Set(cards.map((c) => Math.round(c.left))).size;
+        const list = document.querySelector('.book-sets');
+        return { inView: m.top >= 0 && m.bottom <= innerHeight && m.right <= innerWidth, doneOn: done.bottom <= innerHeight, cols, scrolls: list.scrollHeight > list.clientHeight, cardsFit: cards.every((c) => c.right <= m.right) };
+      });
+      assert(fit.inView && fit.doneOn && fit.cols === 2 && fit.scrolls && fit.cardsFit, `the book fits an iPhone SE: two cards a row, the list scrolls, Done on screen (${JSON.stringify(fit)})`);
+      await np.click('.book-tabs [data-page="brands"]');
+      await np.waitForTimeout(300);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24c-book-brands.png') });
+      const brandSets = await np.$$eval('.book-set', (ss) => ss.map((x) => x.dataset.set));
+      assert(brandSets.join() === 'brand:Vortex,brand:Stallion,brand:Kaze,brand:Regalia', `the Brands page lists the four brand sets (${brandSets.join()})`);
+      await nc.close();
     }
 
     console.log('car art gallery');

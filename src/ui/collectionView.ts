@@ -1,7 +1,19 @@
-// Collection book texts (P1.4a). The book screen itself is P1.4b; for now: set and mastery announcements.
+// Collection book texts (P1.4a: set and mastery announcements) and the book screen's view model (P1.4b). Pure: no DOM.
 
-import { ECON } from '../core/config';
-import { SETS, type CollectionSet } from '../core/collection';
+import { CLASSIC_NAMES, ECON, MODEL_NAMES, PAINTS, type CarFamily, type Rarity } from '../core/config';
+import {
+  BOOK_MODELS,
+  SETS,
+  bestRarity,
+  bookProgress,
+  isCollected,
+  isSetComplete,
+  masteryStars,
+  nextMasteryAt,
+  setProgress,
+  type CollectionSet,
+} from '../core/collection';
+import type { GameState } from '../core/state';
 
 type SetRef = { kind: CollectionSet['kind']; id: string };
 
@@ -29,4 +41,110 @@ export function setCompleteBanner(kind: CollectionSet['kind'], id: string): { ti
 /** Toast for a new mastery star. */
 export function masteryToast(model: string, stars: number): string {
   return `${'⭐'.repeat(stars)} ${model} mastery: +${Math.round(stars * ECON.collection.masteryBonus * 100)}% value`;
+}
+
+// ---- Book screen (P1.4b) -------------------------------------------------------------------------------------------
+
+export type BookPage = 'cars' | 'brands' | 'classics';
+
+export interface BookCard {
+  model: string;
+  family: CarFamily;
+  /** Paint for the thumbnail: fixed per model, so a card always looks the same. */
+  paint: number;
+  collected: boolean;
+  /** Collected since the book was last opened. */
+  isNew: boolean;
+  /** Best rarity sold, or null before the first sale. */
+  rarity: Rarity | null;
+  rarityLabel: string;
+  stars: number;
+  /** "12 sold · 50 for ⭐⭐", "200 sold · mastered", or "Not found yet". */
+  line: string;
+  /** Mastery progress toward the next star, 0..1 (1 when mastered). */
+  progress: number;
+}
+
+export interface BookSetView {
+  kind: CollectionSet['kind'];
+  id: string;
+  name: string;
+  bonus: string;
+  have: number;
+  of: number;
+  complete: boolean;
+  cards: BookCard[];
+}
+
+export interface BookView {
+  header: string;
+  pages: { id: BookPage; name: string; have: number; of: number; isNew: boolean }[];
+  sets: BookSetView[];
+}
+
+const FAMILY_OF: Record<string, CarFamily> = Object.fromEntries(
+  (Object.keys(MODEL_NAMES) as CarFamily[]).flatMap((f) => [...MODEL_NAMES[f], ...CLASSIC_NAMES[f]].map((m) => [m, f])),
+);
+
+/** Family a book entry is drawn as. */
+export function familyOf(model: string): CarFamily {
+  return FAMILY_OF[model] ?? 'sedan';
+}
+
+function paintOf(model: string): number {
+  const i = BOOK_MODELS.indexOf(model);
+  return PAINTS[(Math.max(0, i) * 7) % PAINTS.length]!;
+}
+
+export function bookCard(state: Pick<GameState, 'collection'>, model: string): BookCard {
+  const e = state.collection.models[model];
+  const collected = isCollected(state, model);
+  const rarity = bestRarity(state, model);
+  const stars = masteryStars(state, model);
+  const next = nextMasteryAt(state, model);
+  const sold = e?.sold ?? 0;
+  const tiers = ECON.collection.masteryTiers;
+  const prev = stars === 0 ? 0 : tiers[stars - 1]!;
+  let line = 'Not found yet';
+  if (collected) line = next === null ? `${sold} sold · mastered` : `${sold} sold · ${next} for ${'⭐'.repeat(stars + 1)}`;
+  return {
+    model,
+    family: familyOf(model),
+    paint: paintOf(model),
+    collected,
+    isNew: collected && !(e?.seen ?? false),
+    rarity,
+    rarityLabel: rarity ? ECON.rarity[rarity].label : '',
+    stars,
+    line,
+    progress: next === null ? 1 : Math.min(1, (sold - prev) / (next - prev)),
+  };
+}
+
+const PAGE_OF: Record<CollectionSet['kind'], BookPage> = { family: 'cars', brand: 'brands', classics: 'classics' };
+const PAGE_NAMES: Record<BookPage, string> = { cars: 'Car types', brands: 'Brands', classics: 'Classics' };
+
+/** Everything the book screen shows for one page. */
+export function bookView(state: Pick<GameState, 'collection'>, page: BookPage): BookView {
+  const p = bookProgress(state);
+  const pages = (Object.keys(PAGE_NAMES) as BookPage[]).map((id) => {
+    const models = [...new Set(SETS.filter((s) => PAGE_OF[s.kind] === id).flatMap((s) => s.models))];
+    const cards = models.map((m) => bookCard(state, m));
+    return { id, name: PAGE_NAMES[id], have: cards.filter((c) => c.collected).length, of: cards.length, isNew: cards.some((c) => c.isNew) };
+  });
+  const sets = SETS.filter((s) => PAGE_OF[s.kind] === page).map((s) => {
+    const pr = setProgress(state, s);
+    return {
+      kind: s.kind,
+      id: s.id,
+      name: setName(s),
+      bonus: setBonusText(s),
+      have: pr.have,
+      of: pr.of,
+      complete: isSetComplete(state, s),
+      cards: s.models.map((m) => bookCard(state, m)),
+    };
+  });
+  const done = SETS.filter((s) => isSetComplete(state, s)).length;
+  return { header: `${p.have}/${p.of} cars · ${done}/${SETS.length} sets complete`, pages, sets };
 }

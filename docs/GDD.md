@@ -33,7 +33,14 @@ to automate it, open new car businesses, then sell your empire and start again i
   count; 10 / 50 / 200 sales give mastery stars (+1% that model's value each). **Sets:** a car type's four models
   (+5% that type's value), a brand's model in all eight types (+5% that brand's value), all 16 barn classics (+25%
   barn sale value). Bonuses are permanent and kept on Sell Empire. "SET COMPLETE! 📒 Van set: +5% Van value forever"
-  banner; "⭐ Kaze Pip mastery: +1% value" toast. The book screen is P1.4b.
+  banner; "⭐ Kaze Pip mastery: +1% value" toast.
+- **Book screen (P1.4b, run 28):** a 📒 button in the top bar (after the 10 quiet tutorial sales, or at once in a later
+  empire) opens three pages: Car types (8 sets), Brands (4 sets) and Classics (16 barn classics). Each set shows its
+  progress and bonus (gold with ✓ once complete); each card shows a painted thumbnail (a dark silhouette until found,
+  "???"), the best rarity badge, three mastery stars and a bar to the next star ("12 sold · 50 for ⭐⭐"). New entries
+  wear a red NEW badge on the first visit after they were found; the 📒 button and the page tabs show a red dot until
+  then. Up to 430 px wide the top bar is compact (rate under the cash, the sound toggle only in Settings; under 360 px
+  the Legacy chip and parts stack).
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of

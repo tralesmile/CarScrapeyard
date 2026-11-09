@@ -178,8 +178,8 @@ describe('Collection book (P1.4a)', () => {
     env2.data = JSON.stringify(bad);
     env2.sum = checksum(env2.data);
     const fixed = deserialize(JSON.stringify(env2), T0)!.state;
-    expect(fixed.collection.models[m]).toEqual({ sold: 3, best: 3 });
-    expect(fixed.collection.models[MODEL_NAMES.sedan[2]!]).toEqual({ sold: 0, best: -1 });
+    expect(fixed.collection.models[m]).toEqual({ sold: 3, best: 3, seen: false });
+    expect(fixed.collection.models[MODEL_NAMES.sedan[2]!]).toEqual({ sold: 0, best: -1, seen: false });
     expect(fixed.collection.models['Fake Car']).toBeUndefined();
   });
 

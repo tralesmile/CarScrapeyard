@@ -99,6 +99,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       (all four Vans, one Kaze in every car type, all 16 barn classics) gives a permanent value bonus with a "SET
       COMPLETE!" banner. The book screen comes next run. Are +5% set bonuses worth chasing, or should sets give
       something you can see (a trophy in the yard, a paint colour)?
+      New since run 28: **the Collection book screen.** Tap 📒 in the top bar: every car type, brand and barn classic set
+      with its progress and bonus, and a card per car (a dark silhouette until you find it, then its picture, best
+      rarity, mastery stars and how many more sales to the next star). New finds get a red NEW badge. On small phones the
+      top bar is tidier: the income rate sits under your cash and the sound button is in Settings (☰) only. Is the book
+      fun to browse, and do you miss the sound button in the top bar?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

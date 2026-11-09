@@ -520,3 +520,21 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Check that a test file name is free before writing it.** I wrote `tests/collection.test.ts` with the Write tool and
   replaced the run-9 collection-count tests without noticing; `git status` showing `M` instead of `??` caught it before
   the commit. `ls tests/` first, and read `git status` for every file you think is new.
+
+## 2026-11-09 (run 28)
+
+- **"Fits the screen" checks must use a worst-case state, not whatever the flow happens to have.** The run-20 top bar
+  check ran right after a Sell Empire reset (no parts counter, no map, small cash) and passed, while a real late game
+  overflowed every phone up to 414 px: flex items shrank silently (`min-width: 0` on the cash) and the Legacy chip slid
+  over the cash. A 30-line Playwright script against `vite --port 5299` that filled the bar (big cash and rate, chip,
+  parts, every button) and printed each item's right edge at 320/360/375/414 px found it in one run. The e2e now builds
+  that worst case and asserts no two leaf items overlap, which also catches shrinking (plain "right <= hud.right" did not).
+- **`flex: none` on fixed-size controls in a crowded flex row.** Without it the buttons shrank below 38 px and the
+  measured edges looked fine; overflow only showed once shrinking was off. Measure with shrinking off first.
+- **Count string lengths in an e2e prefix check instead of guessing.** `src.slice(0, 22)` included the comma after
+  `base64`, so a working thumbnail failed the run after 2 minutes. Use `startsWith` or slice exactly the literal's length.
+- **A sub-second UI element needs an in-page observer, not `waitForSelector` after the click.** The 0.9 s road wipe was
+  missed once on a loaded machine (my dev server and the e2e shared the CPU). A MutationObserver installed before the
+  click records it whatever the timing. Also stop ad-hoc dev servers before starting `npm run check`.
+- **Read the NEW state before marking it.** The book marks entries seen on open, so the view model for the badges and
+  tab dots is captured first (`unseenEntries`, page `isNew`) and kept for the whole visit.

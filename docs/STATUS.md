@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 27; next run is run 28). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 28; next run is run 29). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -186,8 +186,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         value). Bonuses multiply yard car values at arrival (RNG stream unchanged) and the yard's idle income; kept on
         a sale. "SET COMPLETE!" banner and a mastery toast (`src/ui/collectionView.ts`). Sim: first run unchanged
         (3h27m), lot-tune test now averaged over 3 seeds (one seed swings it 1.10-1.19).
-  - [ ] P1.4b Book screen: a 📒 button (after the first family toast), set pages with model cards (silhouette until
-        collected, rarity badge, mastery stars and progress), set bonus rows, a red dot for a new entry; e2e on 320 px.
+  - [x] P1.4b Book screen (run 28): 📒 HUD button (`bookUnlocked`: after the 10 quiet sales, or in a later empire),
+        `openBook` in ui.ts with three pages (Car types / Brands / Classics; `bookView`/`bookCard` in collectionView.ts,
+        unit-tested), set rows with progress and bonus, cards with Canvas 2D thumbnails (`src/game/bookArt.ts`, cached
+        data URLs; one silhouette per car type), rarity badge, mastery stars and a bar to the next star. `BookEntry.seen`
+        (default false, save repair) drives the NEW badges and the red dots; opening the book marks entries seen.
+        e2e on the iPhone 13 flow and on 320x568.
+  - [x] P1.4q HUD fix found while adding 📒 (run 28): a late-game top bar overflowed 320-414 px screens (the chip slid
+        over the cash). Compact top bar up to 430 px (`.money` column, sound toggle in Settings only, 34 px buttons),
+        `.chips` stack under 360 px; e2e asserts a full bar has no overlaps on an iPhone SE.
   - [ ] P1.4c Keep a restored barn classic for the book instead of selling (a showcase spot; decide the trade-off).
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano

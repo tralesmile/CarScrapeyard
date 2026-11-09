@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.28.0 - 2026-11-09 (run 28)
+
+- **Collection book screen (P1.4b):** a 📒 button in the top bar opens the book. Three pages (Car types, Brands, Classics)
+  list every set with its progress and bonus, gold once complete. Every car has a card: a painted side view (a dark
+  silhouette and "???" until you find it), its best rarity badge, three mastery stars and a bar to the next star. Cars
+  found since your last visit wear a red NEW badge, and the 📒 button shows a red dot until you look.
+- **Fix: crowded top bar on phones.** Late in the game (cash, rate, Legacy chip, parts and the buttons) the top bar ran
+  off the right edge of 320-414 px screens and the chip slid over the cash. Up to 430 px the rate now sits under the
+  cash, the sound toggle lives in Settings only and the buttons are a little smaller; under 360 px the Legacy chip and
+  the parts counter stack.
+- Tests: 6 new unit tests (`book-screen.test.ts`: NEW flags and marking seen, when the button shows, old saves and save
+  repair of the flag, each entry's car type, card texts and star progress, shared silhouette thumbnails, page totals).
+  e2e: the 📒 button waits for the quiet sales, shows its dot, opens on the car types page with the complete Van set,
+  a NEW Rare entry, silhouettes and thumbnails, the Classics page has 16 cards, the dot clears; on an iPhone SE a full
+  late-game top bar fits without overlaps and the book fits with two cards a row (e2e-24a..c). The garage road-wipe
+  check records the wipe with a MutationObserver (it missed the 0.9 s wipe once on a busy machine).
+
 ## 0.27.0 - 2026-11-09 (run 27)
 
 - **Prestige pacing (P1.3d4):** your second empire no longer takes longer than the first. Legacy Points now follow a

@@ -102,6 +102,25 @@ body {
   white-space: nowrap;
 }
 
+.hud .money {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hud .chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud > .icon-btn,
+.hud .chips > *,
+.hud .money > * {
+  flex: none;
+}
+
 .hud .spacer {
   flex: 1;
 }
@@ -844,11 +863,13 @@ body {
 }
 
 /* ---- City map (P1.1b) ---- */
-.map-btn {
+.map-btn,
+.book-btn {
   position: relative;
 }
 
-.map-btn .dot {
+.map-btn .dot,
+.book-btn .dot {
   position: absolute;
   top: 3px;
   right: 3px;
@@ -859,7 +880,8 @@ body {
   display: none;
 }
 
-.map-btn .dot.on {
+.map-btn .dot.on,
+.book-btn .dot.on {
   display: block;
 }
 
@@ -1771,4 +1793,294 @@ body {
 /* City lights row (P1.3d3c): three options fit next to the label on a 320 px phone. */
 .lights-row .seg-btn {
   padding: 6px 9px;
+}
+
+/* ---- Collection book (P1.4b): must fit a 320x568 phone; the set list scrolls inside the modal ---- */
+.modal-back.book {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 8px 12px;
+}
+
+.book .modal {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 440px);
+  max-height: 100%;
+  padding: 14px 12px 10px;
+}
+
+.book .modal h2 {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.book-head {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.book-head small {
+  display: block;
+  color: #7a6a58;
+  font-size: 12px;
+}
+
+/* Short phones: the hint line under the totals goes, so a whole row of cards shows. */
+@media (max-height: 600px) {
+  .book-head small {
+    display: none;
+  }
+}
+
+.book-sets {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.book-set {
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  padding: 8px;
+}
+
+.book-set.complete {
+  background: linear-gradient(180deg, #fff4d1, #fffaf0 60%);
+  border-color: #e0a800;
+}
+
+.book-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-bottom: 6px;
+  color: #3d3024;
+}
+
+.book-set-head b {
+  font-size: 15px;
+}
+
+.book-count {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--rust-dark);
+}
+
+.book-bonus {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #7a6a58;
+}
+
+.book-set.complete .book-bonus {
+  color: #8a6400;
+  font-weight: 800;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+
+/* 320 px phones: two cards per row (the modal is ~272 px inside). */
+@media (max-width: 360px) {
+  .book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.book-card {
+  position: relative;
+  min-width: 0;
+  border-radius: 10px;
+  background: #f6efe3;
+  border: 2px solid #eadbc8;
+  padding: 4px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #3d3024;
+}
+
+.book-card img {
+  width: 100%;
+  max-width: 96px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+}
+
+.book-card b {
+  font-size: 12px;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-card small {
+  font-size: 10.5px;
+  color: #7a6a58;
+  line-height: 1.2;
+}
+
+.book-card.missing {
+  background: #ece6dc;
+  border-style: dashed;
+}
+
+.book-card.missing b {
+  color: #9a8b78;
+}
+
+.book-card.rare {
+  border-color: #aab4bf;
+}
+
+.book-card.epic {
+  border-color: #a855f7;
+}
+
+.book-card.legendary {
+  border-color: var(--gold);
+  background: #fff6d6;
+}
+
+.book-stars {
+  font-size: 12px;
+  color: #e0a800;
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+
+.book-stars s {
+  text-decoration: none;
+  color: #d8cbb8;
+}
+
+.book-bar {
+  display: block;
+  width: 80%;
+  height: 4px;
+  border-radius: 2px;
+  background: #e3d6c3;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.book-bar i {
+  display: block;
+  height: 100%;
+  background: var(--rust);
+}
+
+.book-rarity,
+.book-new {
+  position: absolute;
+  top: 3px;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.book-rarity {
+  right: 3px;
+}
+
+.book-rarity.rare {
+  background: #7d8a97;
+}
+
+.book-rarity.epic {
+  background: #a855f7;
+}
+
+.book-rarity.legendary {
+  background: #d99a00;
+}
+
+.book-new {
+  left: 3px;
+  background: var(--red);
+}
+
+/*
+ * Narrow phones (run 28): late in the game the top bar holds cash, rate, the Legacy chip, parts and three or four
+ * buttons, which overflowed a 320-414 px screen. Up to 430 px the rate sits under the cash, the sound toggle lives in
+ * Settings only, and the buttons and chips are a little smaller.
+ */
+@media (max-width: 430px) {
+  .hud {
+    gap: 5px;
+    padding: 5px 6px 5px 10px;
+  }
+  .hud .money {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .hud .cash {
+    font-size: 22px;
+    line-height: 1.05;
+  }
+  .hud .rate {
+    font-size: 11px;
+    line-height: 1.1;
+  }
+  .hud .rate:empty {
+    display: none;
+  }
+  .hud .sound-btn {
+    display: none;
+  }
+  .hud .icon-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+  .hud .parts {
+    font-size: 13px;
+    padding: 5px 7px;
+  }
+  .legacy-chip {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+}
+
+/* 320-360 px phones: the Legacy chip and the parts counter stack too (cash kept its full width). */
+@media (max-width: 360px) {
+  .hud .chips {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .hud .chips .legacy-chip,
+  .hud .chips .parts {
+    padding: 1px 6px;
+    font-size: 11.5px;
+    border-radius: 7px;
+    line-height: 1.35;
+  }
+  .hud .chips .legacy-chip .dot {
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+  }
 }

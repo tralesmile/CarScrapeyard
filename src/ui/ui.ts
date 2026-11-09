@@ -1,7 +1,9 @@
 // DOM UI: top bar, hints, sell button, upgrade panel, modals.
 // DOM instead of canvas for UI: crisp text, accessibility, easy translation.
 
-import type { CollectionEvent } from '../core/collection';
+import { bookUnlocked, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
+import { bookView, type BookPage } from './collectionView';
+import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
@@ -128,6 +130,10 @@ export class Ui {
   private soundBtn!: HTMLButtonElement;
   private settingsBtn!: HTMLButtonElement;
   private mapBtn!: HTMLButtonElement;
+  private bookBtn!: HTMLButtonElement;
+  /** The 📒 button was on at the last render (null before the first): a toast when it first appears in play. */
+  private bookWasOn: boolean | null = null;
+  private bookPage: BookPage = 'cars';
   /** The map banner was shown this session (it repeats each session until the map is opened). */
   private mapAnnounced = false;
   /** The "empire for sale" banner was shown this session (P1.3b). */
@@ -212,9 +218,17 @@ export class Ui {
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="city-tag hidden" aria-hidden="true"></span><span class="dot"></span>') as HTMLButtonElement;
     this.mapBtn.setAttribute('aria-label', 'City map');
     this.mapBtn.onclick = () => this.openMap();
+    this.bookBtn = el('button', 'icon-btn book-btn hidden', '📒<span class="dot"></span>') as HTMLButtonElement;
+    this.bookBtn.setAttribute('aria-label', 'Collection book');
+    this.bookBtn.title = 'Collection book';
+    this.bookBtn.onclick = () => this.openBook();
     this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
     this.legacyChip.onclick = () => this.openLegacyInfo();
-    hud.append(this.cash, this.rate, el('div', 'spacer'), this.legacyChip, this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
+    const money = el('div', 'money');
+    money.append(this.cash, this.rate);
+    const chips = el('div', 'chips');
+    chips.append(this.legacyChip, this.partsEl);
+    hud.append(money, el('div', 'spacer'), chips, this.bookBtn, this.mapBtn, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
@@ -1182,6 +1196,11 @@ export class Ui {
       tag.classList.toggle('hidden', currentCity(s) === 'rustValley');
     }
     this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
+    const bookOn = bookUnlocked(s);
+    this.bookBtn.classList.toggle('hidden', !bookOn);
+    this.bookBtn.querySelector('.dot')!.classList.toggle('on', bookOn && unseenEntries(s).length > 0);
+    if (bookOn && this.bookWasOn === false) this.toast('📒 Collection book: tap 📒 to see every car you have sold', 4000);
+    this.bookWasOn = bookOn;
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);
     const chipHtml = badge === null ? '' : `${badge}${treeHasBuy(s) ? '<i class="dot on"></i>' : ''}`;
@@ -1725,6 +1744,98 @@ export class Ui {
     header.classList.remove('pulse');
     void header.offsetWidth;
     header.classList.add('pulse');
+  }
+
+  /**
+   * Collection book (P1.4b): three pages (car types, brands, barn classics), each a list of sets with their bonus and
+   * a grid of model cards (silhouette until found, rarity badge, mastery stars and a bar to the next star). Opening
+   * it marks every entry as seen; entries new since the last visit keep their NEW badge until the book is closed.
+   */
+  openBook() {
+    if (this.modalOpen) return;
+    this.modalOpen = true;
+    sfx.tap();
+    const back = el('div', 'modal-back book');
+    const box = el('div', 'modal');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Collection book');
+    box.append(el('h2', 'display', '📒 Collection'));
+    const header = el('p', 'book-head');
+    const tabs = el('div', 'tree-tabs book-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const list = el('div', 'book-sets');
+    // Read the view before marking entries as seen, so this visit still shows what is new.
+    const st = this.deps.state();
+    const fresh = new Set(unseenEntries(st));
+    const freshPages = new Set(bookView(st, this.bookPage).pages.filter((p) => p.isNew).map((p) => p.id));
+    if (markBookSeen(st) > 0) this.deps.onChange();
+    const close = () => {
+      if (!back.isConnected) return;
+      back.remove();
+      this.modalOpen = false;
+      this.render();
+    };
+    const paint = () => {
+      const v = bookView(this.deps.state(), this.bookPage);
+      header.innerHTML = `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      tabs.replaceChildren(
+        ...v.pages.map((p) => {
+          const isNew = freshPages.has(p.id) && p.id !== this.bookPage;
+          const t = el('button', `tree-tab${p.id === this.bookPage ? ' on' : ''}`, `<span>${p.name}</span><small>${p.have}/${p.of}</small>${isNew ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+          t.setAttribute('role', 'tab');
+          t.setAttribute('aria-selected', String(p.id === this.bookPage));
+          t.dataset.page = p.id;
+          t.onclick = () => {
+            this.bookPage = p.id;
+            freshPages.delete(p.id);
+            sfx.tap();
+            paint();
+            list.scrollTop = 0;
+          };
+          return t;
+        }),
+      );
+      list.replaceChildren(
+        ...v.sets.map((set) => {
+          const sec = el('section', `book-set${set.complete ? ' complete' : ''}`);
+          sec.dataset.set = `${set.kind}:${set.id}`;
+          const head = el(
+            'div',
+            'book-set-head',
+            `<b>${set.name}</b><span class="book-count">${set.have}/${set.of}</span><small class="book-bonus">${set.complete ? '✓ ' : ''}${set.bonus}</small>`,
+          );
+          const grid = el('div', 'book-grid');
+          for (const c of set.cards) {
+            const card = el('div', `book-card${c.collected ? ` got ${c.rarity ?? 'common'}` : ' missing'}`);
+            card.dataset.model = c.model;
+            const img = el('img');
+            img.src = carThumb(c);
+            img.width = THUMB_W;
+            img.height = THUMB_H;
+            img.alt = '';
+            const name = c.collected ? c.model : '???';
+            const badge = c.collected && c.rarity !== 'common' ? `<i class="book-rarity ${c.rarity}">${c.rarityLabel}</i>` : '';
+            const stars = c.collected ? `<span class="book-stars" aria-label="${c.stars} of 3 mastery stars">${'★'.repeat(c.stars)}<s>${'★'.repeat(3 - c.stars)}</s></span>` : '';
+            const bar = c.collected ? `<span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span>` : '';
+            card.innerHTML = `${fresh.has(c.model) ? '<i class="book-new">NEW</i>' : ''}${badge}`;
+            card.prepend(img);
+            card.insertAdjacentHTML('beforeend', `<b>${name}</b>${stars}<small>${c.line}</small>${bar}`);
+            card.setAttribute('aria-label', c.collected ? `${c.model}, best ${c.rarityLabel}, ${c.line}` : 'Not found yet');
+            grid.append(card);
+          }
+          sec.append(head, grid);
+          return sec;
+        }),
+      );
+    };
+    paint();
+    const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    ok.onclick = close;
+    box.append(header, tabs, list, ok);
+    back.append(box);
+    this.root.append(back);
+    ok.focus({ preventScroll: true });
   }
 
   /** Settings sheet: sound, music, motion, number format, reset, credits. */

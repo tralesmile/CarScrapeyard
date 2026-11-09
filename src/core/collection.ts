@@ -14,6 +14,8 @@ export interface BookEntry {
   sold: number;
   /** Best rarity sold, as an index into the rarity list (0 Common .. 3 Legendary), -1 before the first sale. */
   best: number;
+  /** The player has looked at this entry in the book since it was collected (P1.4b): false shows a NEW badge. */
+  seen: boolean;
 }
 
 export type CollectionSet =
@@ -44,7 +46,7 @@ export const SETS: readonly CollectionSet[] = [
 
 /** An empty book: one entry per model, so old saves get every entry from `newGame` defaults. */
 export function newBook(): Record<string, BookEntry> {
-  return Object.fromEntries(BOOK_MODELS.map((m) => [m, { sold: 0, best: -1 }]));
+  return Object.fromEntries(BOOK_MODELS.map((m) => [m, { sold: 0, best: -1, seen: false }]));
 }
 
 function entry(state: Pick<GameState, 'collection'>, model: string): BookEntry | undefined {
@@ -88,6 +90,27 @@ export function bookProgress(state: Pick<GameState, 'collection'>): { have: numb
 
 function setFor(kind: CollectionSet['kind'], id: string): CollectionSet | undefined {
   return SETS.find((s) => s.kind === kind && s.id === id);
+}
+
+/** Collected entries the player has not looked at in the book yet (the 📒 button's red dot). */
+export function unseenEntries(state: Pick<GameState, 'collection'>): string[] {
+  return BOOK_MODELS.filter((m) => isCollected(state, m) && !entry(state, m)!.seen);
+}
+
+/** Opening the book marks every collected entry as seen. Returns how many were new. */
+export function markBookSeen(state: Pick<GameState, 'collection'>): number {
+  const fresh = unseenEntries(state);
+  for (const m of fresh) entry(state, m)!.seen = true;
+  return fresh.length;
+}
+
+/**
+ * The 📒 button shows once the book has an entry and the first sales are over (the starter families are recorded
+ * quietly during the tutorial), or at once in a later empire / after the book was opened.
+ */
+export function bookUnlocked(state: Pick<GameState, 'collection' | 'carsSold' | 'legacy'>): boolean {
+  if (bookProgress(state).have === 0) return false;
+  return state.carsSold > ECON.collection.quietSales || state.legacy.sold > 0 || BOOK_MODELS.some((m) => entry(state, m)!.seen);
 }
 
 /** Value multiplier a yard car of this family and model gets from the book (set bonuses and mastery stars). */
@@ -147,12 +170,13 @@ export function recordModel(state: GameState, model: string, rarity: Rarity): Co
   return out;
 }
 
-/** Save repair: whole, non-negative counts; a valid rarity once sold, -1 before. */
+/** Save repair: whole, non-negative counts; a valid rarity once sold, -1 before; never seen before the first sale. */
 export function sanitizeBook(book: Record<string, BookEntry>): void {
   for (const m of Object.keys(book)) {
     const e = book[m]!;
     e.sold = Number.isFinite(e.sold) && e.sold > 0 ? Math.floor(e.sold) : 0;
     const b = Math.floor(e.best);
+    e.seen = e.sold > 0 && e.seen === true;
     e.best = e.sold === 0 ? -1 : Number.isFinite(b) ? Math.min(RARITIES.length - 1, Math.max(0, b)) : 0;
   }
 }
