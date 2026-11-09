@@ -112,6 +112,13 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       day, a reward for every day you play and an Epic gift car on day 7. A new day starts at 04:00 UTC (5 am in
       London in winter, 8 pm in California); a missed day pauses the calendar instead of resetting it. Is 04:00 UTC a
       good reset time for you and your testers, and should a missed day reset the calendar (stricter, more "streak")?
+      New since run 30: **achievements** (📒 book → Awards: 14 awards with bronze to diamond medals, claimed for cash).
+      New since run 31: **a story.** Vince Valvano, a rival tycoon in a gold jacket, visits your yard after 20 sales and
+      offers one dollar for it; Grandpa Joe answers. More short scenes come when you open the garage, when Vince grabs
+      an auction lot you let go (it gets a purple VINCE! stamp), when the paint shop opens, and at the end of chapter 1
+      when you can sell your empire (Vince leaves for Motor City). Right now Vince is only story and flavour: he never
+      costs you money. Do you want him to be a real rival (e.g. bidding against you at the auction, a monthly sales
+      race with a prize), or is light flavour better for a relaxing idle game? Are the scenes too long or too many?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

@@ -24,6 +24,7 @@ import { refreshDaily } from './core/daily';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
+import { rivalToast, rivalToastDue } from './ui/storyView';
 
 const platform = createWebPlatform();
 const saves = new SaveManager(platform.storage);
@@ -97,13 +98,15 @@ function onEvents(events: GameEvent[]) {
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
+    if (e.type === 'buyerLeft' && e.rival && state.businesses.active === 'scrapyard' && rivalToastDue(state.story.rivalWins)) ui.toast(rivalToast('buyer', state.story.rivalWins), 2500);
     // Auction feel (P1.2c): stamps on the board; sounds only while the Auction tab is on screen.
     if (e.type === 'lotBought') {
       ui.auctionStamp(e.index, 'won', e.auto);
       if (!e.auto || ui.auctionShown()) sfx.gavel();
     }
     if (e.type === 'lotExpired') {
-      ui.auctionStamp(e.index, 'lost');
+      ui.auctionStamp(e.index, e.rival ? 'rival' : 'lost');
+      if (e.rival && state.businesses.active === 'carlot' && rivalToastDue(state.story.rivalWins)) ui.toast(rivalToast('lot', state.story.rivalWins), 2500);
       if (ui.auctionShown()) sfx.lotLost();
     }
     if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();

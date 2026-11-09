@@ -190,6 +190,15 @@ to automate it, open new car businesses, then sell your empire and start again i
   awards first, each with its four medals (grey until reached, bobbing when ready) and a bar to the next one. Claiming
   pays cash worth a few average yard cars (gems later). The welcome-back popup lists medals and dailies waiting, and a
   daily task finished in another business shows a toast pointing to the scrapyard's Jobs board (P1.5d).
+- **Story chapter 1, Rust Valley (P1.6):** five short scenes, each a modal with painted portraits and speech bubbles
+  (Grandpa Joe on the left in rust orange, the rival Vince Valvano on the right in purple), shown once in story order
+  with at least 20 s of play between them: Vince visits the yard at 20 sales and offers $1 for it ("A Gold
+  Convertible"); Joe in the first garage; Vince outbids you on the first lot you let go ("Outbid!"); Vince worried by
+  the paint shop; the chapter's end when the empire can be sold (Vince leaves for Motor City, Joe tells you to sell
+  and follow; "On to the map" opens the map). Vince is flavour, not a mechanic: the first lot you let go and every
+  third after it (by lot id) get a purple VINCE! stamp instead of SOLD!, and every third yard customer who runs out of
+  patience is "lured to his lot"; toasts only for his first three wins and every tenth. The economy, the RNG and the
+  sims are unchanged. Chapter 1 plays in Rust Valley only; the story is kept on a Sell Empire.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions

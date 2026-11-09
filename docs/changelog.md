@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.31.0 - 2026-11-09 (run 31)
+
+- **Story chapter 1 and the rival Vince Valvano (P1.6):** Rust Valley now has a story. Five short scenes with painted
+  portraits of Grandpa Joe and Vince Valvano (slick quiff, sunglasses, purple jacket, gold chain): Vince pulls up at 20
+  sales and offers one dollar for the yard; Joe remembers his first garage when you open yours; Vince grabs the first
+  auction lot you let go ("Sold, to the man in the gold jacket!"); he starts to worry when the paint shop opens; and
+  when the empire can be sold he leaves for Motor City, closing chapter 1 and leading into the map and the sale. Lots
+  Vince takes get a purple VINCE! stamp, and now and then he lures a yard customer away (flavour only: prices, odds
+  and pacing are unchanged).
+- **Fix: toasts printed over each other and over modals.** Two toasts at once (e.g. Vince and a new medal) now stack
+  in a column (three at most), and a toast sits under an open modal instead of covering its title.
+- Tests: 9 story tests (`story.test.ts`: order and gap, skipped businesses, Rust Valley only, Vince's lots and
+  customers on the events, kept on a sale, save round-trip, old saves, repair, scene texts and toast pacing). e2e:
+  Vince's scene at 20 sales with portraits (e2e-07s), the VINCE! stamp and toast on the auction board, chapter 1's end
+  on an iPhone SE before the sale banner, opening the map (e2e-21s).
+
 ## 0.30.0 - 2026-11-09 (run 30)
 
 - **Achievements (P1.5c):** 14 lifetime awards with four medals each (🥉 Bronze, 🥈 Silver, 🥇 Gold, 💎 Diamond): sell

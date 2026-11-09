@@ -6,10 +6,11 @@ import { ECON } from './config';
 import { pick } from './rng';
 import type { Car, GameState } from './state';
 import { buyerRatePerk } from './legacyTree';
+import { noteBuyerLost } from './story';
 
 const RARITY_ORDER: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
 
-export type BuyerEvent = { type: 'buyerArrived'; kind: BuyerKind } | { type: 'buyerLeft'; kind: BuyerKind };
+export type BuyerEvent = { type: 'buyerArrived'; kind: BuyerKind } | { type: 'buyerLeft'; kind: BuyerKind; rival: boolean };
 
 export interface BuyerSink {
   push(e: BuyerEvent): void;
@@ -46,7 +47,7 @@ export function tickBuyers(state: GameState, dt: number, events: BuyerSink): voi
   if (state.buyer) {
     state.buyer.timeLeft -= dt;
     if (state.buyer.timeLeft <= 0) {
-      events.push({ type: 'buyerLeft', kind: state.buyer.kind });
+      events.push({ type: 'buyerLeft', kind: state.buyer.kind, rival: noteBuyerLost(state) });
       state.buyer = null;
       state.buyerTimer = ECON.buyers.gap / buyerRatePerk(state);
     }

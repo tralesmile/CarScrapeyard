@@ -437,3 +437,11 @@ sale offered at (seed 12345 / 7):
 The early medals land when income is small, so they compound: the draft moved the first sale 3-4%. 3/6/12/24 keeps
 it at 1-2% while a new player still sees a dozen medals in the first half hour. Balance test: claiming moves the first
 sale by 0.97-1.0x, under 2% of earnings in total and under 6% in the first 30 minutes.
+
+## Story and Vince (P1.6a, run 31)
+
+No economy change. Vince Valvano only relabels events that already happen: lots that leave the auction board unsold
+(the first one, then every 3rd by lot id) and yard customers who run out of patience (every 3rd). Nothing is taken
+from the player and no RNG draw is added (`noteLotLost`/`noteBuyerLost` count with plain counters), so the seeded
+sims and the pacing targets are untouched; `npm run sim` was not needed. If Vince becomes a real rival (owner
+question), A/B it like the showcase: a bot run with and without, time to the first Sell Empire.

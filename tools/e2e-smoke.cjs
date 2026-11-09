@@ -370,6 +370,35 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(savedAwards === 1, 'claimed medals are in the save');
 
+    console.log('story chapter 1 (P1.6)');
+    assert(await page.evaluate(() => window.__jye.state.story.seen.length === 0 && !document.querySelector('.story')), 'no story scene before Vince visits');
+    await page.evaluate(() => (window.__jye.state.carsSold = 20));
+    await page.waitForSelector('.modal-back.story .modal', { timeout: 4000 });
+    const vince = await page.evaluate(() => {
+      const m = document.querySelector('.story .modal');
+      const lines = [...m.querySelectorAll('.story-line')];
+      const r = m.getBoundingClientRect();
+      return {
+        title: m.querySelector('h2').textContent,
+        who: lines.map((l) => l.className.replace('story-line ', '')),
+        imgs: lines.map((l) => (l.querySelector('img.portrait')?.src ?? '').startsWith('data:image/png')),
+        names: lines.map((l) => l.querySelector('b').textContent),
+        btn: m.querySelector('.buy').textContent,
+        fits: r.top >= 0 && r.bottom <= window.innerHeight,
+        seen: window.__jye.state.story.seen.join(','),
+      };
+    });
+    assert(vince.title === 'A Gold Convertible' && vince.who.join(',') === 'vince,vince,joe' && vince.names[0] === 'Vince Valvano' && vince.names[2] === 'Grandpa Joe', `Vince Valvano visits the yard at 20 sales (${vince.title}: ${vince.who.join(', ')})`);
+    assert(vince.imgs.every(Boolean), 'every line has a painted portrait');
+    assert(vince.fits && vince.btn === 'Not a chance!' && vince.seen === 'vinceVisit', 'the scene fits the screen and is marked seen at once');
+    await page.waitForTimeout(1200); // lines fade in one by one
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-07s-story-vince.png') });
+    await page.click('.story .modal .buy');
+    await page.waitForSelector('.modal-back.story', { state: 'detached' });
+    // The rest of chapter 1 is checked in the lot (Outbid!) and in the Sell Empire flow (the chapter's end); mark it
+    // seen here so later steps are not interrupted.
+    await page.evaluate(() => (window.__jye.state.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End']));
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');
@@ -1080,12 +1109,14 @@ async function waitForServer(url, ms = 15000) {
     await page.evaluate(() => (window.__jye.state.carlot.board[2].timeLeft = 0.05));
     await page.waitForFunction(() => {
       const st = document.querySelectorAll('.cards .card.auction-lot')[2].querySelector('.stamp');
-      const ok = !st.classList.contains('hidden') && st.textContent === 'SOLD!';
+      const ok = !st.classList.contains('hidden') && st.textContent === 'VINCE!' && st.classList.contains('rival');
       // Hold the stamp for the screenshot.
       if (ok) for (const x of window.__jye.ui.stamps) if (x) x.until += 60_000;
       return ok;
     }, null, { timeout: 2000 });
-    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder with a SOLD! stamp');
+    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder: the first one to Vince, with a VINCE! stamp (P1.6)');
+    assert(await page.evaluate(() => window.__jye.state.story.lotsLost === 1 && window.__jye.state.story.rivalWins === 1), "the story counts Vince's first win");
+    assert(await page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /Vince Valvano grabbed a lot/.test(t.textContent))), 'a toast says Vince grabbed the lot');
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-19d-carlot-auction-sold.png') });
     await page.evaluate(() => {
@@ -1627,7 +1658,26 @@ async function waitForServer(url, ms = 15000) {
         s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
         s.lifetimeEarnings = 28e6 * Math.pow(12.5, 1.25); // worth 12 Legacy Points (ECON.legacy: $28M, ^0.8)
         s.legacy.runSeconds = 3 * 3600 + 25 * 60;
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint'];
       });
+      // Chapter 1 ends when the empire can be sold (P1.6): Vince leaves for Motor City, then the map opens.
+      await sp.waitForSelector('.modal-back.story .modal', { timeout: 4000 });
+      const end = await sp.evaluate(() => {
+        const m = document.querySelector('.story .modal');
+        const r = m.getBoundingClientRect();
+        const b = m.querySelector('.buy').getBoundingClientRect();
+        return { text: m.textContent, fits: r.top >= 0 && b.bottom <= window.innerHeight, lines: m.querySelectorAll('.story-line').length, banner: !!document.querySelector('.banner.show') };
+      });
+      assert(/Rust Valley Is Yours/.test(end.text) && /Motor City/.test(end.text) && /Chapter 1 complete/.test(end.text) && end.lines === 3, 'chapter 1 ends with Vince leaving for Motor City');
+      assert(end.fits, 'the three-line scene and its button fit an iPhone SE');
+      assert(!end.banner, 'the sale banner waits until the scene is closed');
+      await sp.waitForTimeout(1200);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21s-story-chapter1-end.png') });
+      await sp.click('.story .modal .buy');
+      await sp.waitForSelector('.modal.city-map', { timeout: 3000 });
+      assert(await sp.isVisible('.map-row.legacy'), '"On to the map" opens the map with the Sell Empire row');
+      await sp.click('.modal.city-map > .buy');
+      await sp.waitForSelector('.modal.city-map', { state: 'detached' });
       await sp.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('EMPIRE FOR SALE'), null, { timeout: 15000 });
       assert(true, 'an "EMPIRE FOR SALE!" banner announces the offer');
       assert(await sp.isVisible('.map-btn .dot.on'), 'the map button shows a dot while the sale is new');
@@ -1827,6 +1877,7 @@ async function waitForServer(url, ms = 15000) {
       await mp.evaluate(() => {
         const s = window.__jye.state;
         Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'];
         s.carsSold = 120;
         s.cash = 0;
         s.legacy.sold = 1;
@@ -2058,6 +2109,7 @@ async function waitForServer(url, ms = 15000) {
       await np.evaluate(() => {
         const s = window.__jye.state;
         Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'];
         s.carsSold = 400;
         s.cash = 123456789;
         s.parts = 1234;

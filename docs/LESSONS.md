@@ -585,3 +585,24 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   e2e screenshot on an iPhone 13 already filled the screen once the waiting lines were in; on 320x568 Collect would
   have been off screen. Any modal that grows with game state gets `max-height: 100%` + scroll (and the backdrop's
   `grid-template-rows: minmax(0, 1fr)`) and an SE-size e2e assertion.
+
+## 2026-11-09 (run 31)
+
+- **A new modal that pops on its own breaks every e2e flow that crosses its trigger.** Vince's scene at 20 sales would
+  have covered the crusher, the map and three fresh browser contexts (each sets `carsSold = 120`). Before writing the
+  feature I grepped the e2e for every `carsSold =` and `newContext`, tested the scene once where it fires naturally,
+  then marked the whole chapter seen in each other context. Do this for any self-opening UI (scene, offer, popup).
+- **The banner is a permanent element: test `.banner.show`, not `.banner`.** "The sale banner waits until the scene
+  is closed" failed because `#banner` always exists. Check how an element is hidden (class, `display`, removed) before
+  asserting it is absent.
+- **Look at every screenshot you touch, not only the new ones.** e2e-19d showed two toasts printed over each other
+  (Vince's and a medal's, both at the same `top`). Toasts now stack in a flex column (`.toasts`), at most three. The
+  next screenshot (e2e-21s) showed a toast covering a modal's title, so the stack now sits under any open modal.
+- **The sandbox clock can jump: measure e2e progress with timestamps, not with how long I think I waited.** I killed
+  a healthy e2e believing it had hung for 6 minutes; `date` showed far less time had passed. Prefix the log lines with
+  `date +%H:%M:%S` and judge a stall only by the timestamps.
+- **Flavour on existing events beats a new mechanic when the owner hasn't decided.** Vince relabels lots and customers
+  that are lost anyway (counters only, no RNG draw), so no sim or balance change was needed, and the "real rival or
+  flavour?" question went to NEEDS_FROM_YOU instead of being guessed.
+- **Plan detail lives in the Claude Docs plan:** `read` the project, then a `search` with `pattern` on the tab's root
+  node (`kind: "search"`, not `query`) returns only the matching blocks: one call instead of paging the whole doc.

@@ -10,12 +10,13 @@ import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
 import { incomeMultiplier } from './legacy';
 import { cityPrice, cityScale } from './cities';
+import { noteLotLost } from './story';
 import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type CarLotEvent =
   | { type: 'lotListed'; lot: AuctionLot; index: number }
   /** A lot left the board unsold (someone else won it). */
-  | { type: 'lotExpired'; lot: AuctionLot; index: number }
+  | { type: 'lotExpired'; lot: AuctionLot; index: number; rival: boolean }
   | { type: 'lotBought'; car: LotCar; auto: boolean; index: number }
   | { type: 'lotRefurbished'; car: LotCar }
   /** A walk-up buyer stepped up to a car and looks it over; `bonus` is what they will add if they like it. */
@@ -291,7 +292,7 @@ export function tickCarLot(state: GameState, dt: number, events: CarLotSink): vo
       if (lot.timeLeft <= 0) {
         l.board[i] = null;
         l.refill[i] = ECON.carlot.refillSeconds;
-        events.push({ type: 'lotExpired', lot, index: i });
+        events.push({ type: 'lotExpired', lot, index: i, rival: noteLotLost(state, lot.id) });
       }
     } else {
       l.refill[i] = (l.refill[i] ?? 0) - dt;

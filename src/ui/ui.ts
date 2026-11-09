@@ -51,6 +51,9 @@ import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switch
 import { cityMapSvg, mapRows } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
+import { dueBeat, markBeatSeen, type StoryBeatId } from '../core/story';
+import { SPEAKERS, storyScene } from './storyView';
+import { portraitUrl } from '../game/portraitArt';
 import {
   buyGarageBay,
   buyGarageUpgrade,
@@ -176,7 +179,7 @@ export class Ui {
   private cards: CardView[] = [];
   private tab: Tab = 'upgrades';
   /** Auction card stamps (P1.2c): "SOLD!" when a lot went to another bidder, "YOURS!" when you won it. */
-  private stamps: ({ text: string; cls: 'won' | 'lost'; until: number } | null)[] = [];
+  private stamps: ({ text: string; cls: 'won' | 'lost' | 'rival'; until: number } | null)[] = [];
   /** Business the panel was last built for; the tab set swaps when it changes. */
   private shownBiz: string = 'scrapyard';
   private mode: BuyMode = 1;
@@ -799,6 +802,7 @@ export class Ui {
         stamp.classList.toggle('hidden', !key);
         stamp.classList.toggle('won', st?.cls === 'won');
         stamp.classList.toggle('lost', st?.cls === 'lost');
+        stamp.classList.toggle('rival', st?.cls === 'rival');
         if (st && key) setText(stamp, st.text);
       }
       root.classList.toggle('empty', !lot);
@@ -1355,6 +1359,11 @@ export class Ui {
       this.legacyChip.innerHTML = chipHtml;
       this.legacyChip.setAttribute('aria-label', `Legacy: income ${badge.split(' ')[1]}`);
     }
+    // Story scenes (P1.6) come before the sale banner, so chapter 1's ending leads into it.
+    if (!this.modalOpen && this.haggling === null) {
+      const beat = dueBeat(s);
+      if (beat) this.openStory(beat);
+    }
     if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
       this.legacyAnnounced = true;
       this.showBanner('EMPIRE FOR SALE!', 'Open the 🗺 map to sell it for Legacy Points');
@@ -1643,9 +1652,20 @@ export class Ui {
   }
 
   toast(message: string, ms = 4000) {
+    // Toasts stack in one column under the top bar, so two at once never print over each other (found in run 31).
+    let stack = this.root.querySelector<HTMLElement>(':scope > .toasts');
+    if (!stack) {
+      stack = el('div', 'toasts');
+      stack.setAttribute('aria-live', 'polite');
+    }
+    // Above the game and the HUD, but under an open modal: a toast never covers a modal's title (found in run 31).
+    const firstModal = this.root.querySelector(':scope > .modal-back');
+    if (firstModal) this.root.insertBefore(stack, firstModal);
+    else this.root.append(stack);
     const t = el('div', 'toast', '');
     t.textContent = message;
-    this.root.append(t);
+    stack.append(t);
+    while (stack.childElementCount > 3) stack.firstElementChild?.remove();
     setTimeout(() => t.remove(), ms);
   }
 
@@ -1703,6 +1723,34 @@ export class Ui {
     back.append(box);
     this.root.append(back);
     btn.focus({ preventScroll: true });
+  }
+
+  /** A story scene (P1.6): portraits with speech bubbles, Joe on the left, Vince on the right. Shown once. */
+  openStory(id: StoryBeatId) {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    markBeatSeen(s, id);
+    this.deps.onChange();
+    const scene = storyScene(id);
+    const lines = scene.lines
+      .map((l) => {
+        const who = SPEAKERS[l.who];
+        const url = portraitUrl(l.who);
+        const img = url ? `<img class="portrait" src="${url}" alt="" width="48" height="48">` : '<span class="portrait"></span>';
+        return `<div class="story-line ${l.who}">${img}<div class="bubble"><b>${who.name}</b>${l.text}</div></div>`;
+      })
+      .join('');
+    const footer = scene.footer ? `<p class="story-footer">${scene.footer}</p>` : '';
+    sfx.fanfare();
+    this.modal({
+      title: scene.title,
+      body: `<div class="story-lines" data-beat="${id}">${lines}</div>${footer}`,
+      button: scene.button,
+      cls: 'story',
+      onClose: () => {
+        if (id === 'chapter1End' && mapUnlocked(s)) setTimeout(() => this.openMap(), 0);
+      },
+    });
   }
 
   /** Sell Empire preview (P1.3b): what the sale gives, what is kept and what resets. Confirming sells at once. */
@@ -2212,8 +2260,8 @@ export class Ui {
   }
 
   /** Stamp an auction card (P1.2c): `won` when you (or your Agent) bought the lot, `lost` when another bidder did. */
-  auctionStamp(index: number, cls: 'won' | 'lost', auto = false) {
-    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : 'SOLD!';
+  auctionStamp(index: number, cls: 'won' | 'lost' | 'rival', auto = false) {
+    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : cls === 'rival' ? 'VINCE!' : 'SOLD!';
     this.stamps[index] = { text, cls, until: performance.now() + ECON.carlot.stampSeconds * 1000 };
     this.render();
   }

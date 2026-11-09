@@ -217,6 +217,18 @@ export const ECON = {
   },
 
   /**
+   * Story (P1.6): chapter 1 in Rust Valley. Beats are short scenes with Grandpa Joe and the rival Vince Valvano,
+   * shown in order when their moment comes, at least `gapSeconds` of play apart. Vince is flavour only: he takes
+   * every `rivalEvery`-th lot that leaves the auction board unsold (and the first one) and every `rivalEvery`-th yard
+   * customer who runs out of patience; the economy is unchanged.
+   */
+  story: {
+    vinceVisitSales: 20,
+    gapSeconds: 20,
+    rivalEvery: 3,
+  },
+
+  /**
    * Achievements (P1.5c): lifetime goals with four medal tiers each, kept across Sell Empire. Every tier pays cash
    * worth `rewardCars[tier]` average yard cars at claim time (gems replace part of it with P1.7).
    */

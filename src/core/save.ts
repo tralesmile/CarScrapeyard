@@ -7,6 +7,7 @@
 import { sanitizeBook, sanitizeShowcase } from './collection';
 import { sanitizeDaily } from './daily';
 import { sanitizeAchievements } from './achievements';
+import { sanitizeStory } from './story';
 import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
@@ -149,6 +150,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     sanitizeLotShopLinks(state);
     sanitizeLegacy(state.legacy);
     sanitizeAchievements(state);
+    sanitizeStory(state.story);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
     if (!CITY_LIGHTS.includes(state.settings.cityLights)) state.settings.cityLights = 'auto';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
