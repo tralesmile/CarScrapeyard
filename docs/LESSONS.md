@@ -625,3 +625,18 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   (nowrap labels and counts) pushed the whole book past a 320 px screen; the existing "book fits an iPhone SE" e2e
   caught it (`inView: false`). Every scrolling modal backdrop needs `grid-template-columns: minmax(0, 1fr)` as well as
   the rows; also give nowrap tab text `overflow: hidden`.
+
+## 2026-11-09 (run 33)
+
+- **A new reward currency touches five layers: do them in one pass, in this order.** config table -> pure module
+  (`wallet.ts`) -> state/newGame/sanitize/sellEmpire keep -> reward objects (`DailyReward`, `claimAward`) -> UI text.
+  Adding fields to a shared interface made `tsc` list every call site that builds one by hand (the all-done merge in
+  `ui.ts`), so run `npx tsc --noEmit` right after changing the interface, before touching the UI.
+- **Test income with the real claim functions, not by poking state.** The first wallet medal test failed because I
+  assumed `carsSold = 1000` unlocks awards; reading the existing achievements test showed which counter drives which
+  award. Copy the setup of the nearest existing test.
+- **Editing `src/` while the baseline e2e runs is safe, but vitest on 2 cores is not free:** one file with
+  `--maxWorkers=1` took ~1 s; the full unit run waits until the background e2e prints EXIT.
+- **Wrap a fixed-width row with `flex-wrap` plus `flex: 1 1 30%` instead of shortening labels.** Shrinking text
+  ("Bran...") hides information; two rows keep every word.
+

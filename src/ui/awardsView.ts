@@ -1,5 +1,6 @@
 // Achievements page texts (P1.5c). Pure: no DOM.
 
+import { medalGems } from '../core/wallet';
 import { AWARD_IDS, MEDAL_COUNT, awardReward, awardValue, canClaimAward, medalCount, tiersReached, type AwardId } from '../core/achievements';
 import { ECON } from '../core/config';
 import { formatCash, formatNumber } from '../core/format';
@@ -50,7 +51,7 @@ export function awardCard(state: GameState, id: AwardId): AwardCard {
     line,
     progress: next === undefined ? 1 : Math.max(0, Math.min(1, (value - prev) / (next - prev))),
     claimable,
-    claimText: claimable ? `${ECON.achievements.medalIcons[tier]} Claim ${formatCash(awardReward(state, claimed))}` : '',
+    claimText: claimable ? `${ECON.achievements.medalIcons[tier]} Claim ${formatCash(awardReward(state, claimed))}${medalGems(claimed) ? ` + ${medalGems(claimed)} 💎` : ''}` : '',
     complete: claimed >= MEDAL_COUNT,
   };
 }

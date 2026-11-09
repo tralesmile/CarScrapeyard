@@ -4,6 +4,7 @@ import type { NumberFormat } from './format';
 import { newBook, type BookEntry } from './collection';
 import type { Daily } from './daily';
 import { newAchievements, type Achievements } from './achievements';
+import { newWallet, type Wallet } from './wallet';
 import { newStory, type Story } from './story';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
@@ -297,6 +298,8 @@ export interface GameState {
   daily: Daily;
   /** Achievements (P1.5c, see achievements.ts): lifetime totals and medals claimed. Kept on a sale. */
   achievements: Achievements;
+  /** Gems and Auction Tokens (P1.7a, see wallet.ts). Kept on a sale. */
+  wallet: Wallet;
   /** Story chapters (P1.6, see story.ts): scenes shown and Vince's tally. Kept on a sale. */
   story: Story;
 }
@@ -425,6 +428,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     legacy: newLegacy(),
     daily: { day: -1, tasks: [], bonusClaimed: false, claims: 0, claimedDay: -1, giftCars: 0 },
     achievements: newAchievements(),
+    wallet: newWallet(),
     story: newStory(),
   };
 }

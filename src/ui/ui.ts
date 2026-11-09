@@ -4,6 +4,7 @@
 import { bookUnlocked, inShowcase, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
 import { bookView, pctText, showcaseLine, type BookPage } from './collectionView';
 import { awardsView, medalToast } from './awardsView';
+import { walletText } from '../core/wallet';
 import { AWARD_IDS, awardsToClaim, claimAward, tiersReached, type AwardId } from '../core/achievements';
 import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
@@ -480,7 +481,7 @@ export class Ui {
 
   private dailyPaid(r: DailyReward, title: string) {
     sfx.fanfare();
-    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', r.gift ? '🎁 a gift car is on its way' : ''].filter(Boolean);
+    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', walletText(r.gems, r.tokens), r.gift ? '🎁 a gift car is on its way' : ''].filter(Boolean);
     this.showBanner(title, bits.join(' · '));
     this.deps.onChange();
     this.render();
@@ -511,7 +512,7 @@ export class Ui {
       const open = canClaimCalendar(s);
       const idx = calendarIndex(s);
       const r = calendarReward(s);
-      const what = r.gift ? `🎁 an ${ECON.rarity[ECON.daily.giftRarity].label} car for the yard` : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}`;
+      const what = r.gift ? `🎁 an ${ECON.rarity[ECON.daily.giftRarity].label} car for the yard` : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}${r.gems ? ` + ${r.gems} 💎` : ''}${r.tokens ? ` + ${r.tokens} 🎟` : ''}`;
       root.classList.toggle('ready', open);
       setText(lvl, `Day ${idx + 1}/${ECON.daily.calendar.length}`);
       setText(desc, open ? `Today: ${what}. Play every day for the gift car on day 7.` : `Tomorrow: ${what}`);
@@ -539,7 +540,7 @@ export class Ui {
       if (!r) return;
       // The third claim also pays the all-done bonus.
       const b = claimBonus(s);
-      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false } : r, b ? 'ALL DAILIES DONE!' : 'TASK DONE!');
+      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false, gems: r.gems + b.gems, tokens: r.tokens + b.tokens } : r, b ? 'ALL DAILIES DONE!' : 'TASK DONE!');
     };
     const update = (s: GameState) => {
       const t = s.daily.tasks[index];
@@ -552,7 +553,7 @@ export class Ui {
       setText(lvl, `${t.progress}/${t.target}`);
       bar.style.width = `${(t.progress / t.target) * 100}%`;
       const r = taskReward(s, t);
-      const reward = `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}`;
+      const reward = `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''} + ${r.tokens} 🎟`;
       const left = s.daily.tasks.filter((x) => !x.claimed).length;
       const bonus = !s.daily.bonusClaimed && left > 0 ? ` · all ${s.daily.tasks.length}: +${formatCash(bonusReward(s).cash)}` : '';
       setText(desc, t.claimed ? `Claimed · ${resetText(msToReset(this.deps.now()))}` : `Reward ${reward}${bonus}`);
@@ -2025,12 +2026,14 @@ export class Ui {
       const v = bookView(s, page === 'awards' || page === 'story' ? 'cars' : page);
       const aw = awardsView(s);
       const log = storyLog(s);
+      const w = s.wallet;
       header.innerHTML =
         page === 'awards'
           ? `<b>🏅 ${aw.header}</b><small>Medals count every empire you have built</small>`
           : page === 'story'
             ? `<b>📖 Story: ${log.have} of ${log.of} scenes</b><small>Tap a scene to read it again</small>`
             : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      if (w.gems > 0 || w.tokens > 0) header.innerHTML += `<small class="wallet-line">💎 ${w.gems} gems · 🎟 ${w.tokens} auction tokens</small>`;
       const storyTab = el('button', `tree-tab${page === 'story' ? ' on' : ''}`, `<span>Story</span><small>${log.have}/${log.of}</small>`) as HTMLButtonElement;
       storyTab.setAttribute('role', 'tab');
       storyTab.setAttribute('aria-selected', String(page === 'story'));
@@ -2097,7 +2100,7 @@ export class Ui {
                 const r = claimAward(this.deps.state(), c.id);
                 if (!r) return;
                 sfx.coin();
-                this.toast(`${ECON.achievements.medalIcons[r.tier]} ${ECON.achievements.list[c.id].name}: +${formatCash(r.cash)}`, 2500);
+                this.toast(`${ECON.achievements.medalIcons[r.tier]} ${ECON.achievements.list[c.id].name}: +${formatCash(r.cash)}${r.gems ? ` · +${r.gems} 💎` : ''}`, 2500);
                 this.deps.onChange();
                 paint();
               };

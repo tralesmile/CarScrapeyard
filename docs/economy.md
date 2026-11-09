@@ -446,3 +446,10 @@ from the player and no RNG draw is added (`noteLotLost`/`noteBuyerLost` count wi
 sims and the pacing targets are untouched; `npm run sim` was not needed. If Vince becomes a real rival (owner
 question), A/B it like the showcase: a bot run with and without, time to the first Sell Empire.
 Chapter 2 (P1.6b, run 32) adds scenes and the map HQ only; still no economy change and no sim run needed.
+
+## Wallet (P1.7a, run 33)
+
+Gems and Auction Tokens never change cash income, so `npm run sim` pacing is unchanged. Income per source is in
+`ECON.wallet`: medals 0/1/3/8 gems (a full set of 14 awards = 168 gems), all-dailies bonus 3 gems + 2 tokens, task 1
+token (so a full day = 5 tokens and 3 gems), a calendar week = 22 gems + 7 tokens (10 of the gems on day 7).
+Price points for the shop (P1.7b) must come from these numbers: a daily player earns about 3 gems and 5 tokens a day.

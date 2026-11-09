@@ -113,6 +113,7 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
     tracked: Object.fromEntries(Object.entries(state.achievements.tracked).map(([k, t]) => [k, { total: t.total, last: 0 }])) as GameState['achievements']['tracked'],
     claimed: { ...state.achievements.claimed },
   };
+  fresh.wallet = { ...state.wallet };
   fresh.story = { ...state.story, seen: [...state.story.seen] };
   fresh.legacy = {
     points: state.legacy.points + points,

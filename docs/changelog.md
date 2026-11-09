@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.0 - 2026-11-09 (run 33)
+
+- **Gems and Auction Tokens (P1.7a):** a small wallet. 💎 Gems (the soft premium currency, bought with real money
+  only after P2.3) come from medals (Silver 1, Gold 3, Diamond 8), the all-dailies bonus (3) and the login calendar
+  (1 to 3 a day, 10 on day 7). 🎟 Auction Tokens (earn-only, never sold) come from finished daily tasks (1 each), the
+  all-done bonus (2) and some calendar days. Neither touches cash income, so pacing is unchanged. Claim buttons, task
+  cards, banners and toasts name them; the 📒 book header shows the balance once you own any. Both are kept when you
+  sell your empire. Nothing spends them yet: the shop and the auction-token lots are P1.7b.
+- **Fix (P1.6q):** on 320-359 px phones the five book tabs wrap into two rows, so "Bran…", "Clas…" and "Awar…" are
+  whole words again.
+- Tests: 9 wallet tests (caps, spending, every income source, kept on a sale, save round trip and junk repair);
+  e2e: daily rewards pay gems and tokens and the banner names them, no book tab label is cut on a 320 px phone.
+
 ## 0.32.0 - 2026-11-09 (run 32)
 
 - **Story chapter 2, Motor City (P1.6b):** "The Big City". Vince greets you after your first 5 sales in Motor City and

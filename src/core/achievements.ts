@@ -10,6 +10,7 @@ import { ECON } from './config';
 import { bookProgress } from './collection';
 import { carsWorth } from './daily';
 import type { GameState } from './state';
+import { addGems, medalGems } from './wallet';
 
 export type AwardId = keyof typeof ECON.achievements.list;
 export const AWARD_IDS = Object.keys(ECON.achievements.list) as AwardId[];
@@ -109,14 +110,15 @@ export function awardReward(state: GameState, tier: number): number {
 }
 
 /** Claim the next reached tier of an award. Returns the cash paid and the tier, or null. */
-export function claimAward(state: GameState, id: AwardId): { cash: number; tier: number } | null {
+export function claimAward(state: GameState, id: AwardId): { cash: number; tier: number; gems: number } | null {
   if (!(id in ECON.achievements.list) || !canClaimAward(state, id)) return null;
   const tier = state.achievements.claimed[id];
   const cash = awardReward(state, tier);
   state.achievements.claimed[id] = tier + 1;
   state.cash += cash;
   state.lifetimeEarnings += cash;
-  return { cash, tier };
+  const gems = addGems(state, medalGems(tier));
+  return { cash, tier, gems };
 }
 
 /** Medals earned (claimed) out of all. */

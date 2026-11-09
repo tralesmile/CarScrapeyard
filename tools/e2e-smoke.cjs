@@ -725,6 +725,10 @@ async function waitForServer(url, ms = 15000) {
     assert(allDone.d.tasks.every((t) => t.claimed) && allDone.d.bonusClaimed, 'claiming all three tasks pays the all-done bonus');
     await page.waitForFunction(() => /ALL DAILIES DONE/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 12000 });
     assert(true, 'an "ALL DAILIES DONE!" banner');
+    // P1.7a: the day-1 calendar reward, three tasks and the bonus paid gems and tokens, and the book shows them.
+    const wal = await page.evaluate(() => window.__jye.state.wallet);
+    assert(wal.gems >= 4 && wal.tokens >= 5, `daily rewards paid gems and tokens (${JSON.stringify(wal)})`);
+    assert(/\+\d+ 💎/.test(await page.$eval('.banner', (b) => b.textContent)), 'the banner names the gems');
     // A new day (moved forward by the save's day) rolls fresh tasks; day 7's gift car arrives in the yard.
     await page.evaluate(() => {
       const d = window.__jye.state.daily;
@@ -2188,9 +2192,11 @@ async function waitForServer(url, ms = 15000) {
       const tabsFit = await np.evaluate(() => {
         const m = document.querySelector('.book .modal').getBoundingClientRect();
         const ts = [...document.querySelectorAll('.book-tabs .tree-tab')].map((t) => t.getBoundingClientRect());
-        return { n: ts.length, fit: ts.every((t) => t.left >= m.left && t.right <= m.right + 0.5) };
+        const cut = [...document.querySelectorAll('.book-tabs .tree-tab span')].filter((x) => x.scrollWidth > x.clientWidth).length;
+        return { n: ts.length, fit: ts.every((t) => t.left >= m.left && t.right <= m.right + 0.5), cut };
       });
       assert(tabsFit.n === 5 && tabsFit.fit, `five book tabs fit a 320 px phone (${JSON.stringify(tabsFit)})`);
+      assert(tabsFit.cut === 0, `no book tab label is cut short on a 320 px phone (${JSON.stringify(tabsFit)})`);
       const log = await np.evaluate(() => ({
         head: document.querySelector('.book-head').textContent,
         chapters: [...document.querySelectorAll('.story-chapter')].map((c) => c.dataset.chapter).join(),

@@ -217,6 +217,27 @@ export const ECON = {
   },
 
   /**
+   * Wallet (P1.7a): two small currencies on top of cash and parts. Gems are the soft premium currency: they are
+   * earned here (medals, daily rewards) and bought with real money later (P2.3). Auction Tokens are earn-only, never
+   * sold: they are the only price of an auction lot (no paid random rewards, see CLAUDE.md). Neither changes cash
+   * income, so the economy sim is unaffected.
+   */
+  wallet: {
+    /** Gems for claiming a medal tier (Bronze, Silver, Gold, Diamond). */
+    medalGems: [0, 1, 3, 8],
+    /** Tokens for a finished daily task, and for the all-done bonus. */
+    taskTokens: 1,
+    allDoneGems: 3,
+    allDoneTokens: 2,
+    /** Calendar days 1-7. */
+    calendarGems: [1, 1, 2, 2, 3, 3, 10],
+    calendarTokens: [0, 1, 0, 1, 0, 2, 3],
+    /** Hard caps keep a tampered save from showing absurd numbers. */
+    maxGems: 1_000_000,
+    maxTokens: 100_000,
+  },
+
+  /**
    * Story (P1.6): chapter 1 in Rust Valley. Beats are short scenes with Grandpa Joe and the rival Vince Valvano,
    * shown in order when their moment comes, at least `gapSeconds` of play apart. Vince is flavour only: he takes
    * every `rivalEvery`-th lot that leaves the auction board unsold (and the first one) and every `rivalEvery`-th yard

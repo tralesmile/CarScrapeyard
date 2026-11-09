@@ -11,6 +11,7 @@ import { ECON } from './config';
 import { expectedCarValue, roundNice } from './formulas';
 import { incomeMultiplier } from './legacy';
 import type { GameState } from './state';
+import { addGems, addTokens } from './wallet';
 
 export type DailyKind = keyof typeof ECON.daily.tasks;
 export const DAILY_KINDS = Object.keys(ECON.daily.tasks) as DailyKind[];
@@ -128,15 +129,18 @@ export interface DailyReward {
   cash: number;
   parts: number;
   gift: boolean;
+  /** Wallet extras (P1.7a). */
+  gems: number;
+  tokens: number;
 }
 
 export function taskReward(state: GameState, task: DailyTask): DailyReward {
   const t = ECON.daily.tasks[task.kind];
-  return { cash: carsWorth(state, t.rewardCars), parts: t.parts, gift: false };
+  return { cash: carsWorth(state, t.rewardCars), parts: t.parts, gift: false, gems: 0, tokens: ECON.wallet.taskTokens };
 }
 
 export function bonusReward(state: GameState): DailyReward {
-  return { cash: carsWorth(state, ECON.daily.allDoneBonusCars), parts: 0, gift: false };
+  return { cash: carsWorth(state, ECON.daily.allDoneBonusCars), parts: 0, gift: false, gems: ECON.wallet.allDoneGems, tokens: ECON.wallet.allDoneTokens };
 }
 
 /** Calendar slot (0-6) the next claim pays. */
@@ -146,7 +150,13 @@ export function calendarIndex(state: Pick<GameState, 'daily'>): number {
 
 export function calendarReward(state: GameState, index = calendarIndex(state)): DailyReward {
   const c = ECON.daily.calendar[index]!;
-  return { cash: carsWorth(state, c.cars), parts: c.parts, gift: 'gift' in c && c.gift === true };
+  return {
+    cash: carsWorth(state, c.cars),
+    parts: c.parts,
+    gift: 'gift' in c && c.gift === true,
+    gems: ECON.wallet.calendarGems[index] ?? 0,
+    tokens: ECON.wallet.calendarTokens[index] ?? 0,
+  };
 }
 
 /** The calendar has a reward to claim today. */
@@ -186,6 +196,8 @@ function pay(state: GameState, r: DailyReward): void {
   state.cash += r.cash;
   state.lifetimeEarnings += r.cash;
   state.parts += r.parts;
+  addGems(state, r.gems);
+  addTokens(state, r.tokens);
   if (r.gift) state.daily.giftCars += 1;
 }
 

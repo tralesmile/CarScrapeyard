@@ -7,6 +7,7 @@
 import { sanitizeBook, sanitizeShowcase } from './collection';
 import { sanitizeDaily } from './daily';
 import { sanitizeAchievements } from './achievements';
+import { sanitizeWallet } from './wallet';
 import { sanitizeStory } from './story';
 import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
@@ -143,6 +144,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     sanitizeBook(state.collection.models);
     state.collection.showcase = sanitizeShowcase(state.collection.showcase);
     sanitizeDaily(state.daily);
+    sanitizeWallet(state);
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);

@@ -55,7 +55,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   zone or daylight-saving change). Calendar: seven rewards, one per day played (missing a day pauses it, never resets
   it, a friendlier rule than a streak), the seventh an Epic gift car that takes the next yard arrival. Rewards are
   cash (and parts) worth a number of average cars at claim time, so they stay meaningful in any empire or city;
-  gems join them in P1.7.
+  gems and Auction Tokens join them (P1.7a, below).
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of
@@ -310,3 +310,11 @@ to automate it, open new car businesses, then sell your empire and start again i
   Signs, lettering and the work areas keep their daytime colours so they read the same. Rust Valley stays in daylight.
   The setting row only shows in a city with a night look. Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 
+## Wallet: Gems and Auction Tokens (P1.7a)
+
+Two extra currencies next to cash and parts, shown in the 📒 book header once owned and named on every reward.
+**Gems** are the soft premium currency: earned from medals (Bronze 0, Silver 1, Gold 3, Diamond 8), the all-dailies
+bonus (3) and the calendar (1, 1, 2, 2, 3, 3, 10); real-money packs arrive with purchases (P2.3). **Auction Tokens**
+are earn-only and never sold: finished daily tasks (1), the all-done bonus (2) and calendar days 2, 4, 6 and 7
+(1, 1, 2, 3). Tokens will be the only price of an auction lot, so there are no paid random rewards. Both are kept on
+a Sell Empire, capped (1,000,000 gems, 100,000 tokens) and repaired on load. Spending (shop, token lots) is P1.7b.

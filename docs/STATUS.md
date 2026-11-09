@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 32; next run is run 33). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 33; next run is run 34). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -243,11 +243,17 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.6c Story log (run 32): a Story page in the 📒 book (`storyLog` in storyView.ts, shown once a scene is seen):
         chapters with city and count, seen scenes open inline (`storyLinesHtml`), locked rows for the rest, a teaser
         for the next chapter. Unit-tested; e2e at 320 px (five tabs fit) with a replayed scene.
-  - [ ] P1.6q Quality (run 32): on a 320 px phone the five book tabs ellipsize "Bran…", "Clas…", "Awar…" (the book
-        fits; "Car types" became "Cars"). Try icons with counts, or two rows under 360 px.
+  - [x] P1.6q Quality (run 33): under 360 px the five book tabs wrap into two rows (`.book-tabs { flex-wrap }`), so no
+        label is cut; e2e asserts no tab label overflows on a 320 px phone.
   - [ ] P1.6d Optional (owner question in NEEDS_FROM_YOU): a real rival mechanic (Vince bidding at the auction or a
         monthly sales race). Chapter 3 waits for city 3.
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
+  - [x] P1.7a Wallet core (run 33): `src/core/wallet.ts` (`state.wallet`: gems, tokens, earned totals; kept on a sale,
+        caps, save repair), `ECON.wallet` income table, gems in medals / all-done bonus / calendar, tokens in tasks /
+        bonus / calendar, shown on claim buttons, banners, toasts and the book header. 9 unit tests, e2e. No cash change.
+  - [ ] P1.7b Shop stub and first sinks: a 💎 chip/entry point, a shop sheet (gem sinks priced from the income in
+        economy.md, e.g. finish a barn stage, refill the crusher bin, a cosmetic yard theme; real-money packs stay
+        "coming soon" until P2.3), and Auction Tokens as the price of a special lot on the Used Car Lot's board.
 - [ ] P1.8 Music layers per business; volume settings
 - [ ] P1.9 i18n string files (English first)
 - [ ] P1.10 PWA: manifest, icons, service worker, offline play
