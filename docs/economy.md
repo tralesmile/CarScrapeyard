@@ -372,6 +372,22 @@ Max yard bonus on one model: +5% family +5% brand +3% mastery = +13%. Sim (activ
 A/B (P1.2f) moved from x1.08 to x1.17 on seed 12345; over seeds 12345/1/2/3 it is 1.10-1.19 with the book vs
 1.09-1.11 without, so the test now averages three seeds (x1.13, cap x1.15).
 
+## Daily tasks and calendar (P1.5a, run 29)
+
+All numbers in `ECON.daily`. A reward of N cars = `roundNice(expectedCarValue x N x incomeMultiplier)` at claim time.
+
+| Item | Value |
+| --- | --- |
+| Unlock | 80 sales (or any later empire) |
+| Reset | 04:00 UTC, `gameDay(max(now, lastSeen))` |
+| Tasks (target, reward) | sell 40 (12 cars), haggle 6 (10), buyers 8 (10), crush 12 (8 + 15 ⚙), jobs 3 (14), garage 25 (14), lot 8 (16), paint 10 (16) |
+| All three claimed | +20 cars |
+| Calendar days 1-7 | 5, 8 (+10 ⚙), 10, 12 (+20 ⚙), 15, 20 (+30 ⚙) cars, then an Epic gift car |
+
+A full day (tasks, bonus, calendar) pays roughly 60-75 average cars: a few minutes of active yard income once the crew
+is hired, so it is a nudge to come back, not an economy of its own. The bots do not claim dailies, so `npm run sim`
+is unchanged.
+
 ## Showcase (P1.4c, run 29)
 
 Keep a revealed barn classic instead of selling it: no cash; `ECON.collection.showcaseBonus` (+0.5%) per classic on

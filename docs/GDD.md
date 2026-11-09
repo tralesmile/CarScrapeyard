@@ -48,6 +48,14 @@ to automate it, open new car businesses, then sell your empire and start again i
   all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase under what you keep. Why
   this trade-off: cash now vs a small permanent edge, the classic idle "spend or invest" choice; the sim shows keeping
   costs about a minute in the first empire and pays back in every empire after it.
+- **Daily tasks and login calendar (P1.5a/b, run 29):** after 80 sales (about minute 15, as in the plan's opening) the
+  Jobs board shows a 📅 Daily reward card and three tasks for the day, picked from what the player has unlocked (sell
+  40 cars, haggle 6 sales, serve 8 customers, crush 12 wrecks, finish 3 jobs, fix 25 garage cars, sell 8 lot cars,
+  finish 10 paint orders). Days turn over at 04:00 UTC for everyone (plan QA: no double or missed dailies on a time
+  zone or daylight-saving change). Calendar: seven rewards, one per day played (missing a day pauses it, never resets
+  it, a friendlier rule than a streak), the seventh an Epic gift car that takes the next yard arrival. Rewards are
+  cash (and parts) worth a number of average cars at claim time, so they stay meaningful in any empire or city;
+  gems join them in P1.7.
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of

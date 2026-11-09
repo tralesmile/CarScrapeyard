@@ -550,3 +550,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   takes ~10 s with `stopAtOffer`.
 - **A third modal action is cheaper than a new modal.** `modal()` grew an optional `third`/`onThird` button; the close
   helper now takes which button was used instead of a boolean, so later three-way choices reuse it.
+- **Never edit live game state behind the scenes' backs in the e2e.** Slicing `state.cars` to make room for the gift
+  car left a Phaser image on a destroyed texture ("Cannot read properties of null (reading 'glTexture')"), reported
+  only at the very end by the page-error check. Make room the way a player would (here: press Crush, accept the
+  confirm), so the scene gets its events. Numbers like `arrivalTimer` or cooldowns are safe to poke; arrays of things
+  the scene draws are not.
+- **Fix a known flake pattern everywhere, not only where it bit.** Run 28 moved one road-wipe check to a
+  MutationObserver; the Motor City copy of the same check (`waitForSelector` with 1 s) failed this run. When a lesson
+  names a pattern, grep the e2e for every copy of it in the same run.
+- **New daily-style systems: hash the day instead of drawing from the game RNG.** Rolling tasks from `state.rng` would
+  have shifted every later car and broken the seeded sims; `rollKinds(available, day)` keeps them identical.

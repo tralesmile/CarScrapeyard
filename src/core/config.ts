@@ -177,6 +177,45 @@ export const ECON = {
     crushPartsPerTarget: 4,
   },
 
+  /**
+   * Daily tasks and the 7-day login calendar (P1.5a). A day starts at `resetHourUtc` (a fixed UTC hour, so time zone or
+   * daylight saving changes never give a double or a missed day). Rewards are worth a number of average yard cars
+   * (expected car value x the legacy and city multipliers) at the moment they are claimed.
+   */
+  daily: {
+    /** Daily tasks and the calendar appear after this many sales (plan: around minute 15). */
+    unlockCarsSold: 80,
+    resetHourUtc: 4,
+    tasksPerDay: 3,
+    /** Task kinds: the counter they follow and the day's target. A kind is only rolled once it is unlocked. */
+    tasks: {
+      sell: { target: 40, rewardCars: 12, parts: 0 },
+      haggle: { target: 6, rewardCars: 10, parts: 0 },
+      buyer: { target: 8, rewardCars: 10, parts: 0 },
+      crush: { target: 12, rewardCars: 8, parts: 15 },
+      contract: { target: 3, rewardCars: 14, parts: 0 },
+      garage: { target: 25, rewardCars: 14, parts: 0 },
+      lot: { target: 8, rewardCars: 16, parts: 0 },
+      paint: { target: 10, rewardCars: 16, parts: 0 },
+    },
+    /** Claiming all of the day's tasks adds this bonus (in cars). */
+    allDoneBonusCars: 20,
+    /**
+     * Login calendar: one reward per day you play (a missed day does not reset it), then it starts again. The 7th day
+     * brings a gift car of `giftRarity` to the yard.
+     */
+    calendar: [
+      { cars: 5, parts: 0 },
+      { cars: 8, parts: 10 },
+      { cars: 10, parts: 0 },
+      { cars: 12, parts: 20 },
+      { cars: 15, parts: 0 },
+      { cars: 20, parts: 30 },
+      { cars: 0, parts: 0, gift: true },
+    ],
+    giftRarity: 'epic' as Rarity,
+  },
+
   /** Haggle: timing slider on big manual sales. A needle sweeps the bar; the centre pays most. */
   haggle: {
     min: 0.9,

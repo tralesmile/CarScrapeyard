@@ -8,10 +8,18 @@
   find can only be sold. Kept classics count for the Collection book like a sale. The book's Classics page shows
   "🏆 Showcase 3/16 · +1.5% all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase
   under what you keep. Tuned with a keep-vs-sell bot: +1% made keeping free even in the first empire, so it is +0.5%.
+- **Daily tasks and a 7-day login calendar (P1.5a/b):** after 80 sales the Jobs board gets a 📅 Daily reward card and
+  three daily tasks (from: sell cars, haggle, serve customers, crush wrecks, finish jobs, fix garage cars, sell lot cars,
+  finish paint orders; only what you have unlocked). A new day starts at 04:00 UTC everywhere, so travelling or a
+  clock change never gives a double or missed day, and winding the clock back does nothing. Rewards grow with your
+  game (worth a number of average yard cars); finishing all three pays a bonus. The calendar pays once per day you
+  play, a missed day does not reset it, and day 7 sends an Epic gift car to the yard. Kept when you sell your empire.
 - Tests: 7 new unit tests (`showcase.test.ts`: keep pays nothing and records the classic, one per model, not before the
   reveal, the +8% cap, kept on a sale, save round-trip / old saves / repair, book and preview texts) and a balance A/B
   (keeping moves the first sale by 0.98-1.05x). e2e: keep a second classic (banner, no cash, book shows it), a repeat
-  classic offers only Sell (e2e-12b/12c).
+  classic offers only Sell (e2e-12b/12c). 16 daily tests (`daily.test.ts`: reset hour, unlock and rolls, only open kinds,
+  RNG untouched, picks per day, counter tracking through a reset, claims and bonus, new day, rewards scale, calendar
+  steps / missed day / clock rewind / gift car, kept on a sale, save repair, texts). e2e: the daily flow (e2e-12d).
 
 ## 0.28.0 - 2026-11-09 (run 28)
 

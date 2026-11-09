@@ -5,6 +5,7 @@
 // - Missing fields are filled from a fresh game, so adding fields never breaks old saves.
 
 import { sanitizeBook, sanitizeShowcase } from './collection';
+import { sanitizeDaily } from './daily';
 import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
@@ -139,6 +140,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     }
     sanitizeBook(state.collection.models);
     state.collection.showcase = sanitizeShowcase(state.collection.showcase);
+    sanitizeDaily(state.daily);
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);

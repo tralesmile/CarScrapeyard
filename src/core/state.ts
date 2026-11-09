@@ -2,6 +2,7 @@ import type { BusinessId, BuyerKind, CityId, CityLights, CarFamily, CarLotCrewKi
 import { ECON } from './config';
 import type { NumberFormat } from './format';
 import { newBook, type BookEntry } from './collection';
+import type { Daily } from './daily';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
 export const SAVE_VERSION = 2;
@@ -251,6 +252,8 @@ export interface GameState {
     lotTuneSeen: boolean;
     /** The Sell Empire preview was opened (the map dot and banner stop) (P1.3b). */
     legacyOffered: boolean;
+    /** The "DAILY TASKS!" banner was shown (P1.5b). */
+    dailySeen: boolean;
   };
   settings: {
     sound: boolean;
@@ -288,6 +291,8 @@ export interface GameState {
   };
   /** Prestige (P1.3a): Legacy Points and what's left of the empires sold before this one. Kept on a sale. */
   legacy: Legacy;
+  /** Daily tasks and the login calendar (P1.5a, see daily.ts). Kept on a sale. */
+  daily: Daily;
 }
 
 export interface Legacy {
@@ -407,10 +412,11 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false, dailySeen: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
     collection: { sold: emptyFamilyCounts(), models: newBook(), showcase: [] },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),
+    daily: { day: -1, tasks: [], bonusClaimed: false, claims: 0, claimedDay: -1, giftCars: 0 },
   };
 }

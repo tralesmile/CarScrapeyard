@@ -612,6 +612,68 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.book .modal .buy');
     await page.waitForSelector('.book .modal', { state: 'detached' });
 
+    console.log('daily tasks and calendar (P1.5)');
+    assert(!(await page.evaluate(() => window.__jye.state.daily.tasks.length)), 'no daily tasks before the unlock');
+    await page.evaluate(() => (window.__jye.state.carsSold = Math.max(window.__jye.state.carsSold, 80)));
+    await page.waitForFunction(() => window.__jye.state.daily.tasks.length === 3, null, { timeout: 3000 });
+    await page.waitForFunction(() => /DAILY TASKS/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 10000 });
+    assert(true, 'a "DAILY TASKS!" banner announces them');
+    assert(await page.isVisible('.tab:nth-child(4) .dot.on'), 'the Jobs tab shows a dot for the day\'s reward');
+    await page.click('.tab:nth-child(4)');
+    await page.waitForSelector('.cards .card.calendar');
+    const cal = await page.evaluate(() => ({
+      cells: [...document.querySelectorAll('.cal-cell')].map((c) => c.className.replace('cal-cell ', '')),
+      btn: document.querySelector('.card.calendar .buy').textContent,
+      tasks: [...document.querySelectorAll('.cards .card.daily.task .title')].map((t) => t.textContent),
+      contracts: document.querySelectorAll('.cards .contract').length,
+    }));
+    assert(cal.cells.length === 7 && cal.cells[0] === 'today' && /Claim \$/.test(cal.btn), `the calendar offers day 1 (${cal.cells.join(',')} | ${cal.btn})`);
+    assert(cal.tasks.length === 3 && cal.tasks.every((t) => /\d+\/\d+$/.test(t)) && cal.contracts === 3, `three daily tasks below the orders (${cal.tasks.join(' | ')})`);
+    await page.$eval('.cards .card.calendar', (c) => c.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12d-daily.png') });
+    const calCash0 = await page.evaluate(() => window.__jye.state.cash);
+    await page.click('.cards .card.calendar .buy');
+    const cal2 = await page.evaluate(() => ({ cash: window.__jye.state.cash, claims: window.__jye.state.daily.claims, btn: document.querySelector('.card.calendar .buy').textContent }));
+    assert(cal2.claims === 1 && cal2.cash > calCash0, 'claiming the calendar pays once');
+    await page.waitForFunction(() => /Next in \d/.test(document.querySelector('.card.calendar .buy').textContent));
+    assert(await page.$eval('.card.calendar .buy', (b) => b.disabled), 'the calendar waits for tomorrow');
+    // Finish every task: the last claim adds the all-done bonus.
+    await page.evaluate(() => {
+      for (const t of window.__jye.state.daily.tasks) t.progress = t.target;
+    });
+    for (let i = 1; i <= 3; i++) {
+      await page.waitForSelector('.cards .card.daily.task.ready .buy:not(:disabled)');
+      await page.click('.cards .card.daily.task.ready .buy');
+    }
+    const allDone = await page.evaluate(() => ({ d: window.__jye.state.daily }));
+    assert(allDone.d.tasks.every((t) => t.claimed) && allDone.d.bonusClaimed, 'claiming all three tasks pays the all-done bonus');
+    await page.waitForFunction(() => /ALL DAILIES DONE/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 12000 });
+    assert(true, 'an "ALL DAILIES DONE!" banner');
+    // A new day (moved forward by the save's day) rolls fresh tasks; day 7's gift car arrives in the yard.
+    await page.evaluate(() => {
+      const d = window.__jye.state.daily;
+      d.day -= 1;
+      d.claimedDay -= 1;
+      d.claims = 6;
+    });
+    await page.waitForFunction(() => window.__jye.state.daily.tasks.every((t) => !t.claimed), null, { timeout: 3000 });
+    await page.waitForFunction(() => /Claim gift car/.test(document.querySelector('.card.calendar .buy')?.textContent ?? ''));
+    await page.click('.cards .card.calendar .buy');
+    // Make room the game's way: crush the wreck on the bay, then the gift takes the next arrival.
+    await page.click('.tab:nth-child(1)');
+    if (await page.evaluate(() => window.__jye.state.cars.length >= window.__jye.state.slots)) {
+      await page.evaluate(() => (window.__jye.state.crusherCooldown = 0));
+      await page.waitForSelector('.crush:not(.hidden):not(.tune):not(:disabled)', { timeout: 15000 });
+      await page.click('.crush:not(.hidden):not(.tune)');
+      // An Epic or Legendary wreck asks first: crush it anyway.
+      if (await page.isVisible('.modal .secondary')) await page.click('.modal .secondary');
+    }
+    await page.evaluate(() => (window.__jye.state.arrivalTimer = 100));
+    await page.waitForFunction(() => window.__jye.state.daily.giftCars === 0, null, { timeout: 8000 });
+    const gift = await page.evaluate(() => window.__jye.state.cars.some((c) => c.rarity === 'epic'));
+    assert(gift, 'the day-7 gift car arrives in the yard as an Epic');
+
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
       const s = window.__jye.state;
@@ -1481,7 +1543,7 @@ async function waitForServer(url, ms = 15000) {
       // A rich player: 144 x $5M earned is worth 12 Legacy Points.
       await sp.evaluate(() => {
         const s = window.__jye.state;
-        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true });
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, dailySeen: true });
         s.carsSold = 120;
         s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
         s.lifetimeEarnings = 28e6 * Math.pow(12.5, 1.25); // worth 12 Legacy Points (ECON.legacy: $28M, ^0.8)
@@ -1685,7 +1747,7 @@ async function waitForServer(url, ms = 15000) {
       // A second empire ready to sell: 12 points from the first sale, enough earned for 10 more.
       await mp.evaluate(() => {
         const s = window.__jye.state;
-        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
         s.carsSold = 120;
         s.cash = 0;
         s.legacy.sold = 1;
@@ -1785,8 +1847,20 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForSelector('.map-row[data-biz="garage"] button:not([disabled])');
       await mp.click('.map-row[data-biz="garage"] button');
       await mp.waitForFunction(() => window.__jye.state.businesses.opened.garage);
+      // The 0.9 s wipe is recorded by a MutationObserver installed before the click (run 29: waitForSelector missed it).
+      await mp.evaluate(() => {
+        window.__wipeText = null;
+        const mo = new MutationObserver(() => {
+          const w = document.querySelector('.drive-wipe');
+          if (w && window.__wipeText === null) {
+            window.__wipeText = w.textContent;
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      });
       await mp.click('.map-row[data-biz="garage"] button');
-      const mWipe = await mp.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+      const mWipe = await mp.waitForFunction(() => window.__wipeText, null, { timeout: 3000 }).then((h) => h.jsonValue()).catch(() => null);
       assert(mWipe && mWipe.includes('Midtown Garage'), `"Go" drives to the Midtown Garage (${mWipe})`);
       await mp.waitForFunction(() => window.__jye.game.scene.isActive('garage'), null, { timeout: 5000 });
       await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
@@ -1904,7 +1978,7 @@ async function waitForServer(url, ms = 15000) {
       // A late-game top bar: big cash and rate, the Legacy chip, parts, 📒, the city map and Settings.
       await np.evaluate(() => {
         const s = window.__jye.state;
-        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
         s.carsSold = 400;
         s.cash = 123456789;
         s.parts = 1234;

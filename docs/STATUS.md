@@ -202,6 +202,19 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         shows the showcase line and kept cards on a gold plinth; Sell Empire preview lists it. e2e keep, repeat, book.
         Follow-up idea (not scheduled): draw the kept classics in the yard (a trophy shelf by the barn).
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
+  - [x] P1.5a Daily core (run 29): `src/core/daily.ts`, `state.daily` (kept on a sale, save repair). A game day starts
+        at 04:00 UTC (`gameDay`, never earlier than `lastSeen`); after 80 sales `refreshDaily` rolls 3 of 8 task kinds
+        that are open (sell, haggle, buyers, crush, jobs, garage, lot, paint; hashed by day, game RNG untouched).
+        Tasks follow existing counters by their growth (`trackDaily` in `tick`), so a Sell Empire reset loses nothing.
+        Rewards are worth N average yard cars at claim time (legacy and city scale); all three claimed add a bonus.
+        Login calendar: one claim per day played, a missed day does not reset it, day 7 brings an Epic gift car (the
+        next arrival). Unit-tested (16 tests).
+  - [x] P1.5b Daily UI (run 29): Jobs tab: the 📅 Daily reward card (7-cell strip, claim, "Next in 5h 12m") and three
+        task cards below the orders; Jobs tab dot; "DAILY TASKS!", "ALL DAILIES DONE!", "GIFT CAR!" banners; a toast when
+        a new day starts while playing. e2e: unlock, claim, tomorrow wait, all-done bonus, a new day, the gift car.
+  - [ ] P1.5c Achievements (lifetime goals with a badge list; rewards wait for gems in P1.7, or cash for now).
+  - [ ] P1.5d Daily follow-ups: show the dailies outside the scrapyard (a HUD entry or the welcome-back popup), and
+        add gems to the rewards with P1.7.
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub
 - [ ] P1.8 Music layers per business; volume settings

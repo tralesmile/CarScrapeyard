@@ -35,6 +35,7 @@ import type { Car, GameState } from './state';
 import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
+import { trackDaily } from './daily';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
@@ -46,6 +47,7 @@ import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
+  | { type: 'giftCar'; car: Car }
   | { type: 'washed'; carId: number }
   | { type: 'repaired'; carId: number }
   | {
@@ -110,6 +112,14 @@ export function generateCar(state: GameState): Car {
     sellProgress: 0,
   };
   return car;
+}
+
+/** Turn an arrival into the calendar's gift car: a set rarity, worth what that rarity is worth. */
+function giftCar(car: Car): void {
+  const r = ECON.daily.giftRarity;
+  const was = ECON.rarity[car.rarity].valueMult;
+  car.value = Math.max(1, Math.round((car.value * ECON.rarity[r].valueMult) / was));
+  car.rarity = r;
 }
 
 function ensureFocus(state: GameState): void {
@@ -184,6 +194,12 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
     if (state.arrivalTimer >= ECON.arrivalInterval) {
       state.arrivalTimer = 0;
       const car = generateCar(state);
+      // A gift car from the login calendar (P1.5a) takes the next arrival: same RNG draws, a set rarity.
+      if (state.daily.giftCars > 0) {
+        state.daily.giftCars -= 1;
+        giftCar(car);
+        events.push({ type: 'giftCar', car });
+      }
       state.cars.push(car);
       events.push({ type: 'arrived', car });
       if (car.rarity === 'legendary') {
@@ -240,6 +256,7 @@ export function tick(state: GameState, dt: number): GameEvent[] {
     step(state, s, events);
     remaining -= s;
   }
+  trackDaily(state);
   return events;
 }
 

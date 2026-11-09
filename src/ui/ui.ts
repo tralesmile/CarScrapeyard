@@ -28,6 +28,22 @@ import {
 } from '../core/sim';
 import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
+import {
+  bonusReward,
+  calendarIndex,
+  calendarReward,
+  canClaimCalendar,
+  claimBonus,
+  claimCalendar,
+  claimTask,
+  dailyHasClaim,
+  dailyUnlocked,
+  msToReset,
+  taskDone,
+  taskReward,
+  type DailyReward,
+} from '../core/daily';
+import { calendarCells, resetText, taskLabel, waitText } from './dailyView';
 import { barnHasAction, barnStageCost, barnUnlocked, barnValue, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
@@ -87,6 +103,8 @@ export interface UiDeps {
   onEvents: (events: GameEvent[]) => void;
   onChange: () => void;
   incomePerSecond: () => number;
+  /** Platform clock (ms), for the daily reset countdown. */
+  now: () => number;
   /** Play the barn reveal in the scene; `shown` runs when the car is on screen. Returns a function that closes it. */
   barnReveal: (shown: () => void) => () => void;
   /** Delete every save and start over (after the player confirmed). */
@@ -447,6 +465,92 @@ export class Ui {
       btn.disabled = !ok;
     };
     return { root, lvl, desc, btn, update };
+  }
+
+  // ---- Daily tasks and login calendar (P1.5b) -------------------------------
+
+  private dailyPaid(r: DailyReward, title: string) {
+    sfx.fanfare();
+    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', r.gift ? '🎁 a gift car is on its way' : ''].filter(Boolean);
+    this.showBanner(title, bits.join(' · '));
+    this.deps.onChange();
+    this.render();
+  }
+
+  private calendarCard(): CardView {
+    const root = el('div', 'card daily calendar');
+    const title = el('div', 'title display');
+    const lvl = el('span', 'lvl');
+    title.append(document.createTextNode('📅 Daily'), lvl);
+    const strip = el('div', 'cal-strip');
+    strip.setAttribute('aria-hidden', 'true');
+    const desc = el('div', 'desc');
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, strip, desc, btn);
+    let key = '';
+    btn.onclick = () => {
+      const r = claimCalendar(this.deps.state());
+      if (r) this.dailyPaid(r, r.gift ? 'GIFT CAR!' : 'DAILY REWARD!');
+    };
+    const update = (s: GameState) => {
+      const cells = calendarCells(s);
+      const k = cells.map((c) => c.state[0]).join('');
+      if (k !== key) {
+        key = k;
+        strip.innerHTML = cells.map((c) => `<span class="cal-cell ${c.state}">${c.state === 'claimed' ? '✓' : c.gift ? '🎁' : c.day}</span>`).join('');
+      }
+      const open = canClaimCalendar(s);
+      const idx = calendarIndex(s);
+      const r = calendarReward(s);
+      const what = r.gift ? `🎁 an ${ECON.rarity[ECON.daily.giftRarity].label} car for the yard` : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}`;
+      root.classList.toggle('ready', open);
+      setText(lvl, `Day ${idx + 1}/${ECON.daily.calendar.length}`);
+      setText(desc, open ? `Today: ${what}. Play every day for the gift car on day 7.` : `Tomorrow: ${what}`);
+      setText(btn, open ? (r.gift ? 'Claim gift car' : `Claim ${formatCash(r.cash)}`) : `Next in ${waitText(msToReset(this.deps.now()))}`);
+      btn.disabled = !open;
+    };
+    return { root, lvl, desc, btn, update };
+  }
+
+  private dailyTaskCard(index: number): CardView {
+    const root = el('div', 'card daily task');
+    const title = el('div', 'title display');
+    const name = el('span');
+    const lvl = el('span', 'lvl');
+    title.append(name, lvl);
+    const desc = el('div', 'desc');
+    const barWrap = el('div', 'bar');
+    const bar = el('i');
+    barWrap.append(bar);
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, desc, barWrap, btn);
+    btn.onclick = () => {
+      const s = this.deps.state();
+      const r = claimTask(s, index);
+      if (!r) return;
+      // The third claim also pays the all-done bonus.
+      const b = claimBonus(s);
+      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false } : r, b ? 'ALL DAILIES DONE!' : 'TASK DONE!');
+    };
+    const update = (s: GameState) => {
+      const t = s.daily.tasks[index];
+      root.style.display = t ? '' : 'none';
+      if (!t) return;
+      const done = taskDone(t);
+      root.classList.toggle('ready', done && !t.claimed);
+      root.classList.toggle('claimed', t.claimed);
+      setText(name, taskLabel(t.kind, t.target));
+      setText(lvl, `${t.progress}/${t.target}`);
+      bar.style.width = `${(t.progress / t.target) * 100}%`;
+      const r = taskReward(s, t);
+      const reward = `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}`;
+      const left = s.daily.tasks.filter((x) => !x.claimed).length;
+      const bonus = !s.daily.bonusClaimed && left > 0 ? ` · all ${s.daily.tasks.length}: +${formatCash(bonusReward(s).cash)}` : '';
+      setText(desc, t.claimed ? `Claimed · ${resetText(msToReset(this.deps.now()))}` : `Reward ${reward}${bonus}`);
+      setText(btn, t.claimed ? '✓ Claimed' : done ? `Claim ${reward}` : 'In progress');
+      btn.disabled = t.claimed || !done;
+    };
+    return { root, lvl, desc, bar, btn, update };
   }
 
   private contractCard(index: number): CardView {
@@ -835,6 +939,11 @@ export class Ui {
     this.buildCards();
   }
 
+  /** Rebuild the Jobs tab's cards (a new day or the daily unlock changes them). */
+  rebuildCards() {
+    if (this.tab === 'jobs') this.buildCards();
+  }
+
   private buildCards() {
     this.cardsBox.innerHTML = '';
     if (this.tab === 'upgrades') this.cards = (['wash', 'repair', 'quality', 'press'] as UpgradeKind[]).map((k) => this.upgradeCard(k));
@@ -853,7 +962,11 @@ export class Ui {
     else if (this.tab === 'lcrew') this.cards = [this.lotCrewCard('detailer'), this.lotCrewCard('agent')];
     else if (this.tab === 'pupgrades') this.cards = [this.paintUpgradeCard('booth'), this.paintUpgradeCard('hype'), this.boothCard()];
     else if (this.tab === 'pcrew') this.cards = [this.painterCard()];
-    else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
+    else {
+      this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
+      // Daily tasks and the calendar follow the timed orders (P1.5b).
+      if (dailyUnlocked(this.deps.state())) this.cards.push(this.calendarCard(), ...Array.from({ length: ECON.daily.tasksPerDay }, (_, i) => this.dailyTaskCard(i)));
+    }
     for (const c of this.cards) this.cardsBox.append(c.root);
     this.renderPerkStrip();
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
@@ -1198,6 +1311,13 @@ export class Ui {
       this.deps.onChange();
     }
 
+    if (jobsOn && dailyUnlocked(s) && !s.tutorial.dailySeen && !this.modalOpen && s.tutorial.contractsSeen) {
+      s.tutorial.dailySeen = true;
+      setTimeout(() => this.showBanner('DAILY TASKS!', 'A reward every day and three tasks on the Jobs board'), 2700);
+      if (this.tab === 'jobs') this.buildCards();
+      this.deps.onChange();
+    }
+
     if (barnUnlocked(s) && !s.tutorial.barnSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.barnSeen = true;
       setTimeout(() => this.showBanner('BARN FIND!', 'A covered classic at the back of the yard'), 2700);
@@ -1416,7 +1536,7 @@ export class Ui {
       const c = slotCost(s.slots, cityScale(s));
       return (c !== null && s.cash >= c) || this.barnHasAction(s);
     }
-    if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
+    if (t === 'jobs') return s.contracts.some((c) => c.status === 'done') || dailyHasClaim(s);
     if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= foremanCost(s);
     if (t === 'auction') return s.businesses.opened.carlot && s.carlot.cars.length === 0 && s.carlot.board.some((b) => !!b && canBuyLot(s, b.id));
     if (t === 'pcrew') return s.businesses.opened.paint && !s.paint.painter && s.cash >= painterCost(s);

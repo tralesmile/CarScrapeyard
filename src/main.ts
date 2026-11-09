@@ -20,6 +20,7 @@ import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { CarLotScene } from './game/CarLotScene';
 import { PaintScene } from './game/PaintScene';
+import { refreshDaily } from './core/daily';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
@@ -114,6 +115,10 @@ function onEvents(events: GameEvent[]) {
       const car = state.carlot.cars.find((c) => c.id === e.carId);
       if (car) ui.toast(`🏷️ ${car.model} is back on the lot: +${formatCash(e.value)} on the sticker`, 3000);
     }
+    if (e.type === 'giftCar') {
+      ui.showBanner('GIFT CAR!', `🎁 ${e.car.model}, ${ECON.rarity[e.car.rarity].label}, from your daily calendar`);
+      dirty = true;
+    }
     if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
   }
@@ -129,6 +134,7 @@ const ui = new Ui(document.getElementById('ui')!, {
     dirty = true;
   },
   incomePerSecond,
+  now: () => platform.now(),
   barnReveal: (shown) => {
     const sc = yardScene();
     if (!sc || state.businesses.active !== 'scrapyard') {
@@ -242,7 +248,15 @@ function resize() {
 new ResizeObserver(resize).observe(app);
 
 // ---- render + save loops -------------------------------------------------
-setInterval(() => ui.render(), 100);
+setInterval(() => {
+  // A new game day (P1.5a): fresh tasks and the next calendar reward.
+  if (refreshDaily(state, platform.now())) {
+    dirty = true;
+    if (state.tutorial.dailySeen) ui.toast('📅 New day: fresh daily tasks and a reward on the Jobs board', 3500);
+    ui.rebuildCards();
+  }
+  ui.render();
+}, 100);
 setInterval(() => {
   touch(state, platform.now());
   if (dirty) saveNow();

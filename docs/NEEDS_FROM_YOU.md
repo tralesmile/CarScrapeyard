@@ -108,6 +108,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       instead of selling: no cash, but it stands in your showcase (Collection book → Classics) and adds +0.5% to all
       your income forever, even after Sell Empire (one of each classic, +8% at most). Is that worth giving up the sale
       for? Would you like to see the kept cars in the yard (a trophy shelf by the barn)?
+      Also new in run 29: **daily tasks and a 7-day login calendar** on the Jobs board (after 80 sales). Three tasks a
+      day, a reward for every day you play and an Epic gift car on day 7. A new day starts at 04:00 UTC (5 am in
+      London in winter, 8 pm in California); a missed day pauses the calendar instead of resetting it. Is 04:00 UTC a
+      good reset time for you and your testers, and should a missed day reset the calendar (stricter, more "streak")?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

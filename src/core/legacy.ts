@@ -105,6 +105,7 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
     showcase: [...state.collection.showcase],
   };
   fresh.stats = { ...state.stats };
+  fresh.daily = { ...state.daily, tasks: state.daily.tasks.map((t) => ({ ...t })) };
   fresh.legacy = {
     points: state.legacy.points + points,
     allTime: state.legacy.allTime + earned,
