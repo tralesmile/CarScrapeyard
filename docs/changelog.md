@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.27.0 - 2026-11-09 (run 27)
+
+- **Prestige pacing (P1.3d4):** your second empire no longer takes longer than the first. Legacy Points now follow a
+  softer curve (`floor((all-time earnings / $28M) ^ 0.8)`; the first sale still comes at about $500M), so the sale
+  after a restart comes at ~3h23m for the always-tapping bot instead of 4h47m. Motor City is x3 instead of x5 (prices
+  and payouts), which keeps its Legacy Points per hour about the same; each empire there is offered its sale a little
+  sooner than the last (1h56m down to 1h27m). Existing saves keep all their points.
+- **Collection book, rules (P1.4a):** every yard model (32) and barn classic (16) is an entry in the book. Selling a car
+  records its model, the best rarity you sold it in, and mastery stars at 10, 50 and 200 sales (+1% value for that
+  model each). Complete a set for a permanent bonus: every model of a family (+5% that family's value), one model of a
+  brand in every family (+5% that brand's value), or all 16 barn classics (+25% barn sale value). A "SET COMPLETE!"
+  banner and mastery toasts announce them. The book is kept when you sell your empire. The book screen comes next.
+- Tests: 10 new unit tests (`collection-book.test.ts`: entries and sets, records and stars, family and brand sets, car value
+  and idle income bonus with the same RNG stream, barn classics, kept on a sale, save round trip / old saves / repair,
+  texts; the old square-root saves stay valid on the new curve). Balance: a 6-empire chain asserts each sale comes no
+  later than the one before; the lot-tune check is averaged over 3 seeds. e2e: selling the 4th Van model completes the
+  Van set (banner, book entry with its rarity); Motor City prices checked at x3.
+
 ## 0.26.0 - 2026-11-08 (run 26)
 
 - **Neon nights in Motor City (P1.3d3c):** from 7 pm to 6 am on your device's clock, Motor City turns to night: a navy

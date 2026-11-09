@@ -5,7 +5,7 @@ import { openBusiness, openCost } from '../src/core/businesses';
 import { crushParts, expectedCarValue, idleIncomePerSecond, managerRate, offlineEarnings, repairPerTap, washPerPixel } from '../src/core/formulas';
 import { foremanRate, garageOfflineEarnings, garageWorkPerTap } from '../src/core/garage';
 import { haggleMultiplier } from '../src/core/haggle';
-import { sellEmpire } from '../src/core/legacy';
+import { earningsForTotalPoints, sellEmpire } from '../src/core/legacy';
 import {
   barnFindSeconds,
   barnStageSeconds,
@@ -33,7 +33,7 @@ const T = ECON.legacy.tree;
 function withPoints(points: number): GameState {
   const s = newGame(T0, 9);
   s.legacy.points = points;
-  s.legacy.allTime = points * points * ECON.legacy.pointScale;
+  s.legacy.allTime = earningsForTotalPoints(points);
   return s;
 }
 

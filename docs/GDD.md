@@ -28,6 +28,12 @@ to automate it, open new car businesses, then sell your empire and start again i
   piles with tyres and scrap panels (kept clear of the customer's spot), fence, ground and the concrete work bay.
 - **Collection counts:** every sale counts its car type for the Collection book (P1.4). The first sale of a type shows
   "📒 First Van sold! Collection: 5/8 car types" (the four starter types are counted quietly in the first 10 sales).
+- **Collection book (P1.4a, rules in run 27):** 48 entries, every yard model (four per car type, one of each fictional
+  brand) and every barn classic. A sale records the model, the best rarity it was sold in (rarity badge) and its
+  count; 10 / 50 / 200 sales give mastery stars (+1% that model's value each). **Sets:** a car type's four models
+  (+5% that type's value), a brand's model in all eight types (+5% that brand's value), all 16 barn classics (+25%
+  barn sale value). Bonuses are permanent and kept on Sell Empire. "SET COMPLETE! 📒 Van set: +5% Van value forever"
+  banner; "⭐ Kaze Pip mastery: +1% value" toast. The book screen is P1.4b.
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of
@@ -187,8 +193,10 @@ to automate it, open new car businesses, then sell your empire and start again i
 
 ## Prestige: Sell Empire (P1.3)
 
-- **Legacy Points** come from everything you have ever earned, sold empires included: `floor(sqrt(all-time / $5M))`.
-  Selling adds the difference to what you already own, so each restart rewards more play with diminishing returns.
+- **Legacy Points** come from everything you have ever earned, sold empires included: `floor((all-time / $28M) ^ 0.8)`
+  (10 points at ~$500M; a square root until run 27, see P1.3d4 in economy.md). Selling adds the difference to what you
+  already own, so each restart rewards more play with diminishing returns, but gently enough that each empire is
+  offered its sale no later than the one before (sim: 3h27m, 3h23m, then 1h56m to 1h27m in Motor City).
   Each point adds **+2% to all income forever** (every car value, fee, price, reward and idle/offline rate). Points
   spent in the Legacy tree (P1.3c) keep their +2%.
 - The **Sell Empire** button appears once a sale would give at least 10 points and glows when the new points are at
@@ -232,8 +240,9 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Cities (P1.3d, core and picker in run 23):** an empire is built in one city. The first empires are in **Rust
   Valley**; from the **second sale** on, the preview asks "Where next?" with two cards: stay in Rust Valley or go to
   **Motor City** (picked by default, steel blue). Motor City runs the same four businesses with every price and every
-  payout x5, so a run plays at the same pace but earns five times the dollars, and Legacy Points (which count dollars)
-  come faster: the sim's third empire is offered the sale at 2h28m in Motor City and not within 5 h in Rust Valley.
+  payout x3 (x5 until run 27, cut with the softer point curve), so a run plays at the same pace but earns three times
+  the dollars, and Legacy Points (which count dollars) come faster: the sim's third empire is offered the sale at 1h54m
+  in Motor City and at 3h02m in Rust Valley.
   The first preview shows "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" with a
   Grandpa Joe line; the map is titled with the city. **Motor City's map (run 24):** concrete city blocks with pale
   sidewalks, a two-carriageway highway with traffic along the top, rooftops in the margins, street lamps, a zebra

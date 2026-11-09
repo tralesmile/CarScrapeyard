@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-08 (run 26; next run is run 27). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 27; next run is run 28). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -105,7 +105,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         ticket, or beside the customer under it; unit-tested on 7 screens x 1-3 services x 2 line widths). Short phones:
         `boothStage` moves the car down, lets the ticket cover a little more roof and on a 560 px phone draws the car
         smaller, so the sign keeps its lettering and the ticket clears the booth row (e2e at 375x560 with 2 booths).
-- [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
+- [x] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
   - [x] P1.3a Prestige core (run 19): `src/core/legacy.ts`: Legacy Points = floor(sqrt(all-time earnings / $5M)), the
         sale is offered at 10 new points and glows at >= half the points owned, +2% income per point on every payout
         and idle/offline income (yard cars, scrap, contracts, barn, garage fees, paint fees and lot tune stickers, lot
@@ -128,7 +128,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         `perkLabel` in legacyView.ts: a chip row above the cards per tab, the haggle badge, the map's open line, the
         welcome-back popup), a node-bought animation (pop, glow, stamp, "−3 🏛", header pulse; reduce-motion safe), and
         the welcome-back popup tells the real time worked (capped) plus a line when you were away longer than the cap.
-  - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
+  - [x] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
     - [x] P1.3d1 Core + city picker (run 23): `ECON.cities` (Rust Valley x1; Motor City x5, from the 2nd sale),
           `src/core/cities.ts`, `state.legacy.city` (kept on a sale; new field with a default and save repair, no
           version bump needed), `sellEmpire(state, now, city)`. A city's scale multiplies every value
@@ -158,8 +158,12 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
             `GARAGE_NIGHT` (night street, neon roof line), `LOT_NIGHT` (moon, lit showroom, neon halo behind the sign;
             same skyline layout), `BOOTH_NIGHT` (magenta neon stripe). Signs and lettering keep day colours.
             Unit-tested; e2e switches to Night in Settings and samples all four scenes (e2e-22g..k).
-    - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
-          first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
+    - [x] P1.3d4 Balance follow-up (run 27): the 2nd empire was offered its sale at 4h47m vs 3h28m for the first. Softer
+          point curve `floor((all-time / $28M) ^ 0.8)` (first sale still at ~$500M; no save migration, unit-tested) and
+          Motor City x5 -> x3 to keep its points per hour. Sim, selling at each offer: 3h27m, 3h23m, then 1h56m, 1h44m,
+          1h35m, 1h27m in Motor City; a balance test asserts every empire is offered its sale no later than the one
+          before. Compared in economy.md: exponents 0.5-0.8 and +3-5% per point (barely helps). Revisit the point
+          divisor when city 3 is designed (the curve grows faster in the long run).
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
       for `.icon-btn.hidden`); on 320 px phones the panel's tabs and buy modes overflowed and a modal's focus slid the
       whole game sideways (`overflow: clip`, `preventScroll`, compact tabs up to 430 px: four tabs + x1/x10/Max fit at 320 px, scrolling tabs
@@ -175,6 +179,16 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       sheet overflowed an iPhone SE once the City lights row was added (Done unreachable); it scrolls now
       (`max-height: 100%`, tighter rows under 600 px tall), e2e-checked.
 - [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
+  - [x] P1.4a Book core (run 27): `src/core/collection.ts`, `state.collection.models` (48 entries: 32 yard models + 16
+        barn classics, pre-filled in `newGame` so old saves get them; save repair). Each sale records the model, its
+        best rarity and mastery stars (10 / 50 / 200 sales, +1% value each); sets: 8 family sets (+5% that family),
+        4 brand sets (one model of the brand in every family, +5% that brand), Barn Classics (all 16, +25% barn sale
+        value). Bonuses multiply yard car values at arrival (RNG stream unchanged) and the yard's idle income; kept on
+        a sale. "SET COMPLETE!" banner and a mastery toast (`src/ui/collectionView.ts`). Sim: first run unchanged
+        (3h27m), lot-tune test now averaged over 3 seeds (one seed swings it 1.10-1.19).
+  - [ ] P1.4b Book screen: a 📒 button (after the first family toast), set pages with model cards (silhouette until
+        collected, rarity badge, mastery stars and progress), set bonus rows, a red dot for a new entry; e2e on 320 px.
+  - [ ] P1.4c Keep a restored barn classic for the book instead of selling (a showcase spot; decide the trade-off).
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub

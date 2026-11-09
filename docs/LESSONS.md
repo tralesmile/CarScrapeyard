@@ -487,3 +487,36 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   taller than 568 px and the modal had no scroll, so Done sat off-screen; Playwright's "element is outside of the
   viewport" after 30 s was the only sign. Every modal that can grow should have `max-height` + `overflow-y: auto`, and
   the e2e that adds a row should assert the sheet's bottom is on screen (it does now for Settings).
+
+## 2026-11-09 (run 27)
+
+- **Vitest hides `console.log` from passing tests unless you pass `--reporter=verbose`.** My first balance experiment
+  printed nothing, and I waited 20 minutes for a run that had finished in 23 s. `npm run sim` already passes the flag;
+  any ad-hoc `npx vitest run file` that reports numbers needs it too. Check a background job's log within a minute.
+- **For an economy experiment, copy the bot into a throwaway test and stop each run at the event you measure.** A
+  `stopAtOffer` break turned a 5-empire prestige chain into ~20 s per curve, so 9 variants (exponent, Motor City scale,
+  income per point) were compared in a few minutes. The table of variants went into economy.md, so the next tuning
+  starts from the measured options, not from guesses.
+- **Measure a lever before trusting it.** Raising the per-point income bonus seemed the obvious fix for a slow second
+  empire, but +5% per point (2.5x the bonus) still left it at 3h52m; the cost curve was the lever. The two-line
+  algebra ((P+10)^2 - P^2 grows with P) predicted that, and the sim confirmed it in one run.
+- **A single-seed ratio test can be knocked over by an unrelated change.** The book's +5% yard bonuses moved the
+  lot-tune A/B from x1.08 to x1.17 on one seed but x1.10-1.19 across four; it was seed noise amplified by compounding,
+  not a broken mechanic. For A/B ratio caps, average 3 seeds and print each ratio.
+- **`withDefaults` only keeps keys the default object has.** A `Record<string, ...>` map defaulting to `{}` would be
+  wiped on every load. Pre-fill the map in `newGame` with every valid key (the 48 book entries), which also drops
+  unknown keys from old or tampered saves for free; the save test covers both.
+- **Keep the RNG order when adding a value modifier.** Computing the car's value first and applying the book bonus
+  after picking the model kept every seeded test and sim identical without the book, which made the A/B checks clean.
+
+- **Run `tsc` again after writing a new test file.** `npx tsc --noEmit` passed before `collection.test.ts` existed;
+  the check then failed on `noUncheckedIndexedAccess` (`MODEL_NAMES.sedan[0]` is `string | undefined`). Tests are
+  type-checked by the build too: index into config arrays with `!` in tests.
+- **Never run the e2e in a foreground command: it takes ~17 minutes and the tool's 10-minute limit kills it** (the
+  kill looks like an e2e failure, "Target page ... has been closed"). Start it in the background with `EXIT` appended
+  to the log and poll the log.
+- **Banners queue, so an e2e that waits for "a banner" can read an earlier one.** The Van set check first saw a Muscle
+  set banner from the e2e's own earlier sales; wait for the specific text you expect.
+- **Check that a test file name is free before writing it.** I wrote `tests/collection.test.ts` with the Write tool and
+  replaced the run-9 collection-count tests without noticing; `git status` showing `M` instead of `??` caught it before
+  the commit. `ls tests/` first, and read `git status` for every file you think is new.

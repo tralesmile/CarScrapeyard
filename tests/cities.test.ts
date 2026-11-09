@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ECON, type CityId } from '../src/core/config';
 import { CITY_IDS, CITY_LIGHTS, citiesForNextEmpire, isCityNight, cityPrice, cityScale, defaultNextCity, nextCityToUnlock, sanitizeCity } from '../src/core/cities';
 import { bulkCost, idleIncomePerSecond, managerCost, slotCost, upgradeCost } from '../src/core/formulas';
-import { incomeMultiplier, legacyMultiplier, sellEmpire } from '../src/core/legacy';
+import { earningsForTotalPoints, incomeMultiplier, legacyMultiplier, sellEmpire } from '../src/core/legacy';
 import { openCost, unlockGoal, businessStatus } from '../src/core/businesses';
 import { foremanCost, garageBayCost, garageIdleIncome, garageUpgradeCost, generateJob } from '../src/core/garage';
 import { carlotUpgradeCost, generateLot, listPrice, lotCrewCost, spotCost } from '../src/core/carlot';
@@ -14,7 +14,6 @@ import { newGame, type GameState } from '../src/core/state';
 import { cityChoices, cityTeaser, grandpaLine, sellEmpirePreview } from '../src/ui/legacyView';
 
 const T0 = 1_800_000_000_000;
-const S = ECON.legacy.pointScale;
 const K = ECON.cities.list.motorCity.scale;
 
 /** A game ready to sell its `n`-th empire (the sale gives exactly the minimum points). */
@@ -26,9 +25,9 @@ function readyToSell(sale: number): GameState {
     s.legacy.sold = i;
   }
   s.legacy.points = points;
-  s.legacy.allTime = points * points * S;
+  s.legacy.allTime = earningsForTotalPoints(points);
   const target = points + ECON.legacy.minPoints;
-  s.lifetimeEarnings = target * target * S - s.legacy.allTime;
+  s.lifetimeEarnings = earningsForTotalPoints(target) - s.legacy.allTime;
   return s;
 }
 
@@ -118,7 +117,7 @@ describe('cities (P1.3d)', () => {
     const mc = inCity('motorCity', 9);
     for (const s of [rv, mc]) {
       s.legacy.points = 15;
-      s.legacy.allTime = 15 * 15 * S;
+      s.legacy.allTime = earningsForTotalPoints(15);
       s.managers.mechanic = s.managers.washer = s.managers.seller = true;
       s.businesses.opened.garage = s.businesses.opened.carlot = s.businesses.opened.paint = true;
       s.garage.foreman = s.carlot.crew.detailer = s.carlot.crew.agent = s.paint.painter = true;

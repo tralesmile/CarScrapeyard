@@ -268,7 +268,7 @@ Garage: repair bays 2 / 3. Shown as stars on the map so buying slots and bays ha
 
 | Item | Value |
 | --- | --- |
-| Legacy Points (total) | `floor(sqrt(all-time earnings / $5M))`; 10 points at $500M, 20 at $2B |
+| Legacy Points (total) | `floor((all-time earnings / $28M) ^ 0.8)` since run 27 (was `floor(sqrt(all-time / $5M))`); 10 points at ~$498M, 20 at ~$1.19B, 50 at ~$3.7B |
 | Sale offered | new points >= 10; glows when new points >= 50% of owned points |
 | Income bonus | `1 + 0.02 x points`, applied where values are made: yard car value, Scrapper scrap cash, contract rewards, barn sale value, garage fees, paint fees and lot tune stickers, lot auction **and** list prices (so lot profit scales by the same factor), and every idle/offline rate |
 | Kept on a sale | points, settings, tutorial, collection, stats, clock, RNG |
@@ -310,7 +310,7 @@ cut to x1.3. Every branch opens the paint shop no later than without the tree; t
 | City | Scale | Opens | Notes |
 | --- | --- | --- | --- |
 | Rust Valley | x1 | the start | the tuned base game |
-| Motor City | x5 | can be picked from the 2nd empire sale | every value and every price x5 |
+| Motor City | x3 (x5 until run 27) | can be picked from the 2nd empire sale | every value and every price x3 |
 
 `ECON.cities.list`. A city's `scale` multiplies **every value** (`incomeMultiplier = legacyMultiplier x scale`, used at
 all the call sites that used the Legacy multiplier) **and every price**: upgrade, slot, bay, spot and booth costs (a
@@ -326,3 +326,49 @@ waiting; $2.28B); in **Motor City** paint opens at 1h07m too, the sale is offere
 Finding: without a new city the 2nd and 3rd empires get *slower* (each sale needs 20P + 100 more points-squared), so the
 city is what keeps prestige moving. Tests: Motor City's lifetime is x scale ±15% of Rust Valley's, paint opens within
 15 min of it, and its sale comes before the first Rust Valley run's and after 1.5 h.
+
+## Point curve follow-up (P1.3d4, run 27)
+
+Problem: on the square-root curve each sale needs 10 more points, and the earnings for them grow with the points
+already owned ((P+10)^2 - P^2), while income grows only 2% per point. The 2nd empire (still in Rust Valley) was offered
+its sale at 4h47m, an hour later than the first (3h28m): the first prestige felt like a step back.
+
+Fix: a softer curve, `points = floor((all-time / pointScale) ^ pointExponent)` with exponent 0.8 and pointScale $28M
+(the first sale still comes at ~$500M), and Motor City cut from x5 to x3 so its points per hour stay about the same
+(x5 at 0.5 gave 5^0.5 = 2.24x points; x3 at 0.8 gives 3^0.8 = 2.41x). No save migration: any save that owned points
+had >= $500M all-time, where the new curve is worth at least as many points (unit-tested).
+
+Sim, active bot selling at each offer (Rust Valley, then Motor City from the 2nd sale), sale offered at:
+
+| Curve | 1st | 2nd | 3rd | 4th | 5th | 6th |
+| --- | --- | --- | --- | --- | --- | --- |
+| sqrt, MC x5 (before) | 3h28m | 4h47m | 2h34m | 2h37m | 2h33m | |
+| ^0.667, MC x5 | 3h28m | 3h50m | 1h48m | 1h44m | 1h36m | |
+| ^0.75, MC x3 | 3h28m | 3h33m | 2h00m | 1h53m | 1h43m | 1h37m |
+| **^0.8, MC x3 (chosen)** | 3h27m | 3h23m | 1h56m | 1h44m | 1h35m | 1h27m |
+| sqrt, +3%/+4%/+5% per point | 3h28m | 4h25m / 4h10m / 3h52m | | | | |
+
+A bigger income bonus per point barely moves the 2nd empire (+5% per point still 3h52m) and makes Motor City runs
+much shorter, so the curve was the right lever. Test: every empire is offered its sale no later than the one before
+(+1 min slack), the 2nd under 3.5 h, the 6th still over an hour. Long-term, points grow faster than on the square
+root ($100B all-time: ~695 points on ^0.8 vs 141 on sqrt), so later cities should use bigger scales or a bigger
+point divisor; revisit when city 3 is designed.
+
+## Collection book (P1.4a, run 27)
+
+All numbers in `ECON.collection`. Bonuses are permanent (the book is kept on a sale) and multiply a yard car's value
+when it arrives (`collectionValueMult`), and the yard's idle income through the average over the family's four models.
+
+| Item | Value |
+| --- | --- |
+| Entries | 48: 32 yard models (`MODEL_NAMES`, 4 per family) + 16 barn classics (`CLASSIC_NAMES`) |
+| Family set (8) | all 4 models of a family sold once: +5% that family's yard value |
+| Brand set (4) | the brand's model in every family (8): +5% that brand's yard value |
+| Barn Classics (1) | all 16 classics restored and sold: +25% barn sale value |
+| Mastery | stars at 10 / 50 / 200 sales of a model, +1% that model's value per star (max +3%) |
+
+Max yard bonus on one model: +5% family +5% brand +3% mastery = +13%. Sim (active bot, first empire): sale offered
+3h27m (unchanged), 2nd empire 3h15m (was 3h23m without the book), garage opens 14m16s avg over 12 seeds. The lot-tune
+A/B (P1.2f) moved from x1.08 to x1.17 on seed 12345; over seeds 12345/1/2/3 it is 1.10-1.19 with the book vs
+1.09-1.11 without, so the test now averages three seeds (x1.13, cap x1.15).
+

@@ -40,6 +40,7 @@ import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
 import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
 import { incomeMultiplier } from './legacy';
+import { collectionValueMult, recordModel, type CollectionEvent } from './collection';
 import { cityScale } from './cities';
 import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
 
@@ -63,6 +64,7 @@ export type GameEvent =
   | { type: 'familyUnlocked'; family: CarFamily }
   /** The first car of a family was sold: it starts its page in the Collection book. `families` = families collected so far. */
   | { type: 'firstOfFamily'; family: CarFamily; families: number }
+  | CollectionEvent
   | { type: 'crushed'; car: Car; parts: number; cash: number; auto: boolean }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
@@ -91,11 +93,15 @@ export function generateCar(state: GameState): Car {
   const rolled = weighted(state, rarityWeights(rarePerk(state)));
   const rarity = state.nextCarId <= ECON.tutorialCommonCars ? 'common' : rolled;
   const spread = 1 + ECON.valueSpread * (2 * nextRandom(state) - 1);
-  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state)));
+  const raw = baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state);
+  const model = pick(state, MODEL_NAMES[family]);
+  // The book's set bonuses and mastery stars (P1.4a); the model is picked after the spread, as before, so the RNG
+  // stream is unchanged.
+  const value = Math.max(1, Math.round(raw * collectionValueMult(state, family, model)));
   const car: Car = {
     id: state.nextCarId++,
     family,
-    model: pick(state, MODEL_NAMES[family]),
+    model,
     paint: pick(state, PAINTS),
     rarity,
     value,
@@ -123,6 +129,7 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
   recordCollection(state, car.family, events);
+  for (const e of recordModel(state, car.model, car.rarity)) events.push(e);
   const fam = familyUnlockedAt(state.carsSold);
   if (fam) events.push({ type: 'familyUnlocked', family: fam });
   ensureFocus(state);

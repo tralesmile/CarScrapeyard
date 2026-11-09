@@ -93,6 +93,12 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 26: **neon nights.** After 7 pm (your phone's clock) Motor City turns to night: stars, a crescent
       moon, lit windows and neon signs, a floodlit work bay. Settings → City lights lets you pick Auto, always Day or
       always Night. Do you like it following the real clock, or would you rather it cycle while you play?
+      New since run 27: your second empire is now quicker than your first (the Legacy Points curve is softer: about
+      3h20m instead of 4h45m for a fast player), and Motor City is x3 instead of x5. The **Collection book** has started:
+      every car model and barn classic you sell is recorded with its best rarity and mastery stars, and completing a set
+      (all four Vans, one Kaze in every car type, all 16 barn classics) gives a permanent value bonus with a "SET
+      COMPLETE!" banner. The book screen comes next run. Are +5% set bonuses worth chasing, or should sets give
+      something you can see (a trophy in the yard, a paint colour)?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

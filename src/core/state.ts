@@ -1,6 +1,7 @@
 import type { BusinessId, BuyerKind, CityId, CityLights, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
+import { newBook, type BookEntry } from './collection';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
 export const SAVE_VERSION = 2;
@@ -269,7 +270,11 @@ export interface GameState {
    * Collection book counts (P0.14i, the book itself is P1.4): cars sold per family. Saves from before run 9 start
    * at 0, so a veteran sees each "first of a family" toast once as their collection begins.
    */
-  collection: { sold: Record<CarFamily, number> };
+  collection: {
+    sold: Record<CarFamily, number>;
+    /** Collection book (P1.4a): one entry per yard model and barn classic (see collection.ts). */
+    models: Record<string, BookEntry>;
+  };
   stats: {
     legendaryFound: number;
     playSeconds: number;
@@ -402,7 +407,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
-    collection: { sold: emptyFamilyCounts() },
+    collection: { sold: emptyFamilyCounts(), models: newBook() },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),
   };

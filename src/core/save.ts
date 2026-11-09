@@ -4,6 +4,7 @@
 // - A checksum detects corrupted or hand-edited saves; we fall back to the other slot.
 // - Missing fields are filled from a fresh game, so adding fields never breaks old saves.
 
+import { sanitizeBook } from './collection';
 import { ECON } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
@@ -136,6 +137,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     for (const f of Object.keys(state.collection.sold) as (keyof typeof state.collection.sold)[]) {
       state.collection.sold[f] = Math.max(0, Math.floor(state.collection.sold[f]));
     }
+    sanitizeBook(state.collection.models);
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);

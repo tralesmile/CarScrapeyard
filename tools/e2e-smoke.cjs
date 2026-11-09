@@ -251,6 +251,39 @@ async function waitForServer(url, ms = 15000) {
     const toastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('First Van')));
     assert(/Collection: \d\/8/.test(toastText), `first Van sold shows a Collection toast (${toastText})`);
 
+    console.log('collection book');
+    // Three Van models are already in the book; selling the fourth completes the Van set (P1.4a).
+    const vanModels = ['Kaze Caravan', 'Vortex Shuttle', 'Regalia Nomad', 'Stallion Courier'];
+    await page.waitForTimeout(3600); // let the Van toast and any banner pass
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    const bookBefore = await page.evaluate((models) => {
+      const s = window.__jye.state;
+      const collected = Object.values(s.collection.models).filter((e) => e.sold > 0).length;
+      for (const m of models.slice(0, 3)) if (s.collection.models[m].sold === 0) s.collection.models[m] = { sold: 1, best: 0 };
+      s.collection.models[models[3]] = { sold: 0, best: -1 };
+      s.buyer = null;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.family = 'van';
+      c.model = models[3];
+      c.rarity = 'rare';
+      c.dirt = 0;
+      c.damage = 0;
+      return { collected, entries: Object.keys(s.collection.models).length };
+    }, vanModels);
+    assert(bookBefore.entries === 48 && bookBefore.collected >= 1, `the book has 48 entries and the cars sold so far are in it (${JSON.stringify(bookBefore)})`);
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    if (await page.$('.haggle:not(.hidden)')) await page.click('.haggle');
+    // Banners queue, and the e2e's earlier sales may have completed another set first: wait for the Van one.
+    await page.waitForFunction(() => /SET COMPLETE.*Van set/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 12000 });
+    const setBanner = await page.textContent('.banner');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03b-set-complete.png') });
+    assert(/Van set: \+5% Van value/.test(setBanner), `selling the 4th Van model completes the Van set (${setBanner.trim()})`);
+    const courier = await page.evaluate(() => window.__jye.state.collection.models['Stallion Courier']);
+    assert(courier.sold === 1 && courier.best === 1, `the sale is in the book with its rarity (${JSON.stringify(courier)})`);
+    await page.waitForTimeout(3200); // let the banner pass
+
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
     assert(!hasCrush, 'crusher is hidden for a new player');
@@ -1339,7 +1372,7 @@ async function waitForServer(url, ms = 15000) {
         Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true });
         s.carsSold = 120;
         s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
-        s.lifetimeEarnings = 144 * 5e6;
+        s.lifetimeEarnings = 28e6 * Math.pow(12.5, 1.25); // worth 12 Legacy Points (ECON.legacy: $28M, ^0.8)
         s.legacy.runSeconds = 3 * 3600 + 25 * 60;
       });
       await sp.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('EMPIRE FOR SALE'), null, { timeout: 15000 });
@@ -1483,7 +1516,7 @@ async function waitForServer(url, ms = 15000) {
       await sp.evaluate(() => {
         const s = window.__jye.state;
         s.legacy.points = 22; // 2 (Quick Hands) + 2 (Silver Tongue) + 18 (the whole Racer branch); all-time earnings must back it
-        s.legacy.allTime = 22 * 22 * 5e6;
+        s.legacy.allTime = 28e6 * Math.pow(22, 1.25);
         s.legacy.tree.racer = 4;
         s.legacy.tree.dealer = 1;
         s.carsSold = 5;
@@ -1545,8 +1578,8 @@ async function waitForServer(url, ms = 15000) {
         s.cash = 0;
         s.legacy.sold = 1;
         s.legacy.points = 12;
-        s.legacy.allTime = 144 * 5e6;
-        s.lifetimeEarnings = (484 - 144) * 5e6;
+        s.legacy.allTime = 28e6 * Math.pow(12, 1.25);
+        s.lifetimeEarnings = 28e6 * Math.pow(22.5, 1.25) - s.legacy.allTime;
         s.legacy.runSeconds = 2 * 3600;
       });
       await mp.waitForSelector('.map-btn:not(.hidden)');
@@ -1555,7 +1588,7 @@ async function waitForServer(url, ms = 15000) {
       await mp.click('.map-row.legacy .sell-empire');
       await mp.waitForSelector('.sell-empire-preview .city-pick');
       const pick = await mp.$$eval('.city-opt', (bs) => bs.map((b) => `${b.dataset.city}:${b.getAttribute('aria-checked')}:${b.textContent}`));
-      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x5/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
+      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x3/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22a-city-pick.png') });
       const mFits = await mp.$eval('.sell-empire-preview .modal', (e) => {
         const r = e.getBoundingClientRect();
@@ -1592,10 +1625,10 @@ async function waitForServer(url, ms = 15000) {
       });
       assert(mYard.ground[2] > mYard.ground[0], `the Motor City yard is asphalt, not dirt (ground rgb ${mYard.ground.join(',')})`);
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b2-motor-city-yard.png') });
-      // Prices are x5: the Wash Bay's first level costs $750 instead of $150.
+      // Prices are x3: the Wash Bay's first level costs $450 instead of $150.
       await mp.click('.tab:nth-child(1)');
       const washBtn = await mp.textContent('.cards .card:first-child .buy');
-      assert(/\$750/.test(washBtn), `Motor City prices are x5 (Wash Bay ${washBtn})`);
+      assert(/\$450/.test(washBtn), `Motor City prices are x3 (Wash Bay ${washBtn})`);
       await mp.evaluate(() => { window.__jye.state.carsSold = 30; });
       await mp.waitForSelector('.map-btn:not(.hidden)');
       await mp.waitForTimeout(2600); // let the CITY MAP banner clear
@@ -1603,7 +1636,7 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForSelector('.modal.city-map h2');
       const mTitle = await mp.textContent('.modal.city-map h2');
       const goal = await mp.textContent('.map-row[data-biz="garage"]');
-      assert(mTitle === 'Motor City' && /\$1(\.0+)?M/.test(goal), `the map is titled Motor City and the garage goal is x5 (${mTitle}; ${goal.trim()})`);
+      assert(mTitle === 'Motor City' && /\$600(\.0+)?K/.test(goal), `the map is titled Motor City and the garage goal is x3 (${mTitle}; ${goal.trim()})`);
       await mp.waitForTimeout(700); // the map slides in
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22c-motor-city-map.png') });
       // P1.3d2: Motor City has its own map (highway, rooftops, no grass) and its own business names.

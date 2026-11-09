@@ -115,6 +115,19 @@ export const ECON = {
   collection: {
     /** First sales of the starter families during the first N sales get no toast (tutorial time). */
     quietSales: 10,
+    /**
+     * Collection book (P1.4a). Every yard model (`MODEL_NAMES`) and barn classic (`CLASSIC_NAMES`) is an entry. Bonuses
+     * are permanent (the book is kept when the empire is sold) and multiply the value of yard cars when they arrive.
+     */
+    /** Sell every model of a family once: that family's yard cars are worth this much more. */
+    familySetBonus: 0.05,
+    /** Sell one model of a brand in every family: that brand's yard cars are worth this much more. */
+    brandSetBonus: 0.05,
+    /** Restore and sell every barn classic: barn sale values x(1 + this). */
+    classicsSetBonus: 0.25,
+    /** Mastery stars per model at these sales counts; each star adds `masteryBonus` to that model's value. */
+    masteryTiers: [10, 50, 200] as const,
+    masteryBonus: 0.01,
   },
 
   /** Car crusher: turn an unfinished wreck into Parts (and a little scrap cash). */
@@ -217,7 +230,7 @@ export const ECON = {
       motorCity: {
         name: 'Motor City',
         icon: '🏙️',
-        scale: 5,
+        scale: 3,
         fromSale: 2,
         tagline: 'The big city: bigger prices, bigger payouts',
         // City names for the businesses (P1.3d2), shown on the map, in the list and on the scenes' signs. Keep each at
@@ -441,7 +454,12 @@ export const ECON = {
   },
   /** Prestige "Sell Empire" (P1.3a). Points = floor(sqrt(all-time earnings / pointScale)). */
   legacy: {
-    pointScale: 5_000_000,
+    /**
+     * Points = floor((all-time earnings / pointScale) ^ pointExponent): 10 points at ~$500M. The exponent was 0.5
+     * (a square root) until run 27; 0.8 keeps the second empire from being slower than the first (P1.3d4).
+     */
+    pointScale: 28_000_000,
+    pointExponent: 0.8,
     /** The sale is offered once it would give at least this many points. */
     minPoints: 10,
     /** Income bonus per Legacy Point (+2%). */

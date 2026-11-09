@@ -1,6 +1,7 @@
 // DOM UI: top bar, hints, sell button, upgrade panel, modals.
 // DOM instead of canvas for UI: crisp text, accessibility, easy translation.
 
+import type { CollectionEvent } from '../core/collection';
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
@@ -1048,9 +1049,10 @@ export class Ui {
         cls: 'reveal',
         onClose: () => {
           close();
-          const paid = sellBarnCar(s);
+          const book: CollectionEvent[] = [];
+          const paid = sellBarnCar(s, book);
           if (paid > 0) {
-            this.deps.onEvents([{ type: 'barnSold', amount: paid }]);
+            this.deps.onEvents([{ type: 'barnSold', amount: paid }, ...book]);
             this.deps.onChange();
             sfx.fanfare();
           }

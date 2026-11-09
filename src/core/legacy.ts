@@ -9,10 +9,16 @@ import { cityPrice, cityScale, citiesForNextEmpire, defaultNextCity, sanitizeCit
 
 export { newLegacy, type Legacy } from './state';
 
-/** Total Legacy Points that `allTimeEarnings` is worth: floor(sqrt(earnings / scale)). */
+/** Total Legacy Points that `allTimeEarnings` is worth: floor((earnings / scale) ^ exponent). */
 export function legacyPointsFor(allTimeEarnings: number): number {
   if (!(allTimeEarnings > 0)) return 0;
-  return Math.floor(Math.sqrt(allTimeEarnings / ECON.legacy.pointScale) + 1e-9);
+  return Math.floor(Math.pow(allTimeEarnings / ECON.legacy.pointScale, ECON.legacy.pointExponent) + 1e-9);
+}
+
+/** All-time earnings at which the total reaches `points` (the inverse of `legacyPointsFor`). */
+export function earningsForTotalPoints(points: number): number {
+  if (!(points > 0)) return 0;
+  return Math.pow(points, 1 / ECON.legacy.pointExponent) * ECON.legacy.pointScale;
 }
 
 /** Everything earned, sold empires included. */
@@ -28,7 +34,7 @@ export function pendingLegacyPoints(state: GameState): number {
 /** Lifetime earnings this run needs for the next sale to reach `points` new points. */
 export function earningsForPoints(state: GameState, points: number): number {
   const total = state.legacy.points + Math.max(1, points);
-  return Math.max(0, total * total * ECON.legacy.pointScale - state.legacy.allTime);
+  return Math.max(0, earningsForTotalPoints(total) - state.legacy.allTime);
 }
 
 /** The Sell Empire button shows once a sale would give at least `minPoints`. */
@@ -88,7 +94,10 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
   fresh.lastSeen = Math.max(state.lastSeen, now);
   fresh.settings = { ...state.settings };
   fresh.tutorial = { ...state.tutorial };
-  fresh.collection = { sold: { ...state.collection.sold } };
+  fresh.collection = {
+    sold: { ...state.collection.sold },
+    models: Object.fromEntries(Object.entries(state.collection.models).map(([m, e]) => [m, { ...e }])),
+  };
   fresh.stats = { ...state.stats };
   fresh.legacy = {
     points: state.legacy.points + points,

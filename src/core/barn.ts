@@ -3,6 +3,7 @@
 // Pure rules, ticked from sim.ts. Timers also run while the player is away (see advanceBarn).
 
 import { CLASSIC_NAMES, ECON, PAINTS } from './config';
+import { classicsMult, recordModel, type CollectionEvent } from './collection';
 import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { pick } from './rng';
 import type { GameState } from './state';
@@ -45,7 +46,7 @@ export function barnStageCost(state: GameState): { cash: number; parts: number }
 /** What the restored car will sell for (shown on the card as a teaser, fixed at the reveal). */
 export function barnValue(state: GameState): number {
   if (state.barn.status === 'revealed') return state.barn.value;
-  return roundNice(expectedCarValue(state.levels.quality, state.carsSold) * incomeMultiplier(state) * ECON.barn.saleMult * growth(state));
+  return roundNice(expectedCarValue(state.levels.quality, state.carsSold) * incomeMultiplier(state) * ECON.barn.saleMult * growth(state) * classicsMult(state));
 }
 
 /** While the next stage needs parts the player doesn't have yet, spare parts are kept for it. */
@@ -122,13 +123,17 @@ export function revealBarn(state: GameState): boolean {
   return true;
 }
 
-/** Sell the restored classic to a collector. Returns the cash paid (0 if nothing to sell). */
-export function sellBarnCar(state: GameState): number {
+/**
+ * Sell the restored classic to a collector. Returns the cash paid (0 if nothing to sell). The classic goes into the
+ * Collection book (Legendary); what the book announces is pushed to `events`.
+ */
+export function sellBarnCar(state: GameState, events?: CollectionEvent[]): number {
   const b = state.barn;
   if (b.status !== 'revealed') return 0;
   const amount = b.value;
   state.cash += amount;
   state.lifetimeEarnings += amount;
+  for (const e of recordModel(state, b.model, 'legendary')) events?.push(e);
   b.restored += 1;
   b.status = 'away';
   b.stage = 0;

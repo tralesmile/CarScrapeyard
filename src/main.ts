@@ -1,3 +1,4 @@
+import { masteryToast, setCompleteBanner } from './ui/collectionView';
 import '@fontsource/lilita-one/400.css';
 import '@fontsource/nunito/600.css';
 import '@fontsource/nunito/700.css';
@@ -73,6 +74,13 @@ function onEvents(events: GameEvent[]) {
       ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
       sfx.repaired();
     }
+    // Collection book (P1.4a): completed sets get a banner, mastery stars a toast.
+    if (e.type === 'setComplete') {
+      const b = setCompleteBanner(e.set, e.id);
+      ui.showBanner(b.title, b.line);
+      sfx.fanfare();
+    }
+    if (e.type === 'mastery') ui.toast(masteryToast(e.model, e.stars), 2500);
     if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
       ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
