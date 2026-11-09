@@ -23,11 +23,11 @@ import {
   washCar,
 } from '../src/core/sim';
 import { contractsUnlocked } from '../src/core/contracts';
-import { barnStageCost, barnUnlocked, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../src/core/barn';
+import { barnStageCost, barnUnlocked, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../src/core/barn';
 import { wantsHaggle } from '../src/core/haggle';
 import { buyerMultiplier } from '../src/core/buyers';
 import { newGame, type GameState } from '../src/core/state';
-import { canSellEmpire, legacyMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
+import { canSellEmpire, legacyMultiplier, showcaseMultiplier, pendingLegacyPoints, sellEmpire } from '../src/core/legacy';
 import { buyNode, spentPoints } from '../src/core/legacyTree';
 import { canOpenBusiness, openBusiness, switchBusiness, unlockGoal } from '../src/core/businesses';
 import {
@@ -57,6 +57,8 @@ interface BotProfile {
   haggle: number;
   /** In the paint shop, send refurbished lot cars into free booths (P1.2f). */
   tuneLotCars?: boolean;
+  /** Keep each new barn classic for the showcase instead of selling it (P1.4c); repeats are sold. */
+  keepClassics?: boolean;
 }
 
 const ACTIVE: BotProfile = { name: 'active', swipePerSec: 900, tapsPerSec: 4, reaction: 0.5, haggle: 1.2 };
@@ -275,7 +277,10 @@ function run(profile: BotProfile, seconds: number, seed = 12345, start?: GameSta
         contractCash += claimContract(s, c.id).cash;
         contractsClaimed++;
       }
-      if (revealBarn(s)) barnCash += sellBarnCar(s);
+      if (revealBarn(s)) {
+        if (profile.keepClassics && canKeepBarnCar(s)) keepBarnCar(s);
+        else barnCash += sellBarnCar(s);
+      }
       earlyUpgrades(s);
       spendSmart(s);
     }
@@ -542,6 +547,36 @@ describe('Paint & Tuning (P1.2d)', () => {
     expect(Math.min(...ratios)).toBeGreaterThan(1.01);
     expect(avg).toBeLessThan(1.15);
   }, 120_000);
+});
+
+describe('Showcase (P1.4c)', () => {
+  it('keeping barn classics costs a little now and pays back in the next empire', () => {
+    const list = ECON.businesses.list as unknown as Record<string, { ready: boolean }>;
+    const was = list.paint!.ready;
+    list.paint!.ready = true;
+    try {
+      const rows: string[] = [];
+      for (const seed of [12345, 7]) {
+        const sell = run(ACTIVE, 6 * 3600, seed, undefined, true);
+        const keep = run({ ...ACTIVE, name: 'active+keep', keepClassics: true }, 6 * 3600, seed, undefined, true);
+        const a = sell.marks.legacy!;
+        const b = keep.marks.legacy!;
+        const kept = keep.s.collection.showcase.length;
+        rows.push(
+          `seed ${seed}: sale offered ${formatDuration(a)} selling classics (barn ${formatCash(sell.barnCash)}, ${sell.s.barn.restored} restored) vs ` +
+            `${formatDuration(b)} keeping (${kept} kept, x${showcaseMultiplier(keep.s).toFixed(2)}, ${keep.s.barn.restored} restored)`,
+        );
+        expect(kept).toBeGreaterThan(3);
+        // A real trade-off: keeping costs a little time in this empire (run 29: +1 min of 3h28m) for +0.5% per
+        // classic in every empire after it. Never a trap: the sale moves by less than 5%.
+        expect(b / a).toBeLessThan(1.05);
+        expect(b / a).toBeGreaterThan(0.98);
+      }
+      console.log(['--- Showcase: keep vs sell barn classics (first empire) ---', ...rows].join('\n'));
+    } finally {
+      list.paint!.ready = was;
+    }
+  }, 180_000);
 });
 
 describe('Sell Empire (P1.3a)', () => {

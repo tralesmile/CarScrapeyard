@@ -104,6 +104,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       rarity, mastery stars and how many more sales to the next star). New finds get a red NEW badge. On small phones the
       top bar is tidier: the income rate sits under your cash and the sound button is in Settings (☰) only. Is the book
       fun to browse, and do you miss the sound button in the top bar?
+      New since run 29: **keep a barn classic.** When you pull the tarp off a restored classic you can now "🏆 Keep it"
+      instead of selling: no cash, but it stands in your showcase (Collection book → Classics) and adds +0.5% to all
+      your income forever, even after Sell Empire (one of each classic, +8% at most). Is that worth giving up the sale
+      for? Would you like to see the kept cars in the yard (a trophy shelf by the barn)?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

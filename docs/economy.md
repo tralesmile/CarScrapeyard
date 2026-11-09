@@ -372,3 +372,17 @@ Max yard bonus on one model: +5% family +5% brand +3% mastery = +13%. Sim (activ
 A/B (P1.2f) moved from x1.08 to x1.17 on seed 12345; over seeds 12345/1/2/3 it is 1.10-1.19 with the book vs
 1.09-1.11 without, so the test now averages three seeds (x1.13, cap x1.15).
 
+## Showcase (P1.4c, run 29)
+
+Keep a revealed barn classic instead of selling it: no cash; `ECON.collection.showcaseBonus` (+0.5%) per classic on
+every payout (`showcaseMultiplier`, part of `incomeMultiplier`), one per model, kept on a sale; 16 max = +8%.
+
+| Bonus per classic | First empire, sale offered (seed 12345 / 7), sell vs keep | Kept by the offer |
+| --- | --- | --- |
+| +1% (draft) | 3h27m vs 3h25m / 3h29m vs 3h29m | 11 / 12 (x1.11-1.12) |
+| **+0.5%** | 3h27m vs 3h28m / 3h29m vs 3h30m | 10 / 11 (x1.05) |
+
+At +1% keeping was never slower even in the first empire, so it was not a choice. At +0.5% it costs ~1 minute now
+($34.7M of barn sales over 16 restorations) for +5% in every later empire. Balance test: keeping moves the first
+sale by 0.98-1.05x.
+

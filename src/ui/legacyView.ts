@@ -81,7 +81,7 @@ export function sellEmpirePreview(state: GameState): SellEmpirePreview {
     multNext: formatMult(nextLegacyMultiplier(state)),
     earned: formatCash(state.lifetimeEarnings + Math.max(0, state.pendingOffline)),
     runTime: formatDuration(state.legacy.runSeconds),
-    keeps: ['Legacy Points', 'Collection book', 'Stats and settings'],
+    keeps: ['Legacy Points', state.collection.showcase.length ? `Collection book and ${state.collection.showcase.length} showcase classic${state.collection.showcase.length === 1 ? '' : 's'}` : 'Collection book', 'Stats and settings'],
     resets: ['Cash, upgrades and crew', 'Every business and car', 'Parts, jobs and the barn'],
   };
 }

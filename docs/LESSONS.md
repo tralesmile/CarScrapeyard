@@ -538,3 +538,15 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   click records it whatever the timing. Also stop ad-hoc dev servers before starting `npm run check`.
 - **Read the NEW state before marking it.** The book marks entries seen on open, so the view model for the badges and
   tab dots is captured first (`unseenEntries`, page `isNew`) and kept for the whole visit.
+
+## 2026-11-09 (run 29)
+
+- **The starting-point check is only valid on an idle machine.** The baseline `npm run check` failed in the e2e (the
+  barn reveal modal took > 5 s) because I ran vitest with 30 workers and two bot sims while it ran. Re-run on an idle
+  machine: green. While the background e2e runs, do only docs and reading; queue CPU work until it reports EXIT.
+- **A/B a new choice for dominance before shipping it.** The showcase draft (+1% income per kept classic) was never
+  slower than selling, even in the first empire, so it was no choice at all. Halving it made keeping cost ~1 minute now
+  for +5% later. For every "this or that" option, a bot run per branch and the question "is one side never worse?"
+  takes ~10 s with `stopAtOffer`.
+- **A third modal action is cheaper than a new modal.** `modal()` grew an optional `third`/`onThird` button; the close
+  helper now takes which button was used instead of a boolean, so later three-way choices reuse it.

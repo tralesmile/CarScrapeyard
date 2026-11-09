@@ -274,6 +274,8 @@ export interface GameState {
     sold: Record<CarFamily, number>;
     /** Collection book (P1.4a): one entry per yard model and barn classic (see collection.ts). */
     models: Record<string, BookEntry>;
+    /** Barn classics kept for the showcase instead of sold (P1.4c), one per model, in the order kept. */
+    showcase: string[];
   };
   stats: {
     legendaryFound: number;
@@ -407,7 +409,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
     settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
-    collection: { sold: emptyFamilyCounts(), models: newBook() },
+    collection: { sold: emptyFamilyCounts(), models: newBook(), showcase: [] },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),
   };

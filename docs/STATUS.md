@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 28; next run is run 29). Runs now start every 3 hours.
+Last updated: 2026-11-09 (run 29; next run is run 30). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -178,7 +178,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       (The yard hides its label while the hint shows; the garage label had ~6 px to spare.) Also found: the Settings
       sheet overflowed an iPhone SE once the City lights row was added (Done unreachable); it scrolls now
       (`max-height: 100%`, tighter rows under 600 px tall), e2e-checked.
-- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
+- [x] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
   - [x] P1.4a Book core (run 27): `src/core/collection.ts`, `state.collection.models` (48 entries: 32 yard models + 16
         barn classics, pre-filled in `newGame` so old saves get them; save repair). Each sale records the model, its
         best rarity and mastery stars (10 / 50 / 200 sales, +1% value each); sets: 8 family sets (+5% that family),
@@ -195,7 +195,12 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
   - [x] P1.4q HUD fix found while adding 📒 (run 28): a late-game top bar overflowed 320-414 px screens (the chip slid
         over the cash). Compact top bar up to 430 px (`.money` column, sound toggle in Settings only, 34 px buttons),
         `.chips` stack under 360 px; e2e asserts a full bar has no overlaps on an iPhone SE.
-  - [ ] P1.4c Keep a restored barn classic for the book instead of selling (a showcase spot; decide the trade-off).
+  - [x] P1.4c Showcase (run 29): the reveal offers "🏆 Keep it" beside "Sell it!" (`keepBarnCar`/`canKeepBarnCar` in
+        barn.ts): no cash, the classic goes into `state.collection.showcase` (one per model, kept on a sale, save repair)
+        and the book like a sale, and adds +0.5% to every payout (`showcaseMultiplier` in `incomeMultiplier`; +8% max).
+        Sim A/B: +1% made keeping never slower (no choice), +0.5% costs ~1 min in the first empire. Book Classics page
+        shows the showcase line and kept cards on a gold plinth; Sell Empire preview lists it. e2e keep, repeat, book.
+        Follow-up idea (not scheduled): draw the kept classics in the yard (a trophy shelf by the barn).
 - [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
 - [ ] P1.6 Story chapter 1 + rival Vince Valvano
 - [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub

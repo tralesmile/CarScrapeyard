@@ -553,6 +553,65 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForTimeout(500);
     assert(!(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnCarOut)), 'the reveal closes cleanly');
 
+    console.log('showcase (P1.4c)');
+    // A second restored classic: keep it for the showcase instead of selling.
+    const finishBarn = (model) =>
+      page.evaluate((m) => {
+        const b = window.__jye.state.barn;
+        Object.assign(b, { status: 'finished', stage: 4, timeLeft: 0, model: m, family: 'muscle', value: 0 });
+      }, model);
+    // The book lists the 32 yard models first, then the 16 barn classics: take a classic not found yet.
+    const keepModel = await page.evaluate(() => {
+      const book = window.__jye.state.collection.models;
+      return Object.keys(book).slice(32).find((m) => book[m].sold === 0);
+    });
+    await finishBarn(keepModel);
+    await page.waitForFunction(() => document.querySelector('.cards .barn .buy')?.textContent.includes('Reveal'));
+    await page.click('.cards .barn .buy');
+    await page.waitForSelector('.modal-back.reveal .modal .third', { timeout: 15000 });
+    await page.waitForTimeout(400);
+    const keepUi = await page.evaluate(() => ({
+      third: document.querySelector('.modal .third').textContent,
+      note: document.querySelector('.modal .keep-note')?.textContent ?? '',
+      cash: window.__jye.state.cash,
+      value: window.__jye.state.barn.value,
+      fits: document.querySelector('.modal .secondary').getBoundingClientRect().bottom <= window.innerHeight,
+    }));
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12b-barn-keep.png') });
+    assert(/Keep it \(\+0\.5% income\)/.test(keepUi.third) && /showcase/.test(keepUi.note), `the reveal offers to keep the classic (${keepUi.third})`);
+    assert(keepUi.fits, 'sell, keep and later all fit on screen');
+    await page.click('.modal .third');
+    const kept = await page.evaluate(() => ({
+      cash: window.__jye.state.cash,
+      showcase: [...window.__jye.state.collection.showcase],
+      status: window.__jye.state.barn.status,
+      n: window.__jye.state.barn.restored,
+    }));
+    assert(kept.cash === keepUi.cash && kept.status === 'away' && kept.n === 2, `keeping pays no cash and the barn waits (${JSON.stringify(kept)})`);
+    assert(kept.showcase.length === 1 && kept.showcase[0] === keepModel, `the classic is in the showcase (${kept.showcase})`);
+    await page.waitForFunction(() => /IN THE SHOWCASE/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 8000 });
+    assert(true, 'an "IN THE SHOWCASE!" banner celebrates it');
+    // The same model again: only selling is offered.
+    await page.waitForTimeout(600);
+    await finishBarn(keepModel);
+    await page.waitForFunction(() => document.querySelector('.cards .barn .buy')?.textContent.includes('Reveal'));
+    await page.click('.cards .barn .buy');
+    await page.waitForSelector('.modal-back.reveal .modal .buy', { timeout: 15000 });
+    const repeat = await page.evaluate(() => ({ third: !!document.querySelector('.modal .third'), note: document.querySelector('.modal .keep-note')?.textContent ?? '' }));
+    assert(!repeat.third && /already/.test(repeat.note), `a repeat classic can only be sold (${repeat.note})`);
+    await page.click('.modal .buy');
+    await page.waitForTimeout(500);
+    await page.click('.book-btn');
+    await page.click('.book-tabs [data-page="classics"]');
+    const shelf = await page.evaluate((m) => ({
+      line: document.querySelector('.book-showcase')?.textContent ?? '',
+      card: document.querySelector(`.book-card.kept[data-model="${m}"]`)?.textContent ?? '',
+    }), keepModel);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12c-book-showcase.png') });
+    assert(/Showcase 1\/16 · \+0\.5% all income/.test(shelf.line) && /In your showcase/.test(shelf.card), `the book shows the showcase (${shelf.line} | ${shelf.card})`);
+    await page.click('.book .modal .buy');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
       const s = window.__jye.state;

@@ -1,8 +1,8 @@
 // DOM UI: top bar, hints, sell button, upgrade panel, modals.
 // DOM instead of canvas for UI: crisp text, accessibility, easy translation.
 
-import { bookUnlocked, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
-import { bookView, type BookPage } from './collectionView';
+import { bookUnlocked, inShowcase, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
+import { bookView, pctText, showcaseLine, type BookPage } from './collectionView';
 import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
@@ -28,7 +28,7 @@ import {
 } from '../core/sim';
 import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
-import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
+import { barnHasAction, barnStageCost, barnUnlocked, barnValue, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
 import { cityMapSvg, mapRows } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
@@ -560,7 +560,7 @@ export class Ui {
         setText(btn, 'Reveal!');
         btn.disabled = false;
       } else if (b.status === 'revealed') {
-        setText(desc, `${b.model}, Legendary classic. A collector is waiting.`);
+        setText(desc, `${b.model}, Legendary classic. A collector is waiting${canKeepBarnCar(s) ? ', or keep it in your showcase' : ''}.`);
         bar.style.width = '100%';
         setText(btn, `Sell ${formatCash(b.value)}`);
         btn.disabled = false;
@@ -1054,11 +1054,32 @@ export class Ui {
     // Banners (e.g. "RESTORED!") stay out of the way of the reveal.
     this.banner.classList.add('muted');
     const reveal = this.deps.barnReveal(() => {
+      const keep = canKeepBarnCar(s);
+      const bonus = pctText(ECON.collection.showcaseBonus);
+      const note = keep
+        ? `<p class="keep-note">Or keep it in your showcase: no cash, but <b>+${bonus} all income</b> for good, even after you sell your empire.</p>`
+        : inShowcase(s, s.barn.model)
+          ? `<p class="keep-note">You already have one in your showcase.</p>`
+          : '';
       this.modal({
         title: 'Legendary classic!',
-        body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>`,
+        body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>${note}`,
         big: formatCash(s.barn.value),
         button: 'Sell it!',
+        ...(keep
+          ? {
+              third: `🏆 Keep it (+${bonus} income)`,
+              onThird: () => {
+                close();
+                const book: CollectionEvent[] = [];
+                if (!keepBarnCar(s, book)) return;
+                this.deps.onEvents([{ type: 'barnKept', model: s.collection.showcase[s.collection.showcase.length - 1]!, count: s.collection.showcase.length }, ...book]);
+                this.deps.onChange();
+                this.showBanner('IN THE SHOWCASE!', showcaseLine(s));
+                sfx.fanfare();
+              },
+            }
+          : {}),
         secondary: 'Later',
         cls: 'reveal',
         onClose: () => {
@@ -1511,6 +1532,9 @@ export class Ui {
     onClose?: () => void;
     /** Called instead of onClose when the secondary button is used. */
     onSecondary?: () => void;
+    /** An optional middle choice between the main and the secondary button (e.g. keep a classic instead of selling). */
+    third?: string;
+    onThird?: () => void;
     /** Extra class on the backdrop (e.g. 'reveal' keeps the top of the screen visible). */
     cls?: string;
   }) {
@@ -1526,22 +1550,28 @@ export class Ui {
     p.innerHTML = opts.body;
     box.append(p);
     if (opts.big) box.append(el('div', 'big display', opts.big));
-    const close = (secondary = false) => {
+    const close = (which: 'main' | 'secondary' | 'third' = 'main') => {
       if (!back.isConnected) return;
       back.remove();
       this.modalOpen = false;
       sfx.unlock();
       sfx.tap();
-      if (secondary && opts.onSecondary) opts.onSecondary();
+      if (which === 'secondary' && opts.onSecondary) opts.onSecondary();
+      else if (which === 'third' && opts.onThird) opts.onThird();
       else opts.onClose?.();
       this.render();
     };
     const btn = el('button', 'buy', opts.button) as HTMLButtonElement;
     btn.onclick = () => close();
     box.append(btn);
+    if (opts.third) {
+      const third = el('button', 'third', opts.third) as HTMLButtonElement;
+      third.onclick = () => close('third');
+      box.append(third);
+    }
     if (opts.secondary) {
       const sec = el('button', 'secondary', opts.secondary) as HTMLButtonElement;
-      sec.onclick = () => close(true);
+      sec.onclick = () => close('secondary');
       box.append(sec);
     }
     back.append(box);
@@ -1803,11 +1833,12 @@ export class Ui {
           const head = el(
             'div',
             'book-set-head',
-            `<b>${set.name}</b><span class="book-count">${set.have}/${set.of}</span><small class="book-bonus">${set.complete ? '✓ ' : ''}${set.bonus}</small>`,
+            `<b>${set.name}</b><span class="book-count">${set.have}/${set.of}</span><small class="book-bonus">${set.complete ? '✓ ' : ''}${set.bonus}</small>` +
+              (set.showcase ? `<small class="book-showcase">${set.showcase}</small>` : ''),
           );
           const grid = el('div', 'book-grid');
           for (const c of set.cards) {
-            const card = el('div', `book-card${c.collected ? ` got ${c.rarity ?? 'common'}` : ' missing'}`);
+            const card = el('div', `book-card${c.collected ? ` got ${c.rarity ?? 'common'}` : ' missing'}${c.kept ? ' kept' : ''}`);
             card.dataset.model = c.model;
             const img = el('img');
             img.src = carThumb(c);
@@ -1821,7 +1852,7 @@ export class Ui {
             card.innerHTML = `${fresh.has(c.model) ? '<i class="book-new">NEW</i>' : ''}${badge}`;
             card.prepend(img);
             card.insertAdjacentHTML('beforeend', `<b>${name}</b>${stars}<small>${c.line}</small>${bar}`);
-            card.setAttribute('aria-label', c.collected ? `${c.model}, best ${c.rarityLabel}, ${c.line}` : 'Not found yet');
+            card.setAttribute('aria-label', c.collected ? `${c.model}, best ${c.rarityLabel}, ${c.kept ? 'in your showcase' : c.line}` : 'Not found yet');
             grid.append(card);
           }
           sec.append(head, grid);

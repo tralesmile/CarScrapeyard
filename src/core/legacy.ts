@@ -57,8 +57,13 @@ export function legacyMultiplier(state: Pick<GameState, 'legacy'>): number {
  * Multiplier on every value the rules create (car prices, fees, rewards, idle income): Legacy Points times the city's
  * scale. Prices are scaled by the city too (`cityPrice`), so only the Legacy part makes a run faster.
  */
-export function incomeMultiplier(state: Pick<GameState, 'legacy'>): number {
-  return legacyMultiplier(state) * cityScale(state);
+export function incomeMultiplier(state: Pick<GameState, 'legacy' | 'collection'>): number {
+  return legacyMultiplier(state) * showcaseMultiplier(state) * cityScale(state);
+}
+
+/** Showcase (P1.4c): every barn classic kept instead of sold adds a little to every payout, for good. */
+export function showcaseMultiplier(state: Pick<GameState, 'collection'>): number {
+  return 1 + ECON.collection.showcaseBonus * state.collection.showcase.length;
 }
 
 /** The multiplier the next empire will have. */
@@ -97,6 +102,7 @@ export function sellEmpire(state: GameState, now: number, city: CityId = default
   fresh.collection = {
     sold: { ...state.collection.sold },
     models: Object.fromEntries(Object.entries(state.collection.models).map(([m, e]) => [m, { ...e }])),
+    showcase: [...state.collection.showcase],
   };
   fresh.stats = { ...state.stats };
   fresh.legacy = {

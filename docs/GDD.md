@@ -41,6 +41,13 @@ to automate it, open new car businesses, then sell your empire and start again i
   wear a red NEW badge on the first visit after they were found; the 📒 button and the page tabs show a red dot until
   then. Up to 430 px wide the top bar is compact (rate under the cash, the sound toggle only in Settings; under 360 px
   the Legacy chip and parts stack).
+- **Showcase (P1.4c, run 29):** when a restored barn classic is revealed you choose: sell it to the collector (cash
+  now), or "🏆 Keep it": no cash, but the classic stands in your showcase for good and adds +0.5% to all income, even
+  after Sell Empire. One of each of the 16 classics (+8% at most); a repeat find can only be sold. A kept classic counts
+  for the book like a sale (Legendary, the Barn Classics set). The book's Classics page shows "🏆 Showcase 3/16 · +1.5%
+  all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase under what you keep. Why
+  this trade-off: cash now vs a small permanent edge, the classic idle "spend or invest" choice; the sim shows keeping
+  costs about a minute in the first empire and pays back in every empire after it.
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of

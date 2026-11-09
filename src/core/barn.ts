@@ -3,7 +3,7 @@
 // Pure rules, ticked from sim.ts. Timers also run while the player is away (see advanceBarn).
 
 import { CLASSIC_NAMES, ECON, PAINTS } from './config';
-import { classicsMult, recordModel, type CollectionEvent } from './collection';
+import { classicsMult, inShowcase, recordModel, type CollectionEvent } from './collection';
 import { expectedCarValue, roundNice, unlockedFamilies } from './formulas';
 import { pick } from './rng';
 import type { GameState } from './state';
@@ -15,7 +15,8 @@ export type BarnEvent =
   | { type: 'barnFound' }
   | { type: 'barnStageDone'; stage: number }
   | { type: 'barnFinished' }
-  | { type: 'barnSold'; amount: number };
+  | { type: 'barnSold'; amount: number }
+  | { type: 'barnKept'; model: string; count: number };
 
 export interface BarnSink {
   push(e: BarnEvent): void;
@@ -133,11 +134,32 @@ export function sellBarnCar(state: GameState, events?: CollectionEvent[]): numbe
   const amount = b.value;
   state.cash += amount;
   state.lifetimeEarnings += amount;
+  finishBarnCar(state, events);
+  return amount;
+}
+
+/** The revealed classic can go to the showcase: one of each model (a repeat find can only be sold). */
+export function canKeepBarnCar(state: GameState): boolean {
+  return state.barn.status === 'revealed' && !inShowcase(state, state.barn.model);
+}
+
+/**
+ * Keep the restored classic for the showcase instead of selling it (P1.4c): no cash, but the classic goes into the
+ * book like a sale and adds `showcaseBonus` to every payout for good (kept when the empire is sold).
+ */
+export function keepBarnCar(state: GameState, events?: CollectionEvent[]): boolean {
+  if (!canKeepBarnCar(state)) return false;
+  state.collection.showcase.push(state.barn.model);
+  finishBarnCar(state, events);
+  return true;
+}
+
+function finishBarnCar(state: GameState, events?: CollectionEvent[]): void {
+  const b = state.barn;
   for (const e of recordModel(state, b.model, 'legendary')) events?.push(e);
   b.restored += 1;
   b.status = 'away';
   b.stage = 0;
   b.value = 0;
   b.timeLeft = barnFindSeconds(state);
-  return amount;
 }

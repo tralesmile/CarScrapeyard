@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.29.0 - 2026-11-09 (run 29)
+
+- **Showcase (P1.4c):** a restored barn classic no longer has to be sold. The reveal now offers "🏆 Keep it (+0.5%
+  income)" between "Sell it!" and "Later": no cash, but the classic stands in your showcase for good and every payout
+  is 0.5% bigger, even after you sell your empire. You can keep one of each of the 16 classics (+8% at most); a repeat
+  find can only be sold. Kept classics count for the Collection book like a sale. The book's Classics page shows
+  "🏆 Showcase 3/16 · +1.5% all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase
+  under what you keep. Tuned with a keep-vs-sell bot: +1% made keeping free even in the first empire, so it is +0.5%.
+- Tests: 7 new unit tests (`showcase.test.ts`: keep pays nothing and records the classic, one per model, not before the
+  reveal, the +8% cap, kept on a sale, save round-trip / old saves / repair, book and preview texts) and a balance A/B
+  (keeping moves the first sale by 0.98-1.05x). e2e: keep a second classic (banner, no cash, book shows it), a repeat
+  classic offers only Sell (e2e-12b/12c).
+
 ## 0.28.0 - 2026-11-09 (run 28)
 
 - **Collection book screen (P1.4b):** a 📒 button in the top bar opens the book. Three pages (Car types, Brands, Classics)

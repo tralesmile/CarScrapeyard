@@ -180,3 +180,16 @@ export function sanitizeBook(book: Record<string, BookEntry>): void {
     e.best = e.sold === 0 ? -1 : Number.isFinite(b) ? Math.min(RARITIES.length - 1, Math.max(0, b)) : 0;
   }
 }
+
+/** Showcase (P1.4c): is this barn classic standing in the showcase? */
+export function inShowcase(state: Pick<GameState, 'collection'>, model: string): boolean {
+  return state.collection.showcase.includes(model);
+}
+
+/** Save repair: only real barn classics, each once, in the order kept. */
+export function sanitizeShowcase(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const out: string[] = [];
+  for (const m of list) if (typeof m === 'string' && CLASSIC_MODELS.includes(m) && !out.includes(m)) out.push(m);
+  return out;
+}

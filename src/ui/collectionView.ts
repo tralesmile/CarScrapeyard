@@ -6,6 +6,7 @@ import {
   SETS,
   bestRarity,
   bookProgress,
+  inShowcase,
   isCollected,
   isSetComplete,
   masteryStars,
@@ -43,6 +44,20 @@ export function masteryToast(model: string, stars: number): string {
   return `${'⭐'.repeat(stars)} ${model} mastery: +${Math.round(stars * ECON.collection.masteryBonus * 100)}% value`;
 }
 
+/** Showcase summary (P1.4c), e.g. "🏆 Showcase 3/16 · +1.5% all income", or how to start one. */
+export function showcaseLine(state: Pick<GameState, 'collection'>): string {
+  const n = state.collection.showcase.length;
+  if (n === 0) return `🏆 Keep a restored classic: +${pctText(ECON.collection.showcaseBonus)} all income each`;
+  return `🏆 Showcase ${n}/${CLASSIC_COUNT} · +${pctText(n * ECON.collection.showcaseBonus)} all income`;
+}
+
+const CLASSIC_COUNT = Object.values(CLASSIC_NAMES).reduce((a, l) => a + l.length, 0);
+
+/** 0.005 -> "0.5%", 0.05 -> "5%", 0.015 -> "1.5%". */
+export function pctText(x: number): string {
+  return `${Math.round(x * 1000) / 10}%`;
+}
+
 // ---- Book screen (P1.4b) -------------------------------------------------------------------------------------------
 
 export type BookPage = 'cars' | 'brands' | 'classics';
@@ -63,6 +78,8 @@ export interface BookCard {
   line: string;
   /** Mastery progress toward the next star, 0..1 (1 when mastered). */
   progress: number;
+  /** A barn classic standing in the showcase (P1.4c). */
+  kept: boolean;
 }
 
 export interface BookSetView {
@@ -73,6 +90,8 @@ export interface BookSetView {
   have: number;
   of: number;
   complete: boolean;
+  /** Barn Classics only: the showcase line, e.g. "🏆 Showcase 3/16 · +1.5% all income" (P1.4c). */
+  showcase?: string;
   cards: BookCard[];
 }
 
@@ -106,7 +125,9 @@ export function bookCard(state: Pick<GameState, 'collection'>, model: string): B
   const tiers = ECON.collection.masteryTiers;
   const prev = stars === 0 ? 0 : tiers[stars - 1]!;
   let line = 'Not found yet';
-  if (collected) line = next === null ? `${sold} sold · mastered` : `${sold} sold · ${next} for ${'⭐'.repeat(stars + 1)}`;
+  const kept = inShowcase(state, model);
+  if (kept) line = '🏆 In your showcase';
+  else if (collected) line = next === null ? `${sold} sold · mastered` : `${sold} sold · ${next} for ${'⭐'.repeat(stars + 1)}`;
   return {
     model,
     family: familyOf(model),
@@ -118,6 +139,7 @@ export function bookCard(state: Pick<GameState, 'collection'>, model: string): B
     stars,
     line,
     progress: next === null ? 1 : Math.min(1, (sold - prev) / (next - prev)),
+    kept,
   };
 }
 
@@ -142,6 +164,7 @@ export function bookView(state: Pick<GameState, 'collection'>, page: BookPage): 
       have: pr.have,
       of: pr.of,
       complete: isSetComplete(state, s),
+      ...(s.kind === 'classics' ? { showcase: showcaseLine(state) } : {}),
       cards: s.models.map((m) => bookCard(state, m)),
     };
   });

@@ -123,11 +123,16 @@ export const ECON = {
     familySetBonus: 0.05,
     /** Sell one model of a brand in every family: that brand's yard cars are worth this much more. */
     brandSetBonus: 0.05,
-    /** Restore and sell every barn classic: barn sale values x(1 + this). */
+    /** Restore every barn classic (sold or kept for the showcase): barn sale values x(1 + this). */
     classicsSetBonus: 0.25,
     /** Mastery stars per model at these sales counts; each star adds `masteryBonus` to that model's value. */
     masteryTiers: [10, 50, 200] as const,
     masteryBonus: 0.01,
+    /**
+     * Showcase (P1.4c): a restored barn classic can be kept instead of sold. Each classic in the showcase (one per
+     * model, kept when the empire is sold) adds this much to every payout, like a small Legacy Point.
+     */
+    showcaseBonus: 0.005,
   },
 
   /** Car crusher: turn an unfinished wreck into Parts (and a little scrap cash). */
