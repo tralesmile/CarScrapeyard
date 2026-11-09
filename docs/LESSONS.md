@@ -560,3 +560,6 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   names a pattern, grep the e2e for every copy of it in the same run.
 - **New daily-style systems: hash the day instead of drawing from the game RNG.** Rolling tasks from `state.rng` would
   have shifted every later car and broken the seeded sims; `rollKinds(available, day)` keeps them identical.
+- **`git pull --rebase` drops the "merge origin/main into dev" commit.** The rebase linearised my commits onto
+  origin/dev and the merge of the owner's PR merge commit vanished, so dev was "behind main" again. After rebasing,
+  check `git log origin/dev..origin/main`; if it is not empty, merge origin/main again and push without rebasing.
