@@ -684,3 +684,14 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   fires both on purpose.
 - **Waiting for the ~17 min baseline:** poll with `sleep 100` calls (a single call is cut at 2 min), and use the wait for
   docs and e2e edits only.
+
+## 2026-11-10 (run 38)
+
+- **A red baseline can be a flake: re-run once before debugging, but make the next failure explain itself.** The start
+  check failed on a Phaser `glTexture` page error that did not repeat. Page errors in the e2e now carry the last
+  section name and a stack, so a rare one costs one look instead of a 17 min bisect.
+- **Generate bulk string moves with a script that evals the old object** (ten scenes became catalog keys in one pass),
+  then fix the leftovers by hand; keep `tsc` as the safety net (the plural-aware `BaseKey` type differs from
+  `MessageKey`).
+- **Use the e2e wait for refactors that are build-independent:** the browser test runs on `dist`, so source edits after
+  the build step are safe, but never start `vitest` meanwhile.

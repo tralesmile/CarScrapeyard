@@ -45,13 +45,20 @@ async function waitForServer(url, ms = 15000) {
   });
   let browser;
   let failed = false;
+  // The last section printed, so a page error says where in the run it happened (P1.3t).
+  let phase = 'start';
+  const log = console.log;
+  console.log = (...a) => {
+    if (typeof a[0] === 'string' && !a[0].startsWith('  ')) phase = a[0];
+    log(...a);
+  };
   const errors = [];
   try {
     await waitForServer(`http://localhost:${PORT}/`);
     browser = await chromium.launch();
     const ctx = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await ctx.newPage();
-    page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+    page.on('pageerror', (e) => errors.push(`pageerror [after "${phase}"]: ${e.message} @ ${(e.stack || '').split('\n').slice(1, 4).join(' | ').replace(/\s+/g, ' ')}`));
     page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
 
     console.log('first launch');

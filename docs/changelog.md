@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.0 - 2026-11-10 (run 38)
+
+- **Translation layer:** all story texts (ten scenes, speaker names, chapter titles, Vince's toasts, the log teaser)
+  moved to `en.ts`; nothing changes for players.
+- **Test tooling:** browser-test page errors now say which section of the run they happened in, with a short stack.
+
 ## 0.37.0 - 2026-11-10 (run 37)
 
 - **Portal adapters (P1.12):** the game can run on Poki and CrazyGames. Rewarded ads, "loading finished" and

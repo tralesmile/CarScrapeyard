@@ -54,7 +54,7 @@ import { cityMapSvg, mapRows, rivalRow } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
 import { dueBeat, markBeatSeen, type StoryBeatId } from '../core/story';
-import { SPEAKERS, storyLog, storyScene } from './storyView';
+import { speaker, storyLog, storyScene } from './storyView';
 import { portraitUrl } from '../game/portraitArt';
 import {
   buyGarageBay,
@@ -2425,7 +2425,7 @@ function perkChipEl(c: PerkChip): HTMLElement {
 function storyLinesHtml(id: StoryBeatId): string {
   return storyScene(id)
     .lines.map((l) => {
-      const who = SPEAKERS[l.who];
+      const who = speaker(l.who);
       const url = portraitUrl(l.who);
       const img = url ? `<img class="portrait" src="${url}" alt="" width="48" height="48">` : '<span class="portrait"></span>';
       return `<div class="story-line ${l.who}">${img}<div class="bubble"><b>${who.name}</b>${l.text}</div></div>`;

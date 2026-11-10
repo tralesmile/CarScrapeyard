@@ -6,7 +6,7 @@ import { earningsForTotalPoints, sellEmpire } from '../src/core/legacy';
 import { checksum, deserialize, serialize } from '../src/core/save';
 import { newGame, type GameState } from '../src/core/state';
 import { CHAPTER_1, CHAPTER_2, STORY_BEATS, beatReady, chapterOf, rivalHqShown, chapterDone, dueBeat, markBeatSeen, noteBuyerLost, noteLotLost, sanitizeStory, vinceMet } from '../src/core/story';
-import { STORY_SCENES, rivalToast, rivalToastDue, storyLog } from '../src/ui/storyView';
+import { storyScene, rivalToast, rivalToastDue, storyLog } from '../src/ui/storyView';
 import { cityMapSvg, rivalRow } from '../src/ui/cityMap';
 
 const T0 = 1_800_000_000_000;
@@ -148,7 +148,7 @@ describe('story chapter 1 (P1.6)', () => {
 
   it('every beat has a scene with lines and a button; Vince toasts stay rare', () => {
     for (const id of STORY_BEATS) {
-      const sc = STORY_SCENES[id];
+      const sc = storyScene(id);
       expect(sc.lines.length).toBeGreaterThan(0);
       expect(sc.lines.length).toBeLessThanOrEqual(3);
       expect(sc.button.length).toBeGreaterThan(0);
@@ -253,7 +253,7 @@ describe('story log (P1.6c)', () => {
     const c1 = log.chapters[0]!;
     expect(c1).toMatchObject({ id: 1, city: 'Rust Valley', have: 2, of: 5 });
     expect(c1.beats.map((b) => b.seen)).toEqual([true, false, false, true, false]);
-    expect(c1.beats[0]!.title).toBe(STORY_SCENES.vinceVisit.title);
+    expect(c1.beats[0]!.title).toBe(storyScene('vinceVisit').title);
     expect(log.next).toBe('Chapter 2 starts in Motor City');
     markBeatSeen(s, 'vinceCity');
     log = storyLog(s);
