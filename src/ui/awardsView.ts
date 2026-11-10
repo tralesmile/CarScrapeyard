@@ -5,6 +5,7 @@ import { AWARD_IDS, MEDAL_COUNT, awardReward, awardValue, canClaimAward, medalCo
 import { ECON } from '../core/config';
 import { formatCash, formatNumber } from '../core/format';
 import type { GameState } from '../core/state';
+import { t } from '../i18n';
 
 export type MedalState = 'claimed' | 'ready' | 'locked';
 
@@ -40,7 +41,10 @@ export function awardCard(state: GameState, id: AwardId): AwardCard {
   const medals: MedalState[] = d.tiers.map((_, i) => (i < claimed ? 'claimed' : i < reached ? 'ready' : 'locked'));
   const next = d.tiers[reached];
   const prev = reached === 0 ? 0 : d.tiers[reached - 1]!;
-  const line = next === undefined ? `${d.goal}: ${amount(id, value)} ✓` : `${d.goal}: ${amount(id, value)} / ${amount(id, next)}`;
+  const line =
+    next === undefined
+      ? t('awards.line.done', { goal: d.goal, value: amount(id, value) })
+      : t('awards.line.progress', { goal: d.goal, value: amount(id, value), next: amount(id, next) });
   const claimable = canClaimAward(state, id);
   const tier = Math.min(claimed, MEDAL_COUNT - 1);
   return {
@@ -51,7 +55,13 @@ export function awardCard(state: GameState, id: AwardId): AwardCard {
     line,
     progress: next === undefined ? 1 : Math.max(0, Math.min(1, (value - prev) / (next - prev))),
     claimable,
-    claimText: claimable ? `${ECON.achievements.medalIcons[tier]} Claim ${formatCash(awardReward(state, claimed))}${medalGems(claimed) ? ` + ${medalGems(claimed)} 💎` : ''}` : '',
+    claimText: claimable
+      ? t(medalGems(claimed) ? 'awards.claim.gems' : 'awards.claim', {
+          icon: ECON.achievements.medalIcons[tier]!,
+          cash: formatCash(awardReward(state, claimed)),
+          gems: medalGems(claimed),
+        })
+      : '',
     complete: claimed >= MEDAL_COUNT,
   };
 }
@@ -72,12 +82,12 @@ export function awardsView(state: GameState): AwardsView {
   const order = [...cards].sort((a, b) => rank(a) - rank(b) || AWARD_IDS.indexOf(a.id) - AWARD_IDS.indexOf(b.id));
   const m = medalCount(state);
   const ready = cards.filter((c) => c.claimable).length;
-  return { header: `${m.have}/${m.of} medals`, have: m.have, of: m.of, ready, cards: order };
+  return { header: t('awards.header', { have: m.have, of: m.of }), have: m.have, of: m.of, ready, cards: order };
 }
 
 /** Toast when a new medal is reached, e.g. "🥉 Crusher: Bronze medal! Claim it in the 📒 book". */
 export function medalToast(state: GameState, id: AwardId): string {
   const tier = Math.max(0, tiersReached(state, id) - 1);
   const d = ECON.achievements.list[id];
-  return `${ECON.achievements.medalIcons[tier]} ${d.name}: ${ECON.achievements.medals[tier]} medal! Claim it in the 📒 book`;
+  return t('awards.toast', { icon: ECON.achievements.medalIcons[tier]!, name: d.name, medal: ECON.achievements.medals[tier]! });
 }

@@ -674,3 +674,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   check after a test edit.
 - **Put a new feature's e2e at the end, next to the non-debug desktop page:** a service worker only registers outside
   `?debug`, so that page is the one place to prove offline loading.
+
+## 2026-11-10 (run 37)
+
+- **Inject third-party SDK objects instead of reading globals inside the adapter.** Poki and CrazyGames are tiny
+  duck-typed interfaces here, so six unit tests cover ads, failures and visibility without a browser; main.ts is the
+  only file that touches `window`.
+- **A "first callback wins" guard is needed for callback-style ad APIs** (finished and error can both fire); the test
+  fires both on purpose.
+- **Waiting for the ~17 min baseline:** poll with `sleep 100` calls (a single call is cut at 2 min), and use the wait for
+  docs and e2e edits only.

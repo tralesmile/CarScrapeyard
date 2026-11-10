@@ -2362,6 +2362,26 @@ async function waitForServer(url, ms = 15000) {
     await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });
     await gal.close();
 
+    console.log('portal adapter (Poki stub)');
+    const pk = await browser.newPage({ viewport: { width: 390, height: 780 } });
+    pk.on('pageerror', (e) => errors.push('portal pageerror: ' + e.message));
+    await pk.addInitScript(() => {
+      window.__poki = [];
+      window.PokiSDK = {
+        init: async () => { window.__poki.push('init'); },
+        gameLoadingFinished: () => window.__poki.push('loaded'),
+        gameplayStart: () => window.__poki.push('start'),
+        gameplayStop: () => window.__poki.push('stop'),
+        rewardedBreak: async () => true,
+      };
+    });
+    await pk.goto(URL + '&portal=poki');
+    await pk.waitForSelector('#game canvas', { timeout: 15000 });
+    await pk.waitForTimeout(500);
+    const pokiCalls = await pk.evaluate(() => window.__poki);
+    assert(pokiCalls.includes('init') && pokiCalls.includes('loaded') && pokiCalls.includes('start'), 'Poki SDK gets init, loading finished and gameplay start (' + pokiCalls.join(',') + ')');
+    await pk.close();
+
     console.log('desktop layout');
     const d = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     d.on('pageerror', (e) => errors.push('desktop pageerror: ' + e.message));

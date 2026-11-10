@@ -22,6 +22,12 @@ export const en = {
   'daily.medals_one': '🏅 {count} medal to claim in the 📒 book',
   'daily.medals_other': '🏅 {count} medals to claim in the 📒 book',
   'daily.done': "📅 Daily task done: {task}. Claim it on the scrapyard's Jobs board",
+  'awards.header': '{have}/{of} medals',
+  'awards.line.progress': '{goal}: {value} / {next}',
+  'awards.line.done': '{goal}: {value} ✓',
+  'awards.claim': '{icon} Claim {cash}',
+  'awards.claim.gems': '{icon} Claim {cash} + {gems} 💎',
+  'awards.toast': '{icon} {name}: {medal} medal! Claim it in the 📒 book',
 } as const;
 
 export type MessageKey = keyof typeof en;

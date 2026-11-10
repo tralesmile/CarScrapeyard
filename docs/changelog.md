@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.37.0 - 2026-11-10 (run 37)
+
+- **Portal adapters (P1.12):** the game can run on Poki and CrazyGames. Rewarded ads, "loading finished" and
+  gameplay start/stop (paused when the tab is hidden) go through one small adapter; if a portal SDK fails, the game
+  just carries on without ads. Nothing changes for the normal web build.
+- **Translation layer:** the medals page texts (header, progress lines, claim buttons, medal toast) moved to `en.ts`.
+
 ## 0.36.0 - 2026-11-10 (run 36)
 
 - **Install and play offline (P1.10):** the web build has a manifest and icons, so phones can "Add to home screen" and

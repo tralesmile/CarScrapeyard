@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (run 36; next run is run 37). Runs now start every 3 hours.
+Last updated: 2026-11-10 (run 37; next run is run 38). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -264,7 +264,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
       plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
       the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
-  - [ ] P1.9b Move the remaining UI strings (`ui.ts`, `awardsView.ts`, `storyView.ts`, `collectionView.ts`, `cityMap.ts`, ...)
+  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts` done; left: `ui.ts`, `storyView.ts`, `collectionView.ts`, `cityMap.ts`, ...)
         into `en.ts` one view per run, then add a language setting once a second language exists.
 - [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),
       `public/sw.js` (network-first page, cache-first assets, versioned cache), registered in production only and not in
@@ -273,7 +273,10 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       pluggable sink, `MemorySink`, pure `diffEvents` milestones: sales 1/10/25/50/..., business opened, empire sold, city
       changed, new car family, tutorial done; `Tracker` looks once a second). No sink and consent off by default, so
       nothing is sent until accounts and a consent screen exist (P2.4, P2.7).
-- [ ] P1.12 Portal adapters: Poki and CrazyGames SDK wrappers behind the platform interface
+- [x] P1.12 Portal adapters (run 37): `src/platform/portal.ts` (pure, SDK objects injected): `createPokiSdk`,
+      `createCrazyGamesSdk`, `detectPortal` (`?portal=` or a present global), `withPortal` (rewarded ads only after init,
+      one at a time, failures never throw), `bindGameplayToVisibility`. Wired in `main.ts`; the SDK `<script>` tag is not
+      added yet (portal rules differ; add it in the portal-specific build). 6 unit tests, e2e with a Poki stub.
 - [ ] P1.13 Deploy web build (Cloudflare Pages) — needs owner account
 - [ ] P1.14 Gate: D1 ≥ 35%, session ≥ 8 min
 

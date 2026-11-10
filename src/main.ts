@@ -24,11 +24,33 @@ import { refreshDaily } from './core/daily';
 import { music } from './audio/music';
 import { analytics, MemorySink, Tracker } from './platform/analytics';
 import { createWebPlatform } from './platform/platform';
+import {
+  bindGameplayToVisibility,
+  createCrazyGamesSdk,
+  createPokiSdk,
+  detectPortal,
+  withPortal,
+  type CrazyGamesGlobal,
+  type PokiGlobal,
+} from './platform/portal';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
 import { rivalToast, rivalToastDue } from './ui/storyView';
 
-const platform = createWebPlatform();
+// Portal builds (Poki, CrazyGames) add their SDK to the page; the web build has neither.
+const portalGlobals = window as unknown as { PokiSDK?: PokiGlobal; CrazyGames?: CrazyGamesGlobal };
+const portalName = detectPortal(window.location.search, portalGlobals);
+const portalSdk =
+  portalName === 'poki' && portalGlobals.PokiSDK
+    ? createPokiSdk(portalGlobals.PokiSDK)
+    : portalName === 'crazygames' && portalGlobals.CrazyGames
+      ? createCrazyGamesSdk(portalGlobals.CrazyGames)
+      : null;
+const platform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : createWebPlatform();
+if (portalSdk) {
+  bindGameplayToVisibility(portalSdk, document);
+  portalSdk.loadingFinished();
+}
 const saves = new SaveManager(platform.storage);
 
 const loaded = saves.load(platform.now());
