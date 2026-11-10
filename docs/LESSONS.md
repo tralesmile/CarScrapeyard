@@ -702,3 +702,12 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   exists** (a missed or edited line fails loudly); `tsc` then checks the keys. Existing unit tests that assert the
   English text are the proof that nothing visible changed.
 - **When the baseline check is running, `tsc --noEmit` is safe but nothing heavier**; wait for the e2e to finish.
+
+## 2026-11-10 (run 40)
+
+- **Same working pattern as runs 38-39 held: start `npm run check` in the background, move strings with a python
+  replace script that asserts each old text occurs exactly once, run `tsc` only while the e2e runs.** A
+  `sed -i '96a import ...'` after a script edit is fine, but check the import line number first (`grep -n "^import"`).
+- **`vitest` printing only "RUN" for minutes is normal on 2 cores** (the balance tests are long); it is not a hang.
+  Check `tail` of the log before deciding anything.
+

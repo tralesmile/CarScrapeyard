@@ -94,6 +94,7 @@ import { conditionStars } from '../game/carlotArt';
 import { HINT_BELOW_AREA } from '../game/garageArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 import { barnStageSeconds, buyNode, offlineCap, perfectZone, respecTree } from '../core/legacyTree';
+import { t } from '../i18n';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
@@ -242,7 +243,7 @@ export class Ui {
       this.render();
     };
     this.settingsBtn = el('button', 'icon-btn settings-btn', '☰') as HTMLButtonElement;
-    this.settingsBtn.setAttribute('aria-label', 'Settings');
+    this.settingsBtn.setAttribute('aria-label', t('settings.title'));
     this.settingsBtn.onclick = () => this.openSettings();
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="city-tag hidden" aria-hidden="true"></span><span class="dot"></span>') as HTMLButtonElement;
     this.mapBtn.setAttribute('aria-label', 'City map');
@@ -2220,8 +2221,8 @@ export class Ui {
     const box = el('div', 'modal settings');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'Settings');
-    const h = el('h2', 'display', 'Settings');
+    box.setAttribute('aria-label', t('settings.title'));
+    const h = el('h2', 'display', t('settings.title'));
     box.append(h);
     const close = () => {
       if (!back.isConnected) return;
@@ -2238,7 +2239,7 @@ export class Ui {
       const paint = () => {
         btn.setAttribute('aria-checked', String(get()));
         btn.classList.toggle('on', get());
-        btn.textContent = get() ? 'On' : 'Off';
+        btn.textContent = get() ? t('settings.on') : t('settings.off');
       };
       btn.setAttribute('aria-label', label);
       btn.onclick = () => {
@@ -2274,18 +2275,18 @@ export class Ui {
       return row;
     };
     box.append(
-      toggle('Sound effects', '', () => s.settings.sound, (v) => {
+      toggle(t('settings.sound'), '', () => s.settings.sound, (v) => {
         s.settings.sound = v;
         sfx.enabled = v;
       }),
-      slider('Effects volume', 'sfxVolume', (v) => sfx.setVolume(v), () => sfx.tap()),
-      toggle('Music', 'A new layer joins with each business', () => s.settings.music, (v) => {
+      slider(t('settings.sfxVolume'), 'sfxVolume', (v) => sfx.setVolume(v), () => sfx.tap()),
+      toggle(t('settings.music'), t('settings.music.note'), () => s.settings.music, (v) => {
         s.settings.music = v;
       }),
-      slider('Music volume', 'musicVolume', (v) => sfx.setMusicVolume(v)),
-      toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
-      toggle('Skip haggling', 'Sell at the asking price, no slider', () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
-      toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {
+      slider(t('settings.musicVolume'), 'musicVolume', (v) => sfx.setMusicVolume(v)),
+      toggle(t('settings.reduceMotion'), t('settings.reduceMotion.note'), () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+      toggle(t('settings.skipHaggle'), t('settings.skipHaggle.note'), () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
+      toggle(t('settings.vibration'), haptics.supported ? t('settings.vibration.note') : t('settings.vibration.none'), () => s.settings.vibration, (v) => {
         s.settings.vibration = v;
         haptics.enabled = v;
         haptics.play('tap');
@@ -2293,7 +2294,7 @@ export class Ui {
     );
     // Number format: two-way switch.
     const fmtRow = el('div', 'set-row');
-    fmtRow.append(el('div', 'set-label', 'Numbers'));
+    fmtRow.append(el('div', 'set-label', t('settings.numbers')));
     const seg = el('div', 'seg');
     const opts: [NumberFormat, string][] = [
       ['short', '1.5M'],
@@ -2320,14 +2321,14 @@ export class Ui {
     // City lights (P1.3d3c): only in a city with a night-time look.
     if (cityInfo(currentCity(s)).hasNight) {
       const litRow = el('div', 'set-row lights-row');
-      const litText = el('div', 'set-label', 'City lights');
-      litText.append(el('small', '', 'Auto: neon nights 7 pm–6 am'));
+      const litText = el('div', 'set-label', t('settings.lights'));
+      litText.append(el('small', '', t('settings.lights.note')));
       litRow.append(litText);
       const litSeg = el('div', 'seg');
       const litOpts: [CityLights, string][] = [
-        ['auto', 'Auto'],
-        ['day', 'Day'],
-        ['night', 'Night'],
+        ['auto', t('settings.lights.auto')],
+        ['day', t('settings.lights.day')],
+        ['night', t('settings.lights.night')],
       ];
       const litBtns = litOpts.map(([v, label]) => {
         const b = el('button', 'seg-btn', label) as HTMLButtonElement;
@@ -2346,23 +2347,23 @@ export class Ui {
       box.append(litRow);
     }
 
-    const reset = el('button', 'danger', 'Reset progress') as HTMLButtonElement;
+    const reset = el('button', 'danger', t('settings.reset')) as HTMLButtonElement;
     reset.onclick = () => {
       close();
       this.modal({
-        title: 'Start over?',
-        body: '<p>This deletes your yard, cash, crew and everything else on this device. It cannot be undone.</p>',
-        button: 'Keep playing',
-        secondary: 'Delete everything',
+        title: t('settings.reset.title'),
+        body: `<p>${t('settings.reset.body')}</p>`,
+        button: t('settings.reset.keep'),
+        secondary: t('settings.reset.delete'),
         onSecondary: () => this.deps.resetProgress(),
       });
     };
     const credits = el(
       'div',
       'credits',
-      `<b>Junkyard to Supercar Empire</b> v${version}<br>Design, code, art and sound: Claude, for the owner<br>Engine: Phaser 3 (MIT) · Fonts: Lilita One, Nunito (SIL OFL)<br>All car brands are fictional.`,
+      `<b>${t('settings.credits.title')}</b> v${version}<br>${t('settings.credits.line1')}<br>${t('settings.credits.line2')}<br>${t('settings.credits.line3')}`,
     );
-    const done = el('button', 'buy', 'Done') as HTMLButtonElement;
+    const done = el('button', 'buy', t('settings.done')) as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
       close();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.40.0 - 2026-11-10 (run 40)
+
+- **Translation layer:** the city map texts (business rows, FOR SALE / SOON signs, Vince's HQ line, map label) and the
+  whole Settings sheet (switches, sliders, City lights, reset confirmation, credits) moved to `en.ts`; nothing changes
+  for players.
+
 ## 0.39.0 - 2026-11-10 (run 39)
 
 - **Translation layer:** the collection book texts (set names and bonuses, set-complete banner, mastery toast,

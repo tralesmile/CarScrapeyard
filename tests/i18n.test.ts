@@ -33,4 +33,13 @@ describe('i18n', () => {
     for (const k of keys.filter((x) => x.endsWith('_one'))) expect(keys).toContain(k.replace(/_one$/, '_other'));
     for (const v of Object.values(en)) expect(v.replace(/\{\w+\}/g, '')).not.toMatch(/[{}]/);
   });
+
+  it('settings and map texts come from the catalog (P1.9b)', () => {
+    expect(t('settings.title')).toBe('Settings');
+    expect(t('settings.reset.title')).toBe('Start over?');
+    expect(t('map.row.buy', { cost: '$100K' })).toBe('Open $100K');
+    expect(t('map.row.readyPerk', { perk: 'x' })).toBe('Ready to open · x');
+    expect(t('map.rival.wins', { count: 1 })).toMatch(/1 time$/);
+    expect(t('map.rival.wins', { count: 2 })).toMatch(/2 times$/);
+  });
 });
