@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.41.0 - 2026-11-10 (run 41)
+
+- **Translation layer:** the Sell Empire row and preview, Grandpa Joe's lines, city teaser and ordinals, the Legacy tree
+  texts, perk chips and the welcome-back away lines moved to `en.ts` (plurals via `_one/_other`); nothing changes for
+  players.
+
 ## 0.40.0 - 2026-11-10 (run 40)
 
 - **Translation layer:** the city map texts (business rows, FOR SALE / SOON signs, Vince's HQ line, map label) and the

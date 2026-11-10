@@ -7,6 +7,7 @@ import { LEGACY_BRANCHES, canBuyNode, canRespec, freePoints, hasNode, nodeCost, 
 import { formatCash, formatDuration } from '../core/format';
 import { citiesForNextEmpire, cityInfo, defaultNextCity, nextCityToUnlock } from '../core/cities';
 import type { GameState } from '../core/state';
+import { t, type BaseKey } from '../i18n';
 
 export const LEGACY_ICON = '🏛';
 
@@ -33,8 +34,8 @@ export function sellEmpireRow(state: GameState): SellEmpireRow | null {
   const p = pendingLegacyPoints(state);
   return {
     glow: sellEmpireGlows(state),
-    line: `+${p} Legacy Points · income ${formatMult(legacyMultiplier(state))} → ${formatMult(nextLegacyMultiplier(state))}`,
-    action: 'Sell',
+    line: t('legacy.row.line', { points: p, now: formatMult(legacyMultiplier(state)), next: formatMult(nextLegacyMultiplier(state)) }),
+    action: t('legacy.row.action'),
   };
 }
 
@@ -42,7 +43,7 @@ export function sellEmpireRow(state: GameState): SellEmpireRow | null {
 export function nextSaleLine(state: GameState): string | null {
   if (state.legacy.sold <= 0 || canSellEmpire(state)) return null;
   const need = earningsForPoints(state, ECON.legacy.minPoints) - state.lifetimeEarnings - Math.max(0, state.pendingOffline);
-  return `Sell Empire again after ${formatCash(Math.max(0, need))} more earnings`;
+  return t('legacy.nextSale', { cash: formatCash(Math.max(0, need)) });
 }
 
 /** One city the next empire can be built in (P1.3d). */
@@ -81,17 +82,24 @@ export function sellEmpirePreview(state: GameState): SellEmpirePreview {
     multNext: formatMult(nextLegacyMultiplier(state)),
     earned: formatCash(state.lifetimeEarnings + Math.max(0, state.pendingOffline)),
     runTime: formatDuration(state.legacy.runSeconds),
-    keeps: ['Legacy Points', state.collection.showcase.length ? `Collection book and ${state.collection.showcase.length} showcase classic${state.collection.showcase.length === 1 ? '' : 's'}` : 'Collection book', 'Stats and settings'],
-    resets: ['Cash, upgrades and crew', 'Every business and car', 'Parts, jobs and the barn'],
+    keeps: [
+      t('legacy.keeps.points'),
+      state.collection.showcase.length ? t('legacy.keeps.bookShowcase', { count: state.collection.showcase.length }) : t('legacy.keeps.book'),
+      t('legacy.keeps.stats'),
+    ],
+    resets: [t('legacy.resets.cash'), t('legacy.resets.businesses'), t('legacy.resets.parts')],
   };
 }
 
-const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+const ordinal = (n: number) => {
+  const form = n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th';
+  return t(`legacy.ordinal.${form}` as BaseKey, { n });
+};
 
 /** What a city's scale means, from the config ("Prices and payouts x10"). */
 export function cityLine(id: CityId): string {
   const c = cityInfo(id);
-  return c.scale === 1 ? c.tagline : `Prices and payouts x${c.scale}`;
+  return c.scale === 1 ? c.tagline : t('legacy.cityScale', { scale: c.scale });
 }
 
 /** The cities the next empire can be built in, when there is a choice (two or more open on this sale). */
@@ -104,16 +112,14 @@ export function cityChoices(state: GameState): CityChoice[] {
 
 export function cityTeaser(state: GameState): string | null {
   const next = nextCityToUnlock(state);
-  return next ? `${cityInfo(next.id).icon} ${cityInfo(next.id).name} opens on your ${ordinal(next.sale)} sale` : null;
+  return next ? t('legacy.cityTeaser', { icon: cityInfo(next.id).icon, name: cityInfo(next.id).name, ordinal: ordinal(next.sale) }) : null;
 }
 
 /** Grandpa Joe's line in the celebration (first sale, then later ones). */
 export function grandpaLine(soldBefore: number, city: CityId = 'rustValley', from: CityId = city): string {
   if (city !== from)
-    return `"${cityInfo(city).name}! Bigger streets, bigger deals, bigger trouble. Start small again, kid: the scrapyard is how we do it."`;
-  return soldBefore <= 0
-    ? '"Kid, I never thought this old yard could become an empire. Sell it, start again, and this time the whole valley knows your name."'
-    : '"Again? Ha! Every time you start over, you come back bigger. Go show them, kid."';
+    return t('legacy.grandpa.newCity', { name: cityInfo(city).name });
+  return soldBefore <= 0 ? t('legacy.grandpa.first') : t('legacy.grandpa.again');
 }
 
 // ---- Legacy tree screen (P1.3c) ----
@@ -161,7 +167,7 @@ export function legacyTreeView(state: GameState): TreeView {
       const status = nodeStatus(state, id);
       const cost = nodeCost(id);
       const canBuy = canBuyNode(state, id);
-      const action = status === 'owned' ? 'Owned' : status === 'locked' ? `${cost} ${LEGACY_ICON}` : canBuy ? `Buy ${cost} ${LEGACY_ICON}` : `${cost} ${LEGACY_ICON}`;
+      const action = status === 'owned' ? t('legacy.tree.owned') : canBuy ? t('legacy.tree.buy', { cost, icon: LEGACY_ICON }) : `${cost} ${LEGACY_ICON}`;
       return { id, icon: n.icon, name: n.name, desc: n.desc, status, cost, canBuy, action };
     });
     return { id: b, icon: def.icon, name: def.name, owned: state.legacy.tree[b], canBuy: nodes.some((n) => n.canBuy), nodes };
@@ -169,10 +175,10 @@ export function legacyTreeView(state: GameState): TreeView {
   const spent = spentPoints(state.legacy);
   return {
     free,
-    header: `${free} of ${state.legacy.points} points free · income ${formatMult(legacyMultiplier(state))}`,
+    header: t('legacy.tree.header', { free, total: state.legacy.points, mult: formatMult(legacyMultiplier(state)) }),
     branches,
-    respec: canRespec(state) ? `Free respec: refund ${spent} ${LEGACY_ICON} (once per empire)` : null,
-    respecNote: spent > 0 && state.legacy.respecUsed ? 'Respec used: free again in your next empire' : null,
+    respec: canRespec(state) ? t('legacy.tree.respec', { spent, icon: LEGACY_ICON }) : null,
+    respecNote: spent > 0 && state.legacy.respecUsed ? t('legacy.tree.respecUsed') : null,
   };
 }
 
@@ -190,18 +196,18 @@ export function perkLabel(node: LegacyNode, scale = 1): string {
   const T = ECON.legacy.tree;
   const icon = T.nodes[node].icon;
   const text: Record<LegacyNode, string> = {
-    quickHands: `+${pct(T.quickHandsTap)} taps`,
-    headStart: `${formatCash(T.headStartCash * scale)} start`,
-    partsHoarder: `+${pct(T.partsHoarderBonus)} parts`,
-    masterCrew: `crew +${pct(T.masterCrewSpeed)}`,
-    silverTongue: `zone +${pct(T.silverTongueZone)}`,
-    regulars: `buyers +${pct(T.regularsRate)}`,
-    insider: `auctions −${pct(T.insiderDiscount)}`,
-    franchise: `opening −${pct(T.franchiseDiscount)}`,
-    quickTips: `tip +${T.quickTipsSeconds}s`,
-    rareFinds: `rares x${T.rareFindsMult}`,
-    barnScout: `barn x${T.barnScoutFind}`,
-    nightShift: `${+((ECON.offline.capSeconds + T.nightShiftSeconds) / 3600).toFixed(1)}h cap`,
+    quickHands: t('legacy.perk.quickHands', { pct: pct(T.quickHandsTap) }),
+    headStart: t('legacy.perk.headStart', { cash: formatCash(T.headStartCash * scale) }),
+    partsHoarder: t('legacy.perk.partsHoarder', { pct: pct(T.partsHoarderBonus) }),
+    masterCrew: t('legacy.perk.masterCrew', { pct: pct(T.masterCrewSpeed) }),
+    silverTongue: t('legacy.perk.silverTongue', { pct: pct(T.silverTongueZone) }),
+    regulars: t('legacy.perk.regulars', { pct: pct(T.regularsRate) }),
+    insider: t('legacy.perk.insider', { pct: pct(T.insiderDiscount) }),
+    franchise: t('legacy.perk.franchise', { pct: pct(T.franchiseDiscount) }),
+    quickTips: t('legacy.perk.quickTips', { s: T.quickTipsSeconds }),
+    rareFinds: t('legacy.perk.rareFinds', { mult: T.rareFindsMult }),
+    barnScout: t('legacy.perk.barnScout', { mult: T.barnScoutFind }),
+    nightShift: t('legacy.perk.nightShift', { h: +((ECON.offline.capSeconds + T.nightShiftSeconds) / 3600).toFixed(1) }),
   };
   return `${icon} ${text[node]}`;
 }
@@ -230,7 +236,7 @@ export interface PerkChip {
 
 function chip(node: LegacyNode): PerkChip {
   const n = ECON.legacy.tree.nodes[node];
-  return { node, label: perkLabel(node), title: `${n.name} (Legacy): ${n.desc}` };
+  return { node, label: perkLabel(node), title: t('legacy.perk.title', { name: n.name, desc: n.desc }) };
 }
 
 /** The owned perks that apply to a tab, in order. Empty for unknown tabs or when nothing is owned. */
@@ -256,8 +262,8 @@ export interface AwayText {
 export function awayText(state: GameState, seconds: number, cap: number): AwayText {
   const worked = Math.min(Math.max(0, seconds), cap);
   return {
-    worked: `Your crew kept working for ${formatDuration(worked)}.`,
-    capped: seconds > cap + 60 ? `You were away ${formatDuration(seconds)}; crews work up to ${formatDuration(cap)} while you're gone.` : null,
+    worked: t('legacy.away.worked', { time: formatDuration(worked) }),
+    capped: seconds > cap + 60 ? t('legacy.away.capped', { away: formatDuration(seconds), cap: formatDuration(cap) }) : null,
     perk: perkChip(state, 'nightShift'),
   };
 }

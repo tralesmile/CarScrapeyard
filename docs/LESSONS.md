@@ -711,3 +711,12 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **`vitest` printing only "RUN" for minutes is normal on 2 cores** (the balance tests are long); it is not a hang.
   Check `tail` of the log before deciding anything.
 
+
+## 2026-11-10 (run 41)
+
+- **Moving strings out of a view that builds text from config (perk labels, ordinals, plurals) is mostly about
+  parameters, not text:** keep config names/descriptions in config, pass them as `{name}`/`{desc}`, and let `_one/_other`
+  keys replace hand-written `=== 1 ? '' : 's'` plurals. English ordinal suffixes became four keys so another language can
+  override the whole form.
+- **A baseline `npm run check` takes ~13 min on this box; run it once, edit while it runs (only `tsc --noEmit`), then run
+  the final check once.** Do not poll with `sleep` over 110 s: the tool call times out at 120 s.
