@@ -652,3 +652,15 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   watches, or restore the counter in the same evaluate.
 - **Reuse an existing card style (`.award`) for a new list page** instead of new CSS: layout, 320 px fit and the glow
   for "ready" came free, and only one dimming rule was needed.
+
+## 2026-11-10 (run 35)
+
+- **A full `npm run check` takes longer than one tool call (the e2e alone is ~17 minutes).** I started it in the
+  foreground first and the 10-minute limit killed it half way. Start the baseline with `nohup ... &` right away and
+  write code while it runs; edits to `src/` after the build step do not change what the running e2e tests.
+- **Keep `src/core/` free of imports from `src/audio/`.** I first put the volume clamp in the music score and imported it
+  from `save.ts`; moving it next to the other save repairs kept the layering rule (core knows nothing about audio).
+- **Put the music rules in a pure file and the Web Audio in another.** The layer logic and the note patterns are plain
+  functions, so 9 unit tests cover them without a fake AudioContext; the player only schedules what they return.
+- **Gate analytics behind consent by default** and make the sink pluggable; the browser test uses the memory sink, so
+  no real network code is needed to prove that events fire.

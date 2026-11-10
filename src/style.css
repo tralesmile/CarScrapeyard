@@ -2463,3 +2463,19 @@ body {
 .shop-item:not(.ready) .award-body {
   opacity: 0.75;
 }
+
+/* Volume sliders in Settings (P1.8) */
+.vol-row {
+  flex-wrap: wrap;
+}
+.vol-row .set-label {
+  flex: 0 0 auto;
+}
+.vol-slider {
+  flex: 1 1 120px;
+  min-width: 110px;
+  max-width: 190px;
+  height: 32px;
+  accent-color: #e8762b;
+  cursor: pointer;
+}

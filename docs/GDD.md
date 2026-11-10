@@ -101,7 +101,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   and the car pops out ("LEGENDARY CLASSIC!"); a collector buys it for about 3x what the stages cost.
   Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
   (e.g. Stallion Wildfire '67).
-- **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
+- **Settings** (☰ in the top bar): sound effects, music and effects volume sliders (the score has one layer per open business, see Audio), reduce motion (also on when
   the OS asks for it), number format (short 1.5M or scientific 1.5e6), City lights (Auto / Day / Night, only in a
   city with a night look such as Motor City), reset progress (two-step confirm), credits with the version.
 - **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
@@ -325,3 +325,11 @@ A Shop page (sixth tab) in the 📒 book. Gems buy a barn stage rush (1), a part
 Auction Tokens buy a Good-condition car for the Used Car Lot with no cash price (4). Unavailable items explain why
 (no stage running, crusher not open, lot closed or full). Real-money gem packs show as "coming soon" until P2.3;
 nothing in the shop is a random reward.
+
+## Audio (P1.8)
+
+All sound is synthesised in the browser (Web Audio). Effects: `src/audio/sfx.ts`. Music: one four-bar loop per city
+(`src/audio/musicScore.ts`), six layers, each owned by a business: scrapyard = bass, beat, pluck (always on); Repair
+Garage = ratchet; Used Car Lot = pad; Paint & Tuning = lead. The business on screen plays at full volume, the others
+at about half. Motor City is in a minor key, lower and faster. Music has its own on/off and volume; effects have
+theirs. Music never plays before the first tap (browser rule) and pauses when the app is hidden.

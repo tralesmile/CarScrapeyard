@@ -260,8 +260,11 @@ export interface GameState {
   };
   settings: {
     sound: boolean;
-    /** Saved now; music arrives with P1.8. */
+    /** Procedural music (P1.8): layers per business, see audio/musicScore.ts. */
     music: boolean;
+    /** Sliders in Settings, 0..1 in steps of 0.05 (P1.8). */
+    musicVolume: number;
+    sfxVolume: number;
     /** No camera shake or flashes, fewer CSS animations. */
     reduceMotion: boolean;
     numberFormat: NumberFormat;
@@ -422,7 +425,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     rng: seed >>> 0 || 1,
     nextCarId: 1,
     tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false, dailySeen: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
+    settings: { sound: true, music: true, musicVolume: 0.6, sfxVolume: 1, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
     collection: { sold: emptyFamilyCounts(), models: newBook(), showcase: [] },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),

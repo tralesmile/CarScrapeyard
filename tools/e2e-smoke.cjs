@@ -1626,6 +1626,69 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate((n) => window.__vib.length === n, vibCount), 'no haptics while vibration is off');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate((n) => window.__jye.state.settings.vibration && window.__vib.length > n, vibCount), 'vibration switches back on with a test buzz');
+    // P1.11: analytics stay silent without consent, then report a change to the memory sink.
+    await page.evaluate(() => {
+      const j = window.__jye;
+      j.sink = new j.MemorySink();
+      j.analytics.setSink(j.sink);
+      j.analytics.consent = false;
+      j.state.tutorial.introSeen = false;
+    });
+    await page.waitForTimeout(1300);
+    await page.evaluate(() => { window.__jye.state.tutorial.introSeen = true; });
+    await page.waitForTimeout(1300);
+    assert(await page.evaluate(() => window.__jye.sink.events.length === 0), 'analytics send nothing without consent');
+    await page.evaluate(() => {
+      window.__jye.analytics.consent = true;
+      window.__jye.state.tutorial.introSeen = false;
+    });
+    await page.waitForTimeout(1300);
+    await page.evaluate(() => { window.__jye.state.tutorial.introSeen = true; });
+    await page.waitForFunction(() => window.__jye.sink.events.some((e) => e.name === 'tutorial_done'), null, { timeout: 5000 });
+    assert(true, 'analytics report tutorial_done once consent is on');
+    await page.evaluate(() => { window.__jye.analytics.consent = false; window.__jye.analytics.setSink(null); });
+    // P1.8: music is a real switch with two volume sliders that are saved.
+    assert((await page.textContent('.toggle[aria-label="Music"]')) === 'On', 'music is on by default');
+    const vols = await page.evaluate(() => ({ m: window.__jye.state.settings.musicVolume, f: window.__jye.state.settings.sfxVolume }));
+    assert(vols.m === 0.6 && vols.f === 1, `volume defaults ${JSON.stringify(vols)}`);
+    await page.$eval('.vol-slider[data-vol="musicVolume"]', (i) => {
+      i.value = '25';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.$eval('.vol-slider[data-vol="sfxVolume"]', (i) => {
+      i.value = '40';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const vols2 = await page.evaluate(() => ({ m: window.__jye.state.settings.musicVolume, f: window.__jye.state.settings.sfxVolume }));
+    assert(vols2.m === 0.25 && vols2.f === 0.4, `sliders save their values ${JSON.stringify(vols2)}`);
+    const sliderFit = await page.$eval('.vol-row', (r) => {
+      const b = r.getBoundingClientRect();
+      const m = document.querySelector('.modal.settings').getBoundingClientRect();
+      return b.left >= m.left - 1 && b.right <= m.right + 1 && b.width > 150;
+    });
+    assert(sliderFit, 'the volume rows fit inside the Settings sheet');
+    await page.click('.toggle[aria-label="Music"]');
+    assert(await page.evaluate(() => window.__jye.state.settings.music === false), 'music switches off');
+    await page.click('.toggle[aria-label="Music"]');
+    assert(await page.evaluate(() => window.__jye.state.settings.music === true), 'music switches back on');
+    await page.$eval('.vol-slider[data-vol="musicVolume"]', (i) => {
+      i.value = '60';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.$eval('.vol-slider[data-vol="sfxVolume"]', (i) => {
+      i.value = '100';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // The first tap has unlocked audio, so the score is playing with the three scrapyard layers.
+    await page.waitForFunction(() => window.__jye.music && window.__jye.music.isPlaying, null, { timeout: 5000 }).catch(() => {});
+    const mus = await page.evaluate(() => (window.__jye.music ? { playing: window.__jye.music.isPlaying, layers: window.__jye.music.audible.join(',') } : null));
+    assert(mus && mus.playing && mus.layers.startsWith('bass,beat,pluck'), `music plays the scrapyard layers (${JSON.stringify(mus)})`);
+    const garageWas = await page.evaluate(() => window.__jye.state.businesses.opened.garage);
+    await page.evaluate(() => { window.__jye.state.businesses.opened.garage = true; });
+    await page.waitForFunction(() => window.__jye.music.audible.includes('ratchet'), null, { timeout: 5000 });
+    assert(true, 'opening the garage adds its music layer');
+    await page.evaluate((v) => { window.__jye.state.businesses.opened.garage = v; }, garageWas);
+    if (!garageWas) await page.waitForFunction(() => !window.__jye.music.audible.includes('ratchet'), null, { timeout: 5000 });
     await page.click('.toggle[aria-label="Skip haggling"]');
     await page.click('.modal.settings .buy');
     assert(!(await page.$('.modal.settings')), 'Done closes the settings');

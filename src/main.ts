@@ -14,13 +14,15 @@ import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
 import { newGame, type GameState } from './core/state';
 import { sellEmpire } from './core/legacy';
-import { isCityNight } from './core/cities';
+import { currentCity, isCityNight } from './core/cities';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { CarLotScene } from './game/CarLotScene';
 import { PaintScene } from './game/PaintScene';
 import { refreshDaily } from './core/daily';
+import { music } from './audio/music';
+import { analytics, MemorySink, Tracker } from './platform/analytics';
 import { createWebPlatform } from './platform/platform';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
@@ -32,6 +34,8 @@ const saves = new SaveManager(platform.storage);
 const loaded = saves.load(platform.now());
 const state: GameState = loaded ?? newGame(platform.now());
 sfx.enabled = state.settings.sound;
+sfx.setVolume(state.settings.sfxVolume);
+sfx.setMusicVolume(state.settings.musicVolume);
 haptics.enabled = state.settings.vibration;
 setNumberFormat(state.settings.numberFormat);
 
@@ -287,6 +291,17 @@ function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint 
   );
 }
 
+// Music follows the settings, the business on screen and the city (P1.8). Audio only starts after the first tap.
+function syncMusic(): void {
+  music.sync({ enabled: state.settings.music, opened: state.businesses.opened, active: state.businesses.active, city: currentCity(state) });
+}
+setInterval(syncMusic, 500);
+
+// Analytics (P1.11): no network sink yet. With ?debug=1 events go to a memory log (consent granted) for the browser test.
+const tracker = new Tracker(analytics, state);
+setInterval(() => tracker.look(state), 1000);
+analytics.track('session_start', { returning: !!loaded });
+
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
@@ -326,6 +341,6 @@ ui.render();
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }

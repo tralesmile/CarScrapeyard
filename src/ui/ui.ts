@@ -2252,12 +2252,37 @@ export class Ui {
       row.append(text, btn);
       return row;
     };
+    const slider = (label: string, key: 'musicVolume' | 'sfxVolume', apply: (v: number) => void, preview?: () => void) => {
+      const row = el('div', 'set-row vol-row');
+      row.append(el('div', 'set-label', label));
+      const input = el('input', 'vol-slider') as HTMLInputElement;
+      input.type = 'range';
+      input.min = '0';
+      input.max = '100';
+      input.step = '5';
+      input.value = String(Math.round(s.settings[key] * 100));
+      input.dataset.vol = key;
+      input.setAttribute('aria-label', label);
+      input.oninput = () => {
+        const v = Number(input.value) / 100;
+        s.settings[key] = v;
+        apply(v);
+        this.deps.onChange();
+      };
+      input.onchange = () => preview?.();
+      row.append(input);
+      return row;
+    };
     box.append(
       toggle('Sound effects', '', () => s.settings.sound, (v) => {
         s.settings.sound = v;
         sfx.enabled = v;
       }),
-      toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
+      slider('Effects volume', 'sfxVolume', (v) => sfx.setVolume(v), () => sfx.tap()),
+      toggle('Music', 'A new layer joins with each business', () => s.settings.music, (v) => {
+        s.settings.music = v;
+      }),
+      slider('Music volume', 'musicVolume', (v) => sfx.setMusicVolume(v)),
       toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
       toggle('Skip haggling', 'Sell at the asking price, no slider', () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
       toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {

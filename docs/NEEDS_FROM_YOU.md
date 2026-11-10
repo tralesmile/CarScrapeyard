@@ -125,6 +125,11 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 34: **a Shop page in the 📒 book** where 💎 gems buy a barn rush, a parts crate or a cash bag, and
       🎟 auction tokens buy a free Good-condition car for your Used Car Lot. Are the prices right for ~3 gems a day, and
       is the Shop easy to find inside the book, or should it have its own button?
+      New since run 35: **music.** A looping soundtrack plays after your first tap: three layers at the start, and each
+      business you open (garage, lot, paint shop) adds one more; Motor City sounds different (minor key, faster).
+      Settings has Music and Effects volume sliders. Is it pleasant after 10 minutes, too loud/repetitive, or would you
+      rather have it off by default? (Real recorded music would need a composer or licensed tracks; the synth score is
+      a placeholder that costs nothing.)
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

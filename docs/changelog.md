@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.35.0 - 2026-11-10 (run 35)
+
+- **Music (P1.8):** the game has a soundtrack, synthesised like the effects (no files). A four-bar groove loops per city
+  (Rust Valley: major, 96 bpm; Motor City: minor, lower and faster at 108 bpm). It starts with three layers (bass,
+  soft kick and hat, a plucked arpeggio) and every business you open brings one more in: the garage a ratcheting
+  tick, the lot a slow pad, the paint shop a lead melody. The business you are looking at is louder; layers fade over
+  about a second. Music starts after the first tap and pauses with the app.
+- **Volume settings:** the Settings sheet has a real Music switch plus Music volume and Effects volume sliders (saved
+  in the game, old saves get 60% / 100%, junk values are repaired).
+- **Analytics adapter (P1.11):** a consent-gated event layer with no network sink yet. Events: first sale and sales
+  milestones, business opened, empire sold, city changed, new car family, tutorial done. Off by default; nothing is
+  sent.
+- Tests: 16 new unit tests (layer logic, score ranges and looping, volume repair, analytics consent and milestones);
+  e2e: sliders save and fit, music plays and gains the garage layer, analytics silent without consent.
+
 ## 0.34.0 - 2026-11-10 (run 34)
 
 - **Shop (P1.7b):** a Shop page in the 📒 book (a sixth tab with the gem balance) with the first Gem and Auction Token

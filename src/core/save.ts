@@ -18,6 +18,12 @@ import { sanitizeLegacy } from './legacy';
 import { CITY_LIGHTS, cityPrice } from './cities';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
 
+/** Volume sliders: clamp anything odd (old saves, NaN) to a usable 0..1 value. */
+export function cleanVolume(v: unknown, fallback: number): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
+  return Math.min(1, Math.max(0, Math.round(v * 20) / 20));
+}
+
 export interface KeyValueStore {
   get(key: string): string | null;
   set(key: string, value: string): void;
@@ -154,6 +160,8 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     sanitizeAchievements(state);
     sanitizeStory(state.story);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
+    state.settings.musicVolume = cleanVolume(state.settings.musicVolume, 0.6);
+    state.settings.sfxVolume = cleanVolume(state.settings.sfxVolume, 1);
     if (!CITY_LIGHTS.includes(state.settings.cityLights)) state.settings.cityLights = 'auto';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

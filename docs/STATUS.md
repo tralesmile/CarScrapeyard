@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (run 34; next run is run 35). Runs now start every 3 hours.
+Last updated: 2026-11-10 (run 35; next run is run 36). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -256,10 +256,17 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         locked rows say why; gem packs "coming soon" until P2.3. 6 unit tests, e2e. No sim change.
   - [ ] P1.7c Idea (not scheduled): a cosmetic yard theme as a gem sink, and a 💎 shortcut button outside the book if
         playtests show the Shop is hard to find.
-- [ ] P1.8 Music layers per business; volume settings
+- [x] P1.8 Music layers per business; volume settings (run 35): `src/audio/musicScore.ts` (pure: one 4-bar loop per
+      city, Rust Valley major 96 bpm / Motor City minor 108 bpm; six layers; each opened business adds one: scrapyard =
+      bass + beat + pluck, garage = ratchet, lot = pad, paint = lead; the business on screen is louder),
+      `src/audio/music.ts` (Web Audio scheduler on the shared clock, per-layer gain fades), Settings: Music switch
+      (now real), Music volume and Effects volume sliders (`settings.musicVolume` / `sfxVolume`, saved and repaired).
 - [ ] P1.9 i18n string files (English first)
 - [ ] P1.10 PWA: manifest, icons, service worker, offline play
-- [ ] P1.11 Analytics adapter (event taxonomy from the plan; no-op until accounts exist)
+- [x] P1.11 Analytics adapter (run 35): `src/platform/analytics.ts` (event names, consent-gated `Analytics` with a
+      pluggable sink, `MemorySink`, pure `diffEvents` milestones: sales 1/10/25/50/..., business opened, empire sold, city
+      changed, new car family, tutorial done; `Tracker` looks once a second). No sink and consent off by default, so
+      nothing is sent until accounts and a consent screen exist (P2.4, P2.7).
 - [ ] P1.12 Portal adapters: Poki and CrazyGames SDK wrappers behind the platform interface
 - [ ] P1.13 Deploy web build (Cloudflare Pages) — needs owner account
 - [ ] P1.14 Gate: D1 ≥ 35%, session ≥ 8 min
