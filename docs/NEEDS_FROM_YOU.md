@@ -122,6 +122,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 32: **story chapter 2 in Motor City.** Vince greets you in his city, his gold Valvano Motors tower
       stands on the Motor City map, and he gives up at the end of your first Motor City empire. The 📒 book has a new
       Story page where you can read every scene again. The real-rival question above is still open.
+      New since run 34: **a Shop page in the 📒 book** where 💎 gems buy a barn rush, a parts crate or a cash bag, and
+      🎟 auction tokens buy a free Good-condition car for your Used Car Lot. Are the prices right for ~3 gems a day, and
+      is the Shop easy to find inside the book, or should it have its own button?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

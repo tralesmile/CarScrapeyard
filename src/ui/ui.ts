@@ -5,6 +5,7 @@ import { bookUnlocked, inShowcase, markBookSeen, unseenEntries, type CollectionE
 import { bookView, pctText, showcaseLine, type BookPage } from './collectionView';
 import { awardsView, medalToast } from './awardsView';
 import { walletText } from '../core/wallet';
+import { buyShopItem, shopItems } from '../core/shop';
 import { AWARD_IDS, awardsToClaim, claimAward, tiersReached, type AwardId } from '../core/achievements';
 import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
@@ -157,7 +158,7 @@ export class Ui {
   private bookBtn!: HTMLButtonElement;
   /** The 📒 button was on at the last render (null before the first): a toast when it first appears in play. */
   private bookWasOn: boolean | null = null;
-  private bookPage: BookPage | 'awards' | 'story' = 'cars';
+  private bookPage: BookPage | 'awards' | 'story' | 'shop' = 'cars';
   /** Story log (P1.6c): the scene opened for reading in the book, if any. */
   private storyOpen: StoryBeatId | null = null;
   /** Medal tiers reached per award at the last render (null until the book opens up), for the "medal!" toast. */
@@ -2023,17 +2024,19 @@ export class Ui {
     const paint = () => {
       const s = this.deps.state();
       const page = this.bookPage;
-      const v = bookView(s, page === 'awards' || page === 'story' ? 'cars' : page);
+      const v = bookView(s, page === 'awards' || page === 'story' || page === 'shop' ? 'cars' : page);
       const aw = awardsView(s);
       const log = storyLog(s);
       const w = s.wallet;
       header.innerHTML =
         page === 'awards'
           ? `<b>🏅 ${aw.header}</b><small>Medals count every empire you have built</small>`
-          : page === 'story'
+          : page === 'shop'
+            ? `<b>🛒 Shop</b><small>Gems and tokens come from medals, daily tasks and the calendar</small>`
+            : page === 'story'
             ? `<b>📖 Story: ${log.have} of ${log.of} scenes</b><small>Tap a scene to read it again</small>`
             : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
-      if (w.gems > 0 || w.tokens > 0) header.innerHTML += `<small class="wallet-line">💎 ${w.gems} gems · 🎟 ${w.tokens} auction tokens</small>`;
+      if (w.gems > 0 || w.tokens > 0 || page === 'shop') header.innerHTML += `<small class="wallet-line">💎 ${w.gems} gems · 🎟 ${w.tokens} auction tokens</small>`;
       const storyTab = el('button', `tree-tab${page === 'story' ? ' on' : ''}`, `<span>Story</span><small>${log.have}/${log.of}</small>`) as HTMLButtonElement;
       storyTab.setAttribute('role', 'tab');
       storyTab.setAttribute('aria-selected', String(page === 'story'));
@@ -2073,6 +2076,39 @@ export class Ui {
         });
         if (log.next) secs.push(el('p', 'story-next', `📖 ${log.next}`));
         list.replaceChildren(...secs);
+      }
+      const shopTab = el('button', `tree-tab${page === 'shop' ? ' on' : ''}`, `<span>Shop</span><small>💎 ${w.gems}</small>`) as HTMLButtonElement;
+      shopTab.setAttribute('role', 'tab');
+      shopTab.setAttribute('aria-selected', String(page === 'shop'));
+      shopTab.dataset.page = 'shop';
+      shopTab.onclick = () => {
+        this.bookPage = 'shop';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'shop') {
+        const rows = shopItems(s).map((it) => {
+          const row = el('section', `award shop-item${it.available && it.affordable ? ' ready' : ''}`);
+          row.dataset.item = it.id;
+          const cur = it.currency === 'gems' ? '💎' : '🎟';
+          row.innerHTML = `<span class="award-icon" aria-hidden="true">${it.icon}</span><div class="award-body"><b>${it.name}</b><small>${it.available ? it.line : it.why}</small></div>`;
+          const btn = el('button', 'buy award-claim shop-buy', `${it.price} ${cur}`) as HTMLButtonElement;
+          btn.disabled = !it.available || !it.affordable;
+          btn.setAttribute('aria-label', `Buy ${it.name} for ${it.price} ${it.currency}`);
+          btn.onclick = () => {
+            const msg = buyShopItem(this.deps.state(), it.id);
+            if (!msg) return;
+            sfx.coin();
+            this.toast(`${it.icon} ${it.name}: ${msg}`, 2500);
+            this.deps.onChange();
+            paint();
+          };
+          row.append(btn);
+          return row;
+        });
+        rows.push(el('p', 'story-next', '💳 Gem packs: coming soon. Gems are never sold as random rewards.'));
+        list.replaceChildren(...rows);
       }
       const awardTab = el('button', `tree-tab${page === 'awards' ? ' on' : ''}`, `<span>Awards</span><small>${aw.have}/${aw.of}</small>${aw.ready > 0 ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
       awardTab.setAttribute('role', 'tab');
@@ -2128,8 +2164,9 @@ export class Ui {
         }),
         awardTab,
         ...(log.have > 0 ? [storyTab] : []),
+        shopTab,
       );
-      if (page === 'awards' || page === 'story') return;
+      if (page === 'awards' || page === 'story' || page === 'shop') return;
       list.replaceChildren(
         ...v.sets.map((set) => {
           const sec = el('section', `book-set${set.complete ? ' complete' : ''}`);

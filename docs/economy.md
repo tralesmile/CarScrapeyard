@@ -453,3 +453,11 @@ Gems and Auction Tokens never change cash income, so `npm run sim` pacing is unc
 `ECON.wallet`: medals 0/1/3/8 gems (a full set of 14 awards = 168 gems), all-dailies bonus 3 gems + 2 tokens, task 1
 token (so a full day = 5 tokens and 3 gems), a calendar week = 22 gems + 7 tokens (10 of the gems on day 7).
 Price points for the shop (P1.7b) must come from these numbers: a daily player earns about 3 gems and 5 tokens a day.
+
+## Shop (P1.7b, run 34)
+
+Prices in `ECON.shop`, set against ~3 gems and ~5 tokens a day: Barn rush 1 gem (barn stages are 20-90 s, so it is a
+courtesy), Parts crate 2 gems for 60 parts (about ten common wrecks), Cash bag 4 gems for 12 average yard cars (about
+3 cars per gem; a Diamond medal pays 8 gems plus 24 cars, so the bag is not a better deal than play), Token lot 4
+tokens for a Good (4-star) car with `paid: 0` (its profit counts as earnings; at most one lot a day for a daily player,
+negligible beside idle income). No new income stream, so `npm run sim` pacing is unchanged.

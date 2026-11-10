@@ -238,6 +238,21 @@ export const ECON = {
   },
 
   /**
+   * Shop (P1.7b): what Gems and Auction Tokens buy. Gems arrive at ~3 a day (economy.md), so prices are small and
+   * every item is a convenience, never a new income stream: the cash bag is worth `cashBagCars` average yard cars.
+   */
+  shop: {
+    /** Finish the running barn stage now. */
+    barnRushGems: 1,
+    /** A crate of spare parts for the crusher bin and the barn. */
+    partsCrate: { gems: 2, parts: 60 },
+    /** Cash worth this many average yard cars (see carsWorth). */
+    cashBag: { gems: 4, cars: 12 },
+    /** A token lot: a car for the Used Car Lot with no cash price. Needs a free spot. */
+    tokenLot: { tokens: 4, condition: 4 as const },
+  },
+
+  /**
    * Story (P1.6): chapter 1 in Rust Valley. Beats are short scenes with Grandpa Joe and the rival Vince Valvano,
    * shown in order when their moment comes, at least `gapSeconds` of play apart. Vince is flavour only: he takes
    * every `rivalEvery`-th lot that leaves the auction board unsold (and the first one) and every `rivalEvery`-th yard

@@ -317,4 +317,11 @@ Two extra currencies next to cash and parts, shown in the 📒 book header once 
 bonus (3) and the calendar (1, 1, 2, 2, 3, 3, 10); real-money packs arrive with purchases (P2.3). **Auction Tokens**
 are earn-only and never sold: finished daily tasks (1), the all-done bonus (2) and calendar days 2, 4, 6 and 7
 (1, 1, 2, 3). Tokens will be the only price of an auction lot, so there are no paid random rewards. Both are kept on
-a Sell Empire, capped (1,000,000 gems, 100,000 tokens) and repaired on load. Spending (shop, token lots) is P1.7b.
+a Sell Empire, capped (1,000,000 gems, 100,000 tokens) and repaired on load. Spending is the Shop page in the book (P1.7b, below).
+
+## Shop (P1.7b)
+
+A Shop page (sixth tab) in the 📒 book. Gems buy a barn stage rush (1), a parts crate (2) and a cash bag (4);
+Auction Tokens buy a Good-condition car for the Used Car Lot with no cash price (4). Unavailable items explain why
+(no stage running, crusher not open, lot closed or full). Real-money gem packs show as "coming soon" until P2.3;
+nothing in the shop is a random reward.

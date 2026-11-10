@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.34.0 - 2026-11-10 (run 34)
+
+- **Shop (P1.7b):** a Shop page in the 📒 book (a sixth tab with the gem balance) with the first Gem and Auction Token
+  sinks. 🏚️ Barn rush (1 💎) finishes the running restoration stage; 📦 Parts crate (2 💎) gives 60 ⚙ once the
+  crusher is open; 💰 Cash bag (4 💎) pays cash worth 12 average yard cars; 🎟 Token lot (4 🎟) puts a Good-condition car
+  on your Used Car Lot with no cash price (needs a free spot). Rows that cannot be used say why; a row you can afford
+  glows. Gem packs for real money are a "coming soon" line until P2.3. No cash-income change: gems arrive at about 3 a
+  day, so the shop is a convenience (`npm run sim` pacing unchanged).
+- Tests: 6 shop unit tests (no currency takes nothing, each item, locks, the barn tick); e2e: open the Shop page, prices
+  and lock reasons, buy a cash bag, fits the screen.
+
 ## 0.33.0 - 2026-11-09 (run 33)
 
 - **Gems and Auction Tokens (P1.7a):** a small wallet. 💎 Gems (the soft premium currency, bought with real money

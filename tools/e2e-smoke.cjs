@@ -371,6 +371,45 @@ async function waitForServer(url, ms = 15000) {
     });
     assert(savedAwards === 1, 'claimed medals are in the save');
 
+    console.log('shop (P1.7b)');
+    const shopBefore = await page.evaluate(() => {
+      const st = window.__jye.state;
+      const keep = { cash: st.cash, gems: st.wallet.gems, sold: st.carsSold };
+      st.wallet.gems = 4;
+      return keep;
+    });
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal');
+    await page.click('.book-tabs [data-page="shop"]');
+    await page.waitForSelector('.shop-item');
+    const shopUi = await page.evaluate(() => ({
+      head: document.querySelector('.book-head b').textContent,
+      items: [...document.querySelectorAll('.shop-item')].map((r) => r.dataset.item),
+      bag: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').textContent,
+      bagOff: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').disabled,
+      crateOff: document.querySelector('.shop-item[data-item="partsCrate"] .shop-buy').disabled,
+      tokenOff: document.querySelector('.shop-item[data-item="tokenLot"] .shop-buy').disabled,
+      tokenWhy: document.querySelector('.shop-item[data-item="tokenLot"] small').textContent,
+      fits: (() => {
+        const r = document.querySelector('.book .modal').getBoundingClientRect();
+        return r.left >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight;
+      })(),
+    }));
+    assert(/Shop/.test(shopUi.head) && shopUi.items.join() === 'barnRush,partsCrate,cashBag,tokenLot', `the Shop page lists four items (${shopUi.items})`);
+    assert(/^4 💎$/.test(shopUi.bag) && !shopUi.bagOff && shopUi.crateOff && shopUi.tokenOff && /Open the Used Car Lot/.test(shopUi.tokenWhy), `prices show, locked items explain why (${shopUi.bag} / ${shopUi.tokenWhy})`);
+    assert(shopUi.fits, 'the shop fits the screen');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03e-shop.png') });
+    await page.click('.shop-item[data-item="cashBag"] .shop-buy');
+    const shopAfter = await page.evaluate(() => ({ cash: window.__jye.state.cash, gems: window.__jye.state.wallet.gems, off: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').disabled }));
+    assert(shopAfter.cash > shopBefore.cash && shopAfter.gems === 0 && shopAfter.off, `buying a cash bag pays gems for cash (${JSON.stringify(shopAfter)})`);
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+    await page.evaluate((k) => {
+      const st = window.__jye.state;
+      st.wallet.gems = k.gems;
+    }, shopBefore);
+
     console.log('story chapter 1 (P1.6)');
     assert(await page.evaluate(() => window.__jye.state.story.seen.length === 0 && !document.querySelector('.story')), 'no story scene before Vince visits');
     await page.evaluate(() => (window.__jye.state.carsSold = 20));
@@ -2195,7 +2234,7 @@ async function waitForServer(url, ms = 15000) {
         const cut = [...document.querySelectorAll('.book-tabs .tree-tab span')].filter((x) => x.scrollWidth > x.clientWidth).length;
         return { n: ts.length, fit: ts.every((t) => t.left >= m.left && t.right <= m.right + 0.5), cut };
       });
-      assert(tabsFit.n === 5 && tabsFit.fit, `five book tabs fit a 320 px phone (${JSON.stringify(tabsFit)})`);
+      assert(tabsFit.n === 6 && tabsFit.fit, `six book tabs fit a 320 px phone (${JSON.stringify(tabsFit)})`);
       assert(tabsFit.cut === 0, `no book tab label is cut short on a 320 px phone (${JSON.stringify(tabsFit)})`);
       const log = await np.evaluate(() => ({
         head: document.querySelector('.book-head').textContent,

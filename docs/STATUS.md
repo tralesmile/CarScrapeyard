@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (run 33; next run is run 34). Runs now start every 3 hours.
+Last updated: 2026-11-10 (run 34; next run is run 35). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -247,13 +247,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         label is cut; e2e asserts no tab label overflows on a 320 px phone.
   - [ ] P1.6d Optional (owner question in NEEDS_FROM_YOU): a real rival mechanic (Vince bidding at the auction or a
         monthly sales race). Chapter 3 waits for city 3.
-- [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
+- [x] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
   - [x] P1.7a Wallet core (run 33): `src/core/wallet.ts` (`state.wallet`: gems, tokens, earned totals; kept on a sale,
         caps, save repair), `ECON.wallet` income table, gems in medals / all-done bonus / calendar, tokens in tasks /
         bonus / calendar, shown on claim buttons, banners, toasts and the book header. 9 unit tests, e2e. No cash change.
-  - [ ] P1.7b Shop stub and first sinks: a 💎 chip/entry point, a shop sheet (gem sinks priced from the income in
-        economy.md, e.g. finish a barn stage, refill the crusher bin, a cosmetic yard theme; real-money packs stay
-        "coming soon" until P2.3), and Auction Tokens as the price of a special lot on the Used Car Lot's board.
+  - [x] P1.7b Shop and first sinks (run 34): `src/core/shop.ts` + `ECON.shop`; a Shop page (sixth tab) in the 📒 book:
+        Barn rush 1 💎, Parts crate 2 💎, Cash bag 4 💎, Token lot 4 🎟 (a Good car on the Used Car Lot, no cash price);
+        locked rows say why; gem packs "coming soon" until P2.3. 6 unit tests, e2e. No sim change.
+  - [ ] P1.7c Idea (not scheduled): a cosmetic yard theme as a gem sink, and a 💎 shortcut button outside the book if
+        playtests show the Shop is hard to find.
 - [ ] P1.8 Music layers per business; volume settings
 - [ ] P1.9 i18n string files (English first)
 - [ ] P1.10 PWA: manifest, icons, service worker, offline play

@@ -640,3 +640,15 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Wrap a fixed-width row with `flex-wrap` plus `flex: 1 1 30%` instead of shortening labels.** Shrinking text
   ("Bran...") hides information; two rows keep every word.
 
+
+## 2026-11-10 (run 34)
+
+- **The repo was already cloned and in scope; `add_repo` was not available as a tool.** Check `git remote -v` in the
+  working directory first before searching for tools; `git fetch` plus `git checkout -B dev origin/dev` was enough.
+- **Check a sink's numbers against the thing it skips before pricing it.** Barn stages last 20-90 s, so a gem price
+  scaled by remaining time would have been silly; a flat 1-gem "courtesy" is honest. Read the config table first.
+- **An e2e step that changes `carsSold` can fire story beats.** I almost raised it to unlock the parts crate; the story
+  test after it expects no scene before 20 sales. Use an item whose lock does not depend on a counter another test
+  watches, or restore the counter in the same evaluate.
+- **Reuse an existing card style (`.award`) for a new list page** instead of new CSS: layout, 320 px fit and the glow
+  for "ready" came free, and only one dimming rule was needed.

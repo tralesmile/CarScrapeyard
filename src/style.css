@@ -2458,3 +2458,8 @@ body {
     flex: 1 1 30%;
   }
 }
+
+/* Shop page in the book (P1.7b): rows reuse the award card; a cannot-buy row is dimmed. */
+.shop-item:not(.ready) .award-body {
+  opacity: 0.75;
+}
