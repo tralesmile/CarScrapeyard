@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.39.0 - 2026-11-10 (run 39)
+
+- **Translation layer:** the collection book texts (set names and bonuses, set-complete banner, mastery toast,
+  showcase line, card lines, page names, header) moved to `en.ts`; nothing changes for players.
+
 ## 0.38.0 - 2026-11-10 (run 38)
 
 - **Translation layer:** all story texts (ten scenes, speaker names, chapter titles, Vince's toasts, the log teaser)

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (run 38; next run is run 39). Runs now start every 3 hours.
+Last updated: 2026-11-10 (run 39; next run is run 40). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -268,7 +268,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
       plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
       the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
-  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts` done; left: `ui.ts`, `collectionView.ts`, `cityMap.ts`, ...)
+  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts` done; left: `ui.ts`, `cityMap.ts`, ...)
         into `en.ts` one view per run, then add a language setting once a second language exists.
 - [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),
       `public/sw.js` (network-first page, cache-first assets, versioned cache), registered in production only and not in

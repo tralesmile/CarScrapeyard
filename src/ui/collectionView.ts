@@ -15,40 +15,41 @@ import {
   type CollectionSet,
 } from '../core/collection';
 import type { GameState } from '../core/state';
+import { t } from '../i18n';
 
 type SetRef = { kind: CollectionSet['kind']; id: string };
 
 export function setName(set: SetRef): string {
-  if (set.kind === 'family') return `${ECON.families[set.id as keyof typeof ECON.families].name} set`;
-  if (set.kind === 'brand') return `${set.id} set`;
-  return 'Barn Classics';
+  if (set.kind === 'family') return t('book.set.family', { name: ECON.families[set.id as keyof typeof ECON.families].name });
+  if (set.kind === 'brand') return t('book.set.brand', { name: set.id });
+  return t('book.set.classics');
 }
 
 /** What completing the set gives, e.g. "+5% Sedan value". */
 export function setBonusText(set: SetRef): string {
   const C = ECON.collection;
   const pct = (x: number) => `+${Math.round(x * 100)}%`;
-  if (set.kind === 'family') return `${pct(C.familySetBonus)} ${ECON.families[set.id as keyof typeof ECON.families].name} value`;
-  if (set.kind === 'brand') return `${pct(C.brandSetBonus)} ${set.id} value`;
-  return `${pct(C.classicsSetBonus)} barn sale value`;
+  if (set.kind === 'family') return t('book.bonus.value', { pct: pct(C.familySetBonus), name: ECON.families[set.id as keyof typeof ECON.families].name });
+  if (set.kind === 'brand') return t('book.bonus.value', { pct: pct(C.brandSetBonus), name: set.id });
+  return t('book.bonus.classics', { pct: pct(C.classicsSetBonus) });
 }
 
 /** Banner for a completed set: title and line. */
 export function setCompleteBanner(kind: CollectionSet['kind'], id: string): { title: string; line: string } {
   const set = SETS.find((s) => s.kind === kind && s.id === id) ?? { kind, id };
-  return { title: 'SET COMPLETE!', line: `📒 ${setName(set)}: ${setBonusText(set)} forever` };
+  return { title: t('book.setComplete.title'), line: t('book.setComplete.line', { set: setName(set), bonus: setBonusText(set) }) };
 }
 
 /** Toast for a new mastery star. */
 export function masteryToast(model: string, stars: number): string {
-  return `${'⭐'.repeat(stars)} ${model} mastery: +${Math.round(stars * ECON.collection.masteryBonus * 100)}% value`;
+  return t('book.mastery.toast', { stars: '⭐'.repeat(stars), model, pct: Math.round(stars * ECON.collection.masteryBonus * 100) });
 }
 
 /** Showcase summary (P1.4c), e.g. "🏆 Showcase 3/16 · +1.5% all income", or how to start one. */
 export function showcaseLine(state: Pick<GameState, 'collection'>): string {
   const n = state.collection.showcase.length;
-  if (n === 0) return `🏆 Keep a restored classic: +${pctText(ECON.collection.showcaseBonus)} all income each`;
-  return `🏆 Showcase ${n}/${CLASSIC_COUNT} · +${pctText(n * ECON.collection.showcaseBonus)} all income`;
+  if (n === 0) return t('book.showcase.start', { pct: pctText(ECON.collection.showcaseBonus) });
+  return t('book.showcase.line', { n, of: CLASSIC_COUNT, pct: pctText(n * ECON.collection.showcaseBonus) });
 }
 
 const CLASSIC_COUNT = Object.values(CLASSIC_NAMES).reduce((a, l) => a + l.length, 0);
@@ -124,10 +125,10 @@ export function bookCard(state: Pick<GameState, 'collection'>, model: string): B
   const sold = e?.sold ?? 0;
   const tiers = ECON.collection.masteryTiers;
   const prev = stars === 0 ? 0 : tiers[stars - 1]!;
-  let line = 'Not found yet';
+  let line = t('book.card.unfound');
   const kept = inShowcase(state, model);
-  if (kept) line = '🏆 In your showcase';
-  else if (collected) line = next === null ? `${sold} sold · mastered` : `${sold} sold · ${next} for ${'⭐'.repeat(stars + 1)}`;
+  if (kept) line = t('book.card.kept');
+  else if (collected) line = next === null ? t('book.card.mastered', { sold }) : t('book.card.next', { sold, next, stars: '⭐'.repeat(stars + 1) });
   return {
     model,
     family: familyOf(model),
@@ -144,15 +145,15 @@ export function bookCard(state: Pick<GameState, 'collection'>, model: string): B
 }
 
 const PAGE_OF: Record<CollectionSet['kind'], BookPage> = { family: 'cars', brand: 'brands', classics: 'classics' };
-const PAGE_NAMES: Record<BookPage, string> = { cars: 'Cars', brands: 'Brands', classics: 'Classics' };
+const pageName = (id: BookPage): string => t(`book.page.${id}`);
 
 /** Everything the book screen shows for one page. */
 export function bookView(state: Pick<GameState, 'collection'>, page: BookPage): BookView {
   const p = bookProgress(state);
-  const pages = (Object.keys(PAGE_NAMES) as BookPage[]).map((id) => {
+  const pages = (['cars', 'brands', 'classics'] as BookPage[]).map((id) => {
     const models = [...new Set(SETS.filter((s) => PAGE_OF[s.kind] === id).flatMap((s) => s.models))];
     const cards = models.map((m) => bookCard(state, m));
-    return { id, name: PAGE_NAMES[id], have: cards.filter((c) => c.collected).length, of: cards.length, isNew: cards.some((c) => c.isNew) };
+    return { id, name: pageName(id), have: cards.filter((c) => c.collected).length, of: cards.length, isNew: cards.some((c) => c.isNew) };
   });
   const sets = SETS.filter((s) => PAGE_OF[s.kind] === page).map((s) => {
     const pr = setProgress(state, s);
@@ -169,5 +170,5 @@ export function bookView(state: Pick<GameState, 'collection'>, page: BookPage): 
     };
   });
   const done = SETS.filter((s) => isSetComplete(state, s)).length;
-  return { header: `${p.have}/${p.of} cars · ${done}/${SETS.length} sets complete`, pages, sets };
+  return { header: t('book.header', { have: p.have, of: p.of, done, sets: SETS.length }), pages, sets };
 }

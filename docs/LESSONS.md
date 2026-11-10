@@ -695,3 +695,10 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   `MessageKey`).
 - **Use the e2e wait for refactors that are build-independent:** the browser test runs on `dist`, so source edits after
   the build step are safe, but never start `vitest` meanwhile.
+
+## 2026-11-10 (run 39)
+
+- **A pure view-model file moves to the catalog fastest with one python replace script that asserts every old string
+  exists** (a missed or edited line fails loudly); `tsc` then checks the keys. Existing unit tests that assert the
+  English text are the proof that nothing visible changed.
+- **When the baseline check is running, `tsc --noEmit` is safe but nothing heavier**; wait for the e2e to finish.
