@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (run 35; next run is run 36). Runs now start every 3 hours.
+Last updated: 2026-11-10 (run 36; next run is run 37). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -261,8 +261,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       bass + beat + pluck, garage = ratchet, lot = pad, paint = lead; the business on screen is louder),
       `src/audio/music.ts` (Web Audio scheduler on the shared clock, per-layer gain fades), Settings: Music switch
       (now real), Music volume and Effects volume sliders (`settings.musicVolume` / `sfxVolume`, saved and repaired).
-- [ ] P1.9 i18n string files (English first)
-- [ ] P1.10 PWA: manifest, icons, service worker, offline play
+- [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
+      plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
+      the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
+  - [ ] P1.9b Move the remaining UI strings (`ui.ts`, `awardsView.ts`, `storyView.ts`, `collectionView.ts`, `cityMap.ts`, ...)
+        into `en.ts` one view per run, then add a language setting once a second language exists.
+- [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),
+      `public/sw.js` (network-first page, cache-first assets, versioned cache), registered in production only and not in
+      `?debug` runs; e2e checks manifest, icons, active worker and a reload with the network off.
 - [x] P1.11 Analytics adapter (run 35): `src/platform/analytics.ts` (event names, consent-gated `Analytics` with a
       pluggable sink, `MemorySink`, pure `diffEvents` milestones: sales 1/10/25/50/..., business opened, empire sold, city
       changed, new car family, tutorial done; `Tracker` looks once a second). No sink and consent off by default, so

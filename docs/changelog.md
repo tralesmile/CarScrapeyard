@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0 - 2026-11-10 (run 36)
+
+- **Install and play offline (P1.10):** the web build has a manifest and icons, so phones can "Add to home screen" and
+  it opens full screen. A service worker caches the game after the first visit; with the network off it still loads
+  and runs from the saved game.
+- **Translation layer (P1.9, first slice):** a small `t()` function with plurals and English fallback; the daily-task
+  texts use it. More views move over in later runs.
+
 ## 0.35.0 - 2026-11-10 (run 35)
 
 - **Music (P1.8):** the game has a soundtrack, synthesised like the effects (no files). A four-bar groove loops per city

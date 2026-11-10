@@ -664,3 +664,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   functions, so 9 unit tests cover them without a fake AudioContext; the player only schedules what they return.
 - **Gate analytics behind consent by default** and make the sink pluggable; the browser test uses the memory sink, so
   no real network code is needed to prove that events fire.
+
+## 2026-11-10 (run 36)
+
+- **Never run unit tests while the e2e is running.** The e2e is timing based (haggle needle, frame waits); my parallel
+  `vitest` (38 workers) starved the browser and failed "lesson haggle pays x1.2". Start the check, then only edit files
+  and write docs until it finishes; run `tsc` (cheap) at most.
+- **Edits made to `tools/e2e-smoke.cjs` while the e2e runs are not picked up** (node loaded it already); start a second
+  check after a test edit.
+- **Put a new feature's e2e at the end, next to the non-debug desktop page:** a service worker only registers outside
+  `?debug`, so that page is the one place to prove offline loading.

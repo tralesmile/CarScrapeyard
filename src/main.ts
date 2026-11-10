@@ -344,3 +344,15 @@ if (params.has('debug')) {
   (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }
+
+// Offline play (P1.10): production web builds only; not in ?debug runs, not in native shells.
+if (
+  import.meta.env.PROD &&
+  'serviceWorker' in navigator &&
+  !location.search.includes('debug') &&
+  location.protocol.startsWith('http')
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}

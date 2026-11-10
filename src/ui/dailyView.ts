@@ -5,22 +5,12 @@ import { calendarIndex, canClaimBonus, canClaimCalendar, dailyUnlocked, taskDone
 import { awardsToClaim } from '../core/achievements';
 import { formatDuration } from '../core/format';
 import type { GameState } from '../core/state';
-
-const LABELS: Record<DailyKind, (n: number) => string> = {
-  sell: (n) => `Sell ${n} cars`,
-  haggle: (n) => `Haggle ${n} sales`,
-  buyer: (n) => `Serve ${n} customers`,
-  crush: (n) => `Crush ${n} wrecks`,
-  contract: (n) => `Finish ${n} job${n === 1 ? '' : 's'}`,
-  garage: (n) => `Fix ${n} cars in the garage`,
-  lot: (n) => `Sell ${n} lot cars`,
-  paint: (n) => `Finish ${n} paint orders`,
-};
+import { t } from '../i18n';
 
 const ICONS: Record<DailyKind, string> = { sell: '💰', haggle: '🗣️', buyer: '🙋', crush: '🗜️', contract: '📋', garage: '🔧', lot: '🚗', paint: '🎨' };
 
 export function taskLabel(kind: DailyKind, target: number): string {
-  return `${ICONS[kind]} ${LABELS[kind](target)}`;
+  return `${ICONS[kind]} ${t(`daily.${kind}`, { count: target })}`;
 }
 
 /** A wait in whole minutes, rounded up: "5h 12m", "12m" (at least "1m"). */
@@ -31,7 +21,7 @@ export function waitText(ms: number): string {
 
 /** "New tasks in 5h 12m". */
 export function resetText(ms: number): string {
-  return `New tasks in ${waitText(ms)}`;
+  return t('daily.reset', { wait: waitText(ms) });
 }
 
 export type CalendarCellState = 'claimed' | 'today' | 'next' | 'later';
@@ -63,17 +53,17 @@ export function calendarCells(state: GameState): CalendarCell[] {
 export function waitingLines(state: GameState): string[] {
   const out: string[] = [];
   if (dailyUnlocked(state)) {
-    const ready = state.daily.tasks.filter((t) => !t.claimed && taskDone(t)).length;
+    const ready = state.daily.tasks.filter((task) => !task.claimed && taskDone(task)).length;
     const cal = canClaimCalendar(state);
-    const bits = [cal ? "today's reward" : '', ready > 0 ? `${ready} finished task${ready === 1 ? '' : 's'}` : '', canClaimBonus(state) ? 'the all-done bonus' : ''].filter(Boolean);
-    if (bits.length) out.push(`📅 Daily: ${bits.join(' and ')} on the scrapyard's Jobs board`);
+    const bits = [cal ? t('daily.waiting.reward') : '', ready > 0 ? t('daily.waiting.tasks', { count: ready }) : '', canClaimBonus(state) ? t('daily.waiting.bonus') : ''].filter(Boolean);
+    if (bits.length) out.push(t('daily.waiting.line', { bits: bits.join(t('daily.waiting.and')) }));
   }
   const medals = awardsToClaim(state).length;
-  if (medals > 0) out.push(`🏅 ${medals} medal${medals === 1 ? '' : 's'} to claim in the 📒 book`);
+  if (medals > 0) out.push(t('daily.medals', { count: medals }));
   return out;
 }
 
 /** Toast when a daily task finishes while another business is on screen (P1.5d). */
 export function taskDoneToast(kind: DailyKind, target: number): string {
-  return `📅 Daily task done: ${taskLabel(kind, target)}. Claim it on the scrapyard's Jobs board`;
+  return t('daily.done', { task: taskLabel(kind, target) });
 }

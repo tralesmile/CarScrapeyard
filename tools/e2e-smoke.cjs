@@ -2369,6 +2369,27 @@ async function waitForServer(url, ms = 15000) {
     await d.waitForTimeout(1200);
     await d.screenshot({ path: path.join(SHOTS, 'e2e-05-desktop.png') });
 
+    console.log('PWA: manifest, icons, offline play');
+    const man = await d.evaluate(async () => {
+      const href = document.querySelector('link[rel=manifest]')?.href;
+      const m = href ? await (await fetch(href)).json() : null;
+      const icons = m ? await Promise.all(m.icons.map(async (i) => (await fetch(new URL(i.src, href))).status)) : [];
+      return { name: m?.name, display: m?.display, icons };
+    });
+    assert(man.name && man.display === 'standalone' && man.icons.length === 3 && man.icons.every((c) => c === 200), `web manifest links three icons (${man.name})`);
+    const swReady = await d.evaluate(async () => {
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 8000))]);
+      return !!reg?.active;
+    });
+    assert(swReady, 'the service worker is active');
+    await d.reload();
+    await d.waitForTimeout(800);
+    await d.context().setOffline(true);
+    await d.reload();
+    await d.waitForSelector('#game canvas', { timeout: 15000 });
+    assert(true, 'the game loads again with the network off');
+    await d.context().setOffline(false);
+
     assert(errors.length === 0, 'no page or console errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
     console.log('\nE2E PASSED');
   } catch (e) {
