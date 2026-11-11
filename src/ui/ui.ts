@@ -813,10 +813,10 @@ export class Ui {
       root.classList.toggle('empty', !lot);
       root.classList.toggle('closing', !!lot && lot.timeLeft <= ECON.carlot.auctionClosingSeconds);
       if (!lot) {
-        name.textContent = 'Next lot';
+        name.textContent = t('ui.lot.next');
         setText(lvl, '');
         const left = Math.ceil(s.carlot.refill[index] ?? 0);
-        setText(desc, `A new car is rolling onto the auction${left > 0 ? ` in ${left}s` : '…'}`);
+        setText(desc, left > 0 ? t('ui.lot.rollingIn', { s: left }) : t('ui.lot.rolling'));
         fill.style.width = '0%';
         setText(btn, '—');
         btn.disabled = true;
@@ -1069,7 +1069,7 @@ export class Ui {
     if (this.tuneBtn.innerHTML !== html) this.tuneBtn.innerHTML = html;
     if (!s.tutorial.lotTuneSeen) {
       s.tutorial.lotTuneSeen = true;
-      this.toast('🎨 Your paint shop can tune lot cars: they sell for more', 4000);
+      this.toast(t('ui.toast.lotTune'), 4000);
       this.deps.onChange();
     }
   }
@@ -1188,13 +1188,13 @@ export class Ui {
           ? `<p class="keep-note">You already have one in your showcase.</p>`
           : '';
       this.modal({
-        title: 'Legendary classic!',
-        body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>${note}`,
+        title: t('ui.barn.title'),
+        body: `<p>${t('ui.barn.body', { model: `<b>${s.barn.model}</b>` })}</p>${note}`,
         big: formatCash(s.barn.value),
-        button: 'Sell it!',
+        button: t('ui.barn.sell'),
         ...(keep
           ? {
-              third: `🏆 Keep it (+${bonus} income)`,
+              third: t('ui.barn.keep', { bonus }),
               onThird: () => {
                 close();
                 const book: CollectionEvent[] = [];
@@ -1245,10 +1245,10 @@ export class Ui {
     // Rare finds are worth far more sold: ask first.
     if (car.rarity === 'epic' || car.rarity === 'legendary') {
       this.modal({
-        title: 'Crush this beauty?',
-        body: `<p>This ${ECON.rarity[car.rarity].label} ${car.model} sells for ${formatCash(car.value)} once fixed.</p>`,
-        button: 'Keep it',
-        secondary: `Crush for ${crushParts(car.rarity, s.levels.press)} parts`,
+        title: t('ui.crush.title'),
+        body: `<p>${t('ui.crush.body', { rarity: ECON.rarity[car.rarity].label, model: car.model, value: formatCash(car.value) })}</p>`,
+        button: t('ui.crush.keep'),
+        secondary: t('ui.crush.go', { parts: crushParts(car.rarity, s.levels.press) }),
         onSecondary: doCrush,
       });
       return;
@@ -1353,7 +1353,7 @@ export class Ui {
     const bookOn = bookUnlocked(s);
     this.bookBtn.classList.toggle('hidden', !bookOn);
     this.bookBtn.querySelector('.dot')!.classList.toggle('on', bookOn && (unseenEntries(s).length > 0 || awardsToClaim(s).length > 0));
-    if (bookOn && this.bookWasOn === false) this.toast('📒 Collection book: tap 📒 to see every car you have sold', 4000);
+    if (bookOn && this.bookWasOn === false) this.toast(t('ui.toast.book'), 4000);
     if (bookOn) this.checkMedals(s);
     this.checkDailyDone(s);
     this.bookWasOn = bookOn;
@@ -1517,7 +1517,7 @@ export class Ui {
         const row = el('div', `map-row legacy${sellRow.glow ? ' glow' : ''}`);
         const text = el('div', 'map-text');
         const name = el('div', 'map-name display');
-        name.textContent = 'Sell Empire';
+        name.textContent = t('ui.sell.row');
         const line = el('div', 'map-line');
         line.textContent = sellRow.line;
         text.append(name, line);
@@ -1788,18 +1788,18 @@ export class Ui {
         `</div>`
       : '';
     this.modal({
-      title: 'Sell your empire?',
+      title: t('ui.sell.title'),
       cls: `sell-empire-preview${picker ? ' has-cities' : ''}`,
       body:
-        `<p>Sell every business and start again in a fresh scrapyard, richer for good.</p>` +
-        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>Legacy Points</small></div>` +
+        `<p>${t('ui.sell.intro')}</p>` +
+        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>${t('ui.sell.points')}</small></div>` +
         `<p class="legacy-mult">All income <b>${p.multNow}</b> → <b class="next">${p.multNext}</b> forever</p>` +
         (picker ? `<p class="city-q"><b>Where next?</b></p>${picker}` : '') +
         `<div class="legacy-cols"><div class="keep"><b>You keep</b><ul>${li(p.keeps)}</ul></div><div class="lose"><b>Starts over</b><ul>${li(p.resets)}</ul></div></div>` +
         `<p class="legacy-run">This empire: ${p.earned} earned in ${p.runTime}</p>` +
         (p.cityTeaser ? `<p class="city-teaser">${p.cityTeaser}</p>` : ''),
-      button: `Sell for +${p.points} ${LEGACY_ICON}`,
-      secondary: 'Not yet',
+      button: t('ui.sell.confirm', { points: p.points, icon: LEGACY_ICON }),
+      secondary: t('ui.sell.notYet'),
       onSecondary: () => {},
       onClose: () => this.confirmSellEmpire(city),
     });
@@ -1831,7 +1831,7 @@ export class Ui {
     // Scattered, not in a line: positions and delays step by coprime strides through the pieces.
     const confetti = Array.from({ length: 18 }, (_, i) => `<i style="--i:${i};--x:${3 + ((i * 7) % 18) * 5.3}%;--d:${1.5 + ((i * 5) % 7) * 0.12}s;--w:${-((i * 11) % 17) * 0.11}s"></i>`).join('');
     this.modal({
-      title: 'EMPIRE SOLD!',
+      title: t('ui.sold.title'),
       cls: 'legacy-celebrate',
       body:
         `<div class="confetti" aria-hidden="true">${confetti}</div>` +
@@ -2403,10 +2403,10 @@ export class Ui {
       .map((l) => `<p class="offline-waiting">${l}</p>`)
       .join('');
     this.modal({
-      title: 'Welcome back!',
+      title: t('ui.welcome.title'),
       body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}${waiting}`,
       big: formatCash(earned),
-      button: 'Collect',
+      button: t('ui.welcome.collect'),
       onClose: onCollect,
       cls: 'welcome',
     });

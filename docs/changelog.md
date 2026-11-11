@@ -597,3 +597,5 @@ First playable prototype: Grandpa Joe's scrapyard.
 - Offline earnings with a welcome-back popup.
 - Save system with two slots, checksum, versioning and sanity checks.
 - 28 unit tests, a balance simulator and a browser end-to-end test.
+
+- Run 42: lot, barn, crush, Sell Empire and Welcome back texts in `ui.ts` moved to the i18n catalog (P1.9b).

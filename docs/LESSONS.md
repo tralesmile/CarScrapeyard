@@ -720,3 +720,8 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   override the whole form.
 - **A baseline `npm run check` takes ~13 min on this box; run it once, edit while it runs (only `tsc --noEmit`), then run
   the final check once.** Do not poll with `sleep` over 110 s: the tool call times out at 120 s.
+
+## 2026-11-11 (run 42)
+
+- **`npm ci` plus a foreground `npm run check` overruns the 10 min tool limit; start the check with `nohup ... &` writing to a
+  log in the scratchpad and poll the log tail.** Source edits are safe while the e2e runs on `dist`.
