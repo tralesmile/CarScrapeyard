@@ -42,4 +42,12 @@ describe('i18n', () => {
     expect(t('map.rival.wins', { count: 1 })).toMatch(/1 time$/);
     expect(t('map.rival.wins', { count: 2 })).toMatch(/2 times$/);
   });
+
+  it('contract and barn card texts come from the catalog (P1.9b)', () => {
+    expect(t('ui.barn.locked', { count: 1 })).toMatch(/1 more sale$/);
+    expect(t('ui.barn.locked', { count: 3 })).toMatch(/3 more sales$/);
+    expect(t('ui.contract.reward', { reward: '$5', time: '2m' })).toBe('Reward $5 · 2m left');
+    expect(t('ui.barn.next', { intro: '', name: 'Weld', value: '$9' })).toBe('Next: Weld. Sells for about $9');
+    expect(t('ui.claim', { reward: '$1' })).toBe('Claim $1');
+  });
 });

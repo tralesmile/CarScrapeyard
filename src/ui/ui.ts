@@ -594,7 +594,7 @@ export class Ui {
       const reward = claimContract(s, c.id);
       if (reward.cash > 0 || reward.parts > 0) {
         sfx.fanfare();
-        this.showBanner('PAID!', `+${formatCash(reward.cash)}${reward.parts ? ` · +${reward.parts} ⚙` : ''}`);
+        this.showBanner(t('ui.contract.paid'), `+${formatCash(reward.cash)}${reward.parts ? ` · +${reward.parts} ⚙` : ''}`);
         this.deps.onChange();
         this.render();
       }
@@ -604,11 +604,11 @@ export class Ui {
       root.classList.toggle('ready', c?.status === 'done');
       btn.classList.toggle('swap', canRerollContract(c));
       if (!c || c.status === 'empty') {
-        setText(name, 'New order');
+        setText(name, t('ui.contract.new'));
         setText(lvl, '');
-        setText(desc, c ? `Arrives in ${formatDuration(Math.ceil(c.timeLeft))}` : 'Arriving…');
+        setText(desc, c ? t('ui.contract.arrives', { time: formatDuration(Math.ceil(c.timeLeft)) }) : t('ui.contract.arriving'));
         bar.style.width = '0%';
-        setText(btn, 'Waiting');
+        setText(btn, t('ui.contract.waiting'));
         btn.disabled = true;
         return;
       }
@@ -617,13 +617,13 @@ export class Ui {
       const reward = `${formatCash(c.rewardCash)}${c.rewardParts ? ` + ${c.rewardParts} ⚙` : ''}`;
       bar.style.width = `${(c.progress / c.target) * 100}%`;
       if (c.status === 'done') {
-        setText(desc, 'Order complete!');
-        setText(btn, `Claim ${reward}`);
+        setText(desc, t('ui.contract.complete'));
+        setText(btn, t('ui.claim', { reward }));
         btn.disabled = false;
       } else {
-        setText(desc, `Reward ${reward} · ${formatDuration(Math.ceil(c.timeLeft))} left`);
+        setText(desc, t('ui.contract.reward', { reward, time: formatDuration(Math.ceil(c.timeLeft)) }));
         const swap = canRerollContract(c);
-        setText(btn, swap ? '🔄 Swap order (free)' : 'In progress');
+        setText(btn, swap ? t('ui.contract.swap') : t('ui.inProgress'));
         btn.disabled = !swap;
       }
     };
@@ -634,7 +634,7 @@ export class Ui {
     const root = el('div', 'card barn');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Barn Find'), lvl);
+    title.append(document.createTextNode(t('ui.barn.card')), lvl);
     const desc = el('div', 'desc');
     const barWrap = el('div', 'bar');
     const bar = el('i');
@@ -650,7 +650,7 @@ export class Ui {
       if (!barnUnlocked(s)) {
         const left = ECON.barn.unlockCarsSold - s.carsSold;
         setText(lvl, '');
-        setText(desc, `Something is hiding under a tarp… Opens after ${left} more sale${left === 1 ? '' : 's'}`);
+        setText(desc, t('ui.barn.locked', { count: left }));
         bar.style.width = '0%';
         setText(btn, t('ui.locked'));
         btn.disabled = true;
@@ -660,30 +660,30 @@ export class Ui {
       if (b.status === 'covered') {
         const st = nextBarnStage(s)!;
         const cost = barnStageCost(s);
-        setText(desc, `${b.stage === 0 ? 'A covered classic! ' : ''}Next: ${st.name}. Sells for about ${formatCash(barnValue(s))}`);
+        setText(desc, t('ui.barn.next', { intro: b.stage === 0 ? t('ui.barn.intro') : '', name: st.name, value: formatCash(barnValue(s)) }));
         bar.style.width = `${(b.stage / stages) * 100}%`;
         setText(btn, `${formatCash(cost.cash)}${cost.parts ? ` + ${cost.parts} ⚙` : ''}`);
         btn.disabled = s.cash < cost.cash || s.parts < cost.parts;
       } else if (b.status === 'working') {
         const st = ECON.barn.stages[b.stage]!;
-        setText(desc, `${st.name}… ${formatDuration(Math.ceil(b.timeLeft))} left (keeps going while you're away)`);
+        setText(desc, t('ui.barn.working', { name: st.name, time: formatDuration(Math.ceil(b.timeLeft)) }));
         bar.style.width = `${((b.stage + 1 - b.timeLeft / Math.max(1e-6, barnStageSeconds(s, b.stage))) / stages) * 100}%`;
-        setText(btn, 'Working…');
+        setText(btn, t('ui.working'));
         btn.disabled = true;
       } else if (b.status === 'finished') {
-        setText(desc, 'Restoration complete! Pull off the tarp.');
+        setText(desc, t('ui.barn.finished'));
         bar.style.width = '100%';
-        setText(btn, 'Reveal!');
+        setText(btn, t('ui.barn.reveal'));
         btn.disabled = false;
       } else if (b.status === 'revealed') {
-        setText(desc, `${b.model}, Legendary classic. A collector is waiting${canKeepBarnCar(s) ? ', or keep it in your showcase' : ''}.`);
+        setText(desc, t('ui.barn.revealed', { model: b.model, keep: canKeepBarnCar(s) ? t('ui.barn.keepHint') : '' }));
         bar.style.width = '100%';
-        setText(btn, `Sell ${formatCash(b.value)}`);
+        setText(btn, t('ui.sell', { value: formatCash(b.value) }));
         btn.disabled = false;
       } else {
-        setText(desc, `Grandpa Joe is asking around for the next barn find… ${formatDuration(Math.ceil(b.timeLeft))}`);
+        setText(desc, t('ui.barn.waiting', { time: formatDuration(Math.ceil(b.timeLeft)) }));
         bar.style.width = '0%';
-        setText(btn, `Restored: ${b.restored}`);
+        setText(btn, t('ui.barn.restored', { count: b.restored }));
         btn.classList.add('done');
         btn.disabled = true;
       }

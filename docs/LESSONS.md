@@ -733,3 +733,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   per-pattern counts for loops over similar lines.
 - **If the scheduled prompt names a tool that is not present (`add_repo`), check whether the repo is already cloned and
   in scope before giving up:** here it was, so the run could proceed.
+
+## 2026-11-11 (run 44)
+
+- **Check the catalog for key-name collisions before adding keys:** `tsc` caught two duplicate keys (`ui.barn.title`,
+  `ui.barn.keep` already existed for the reveal modal). Grep `en.ts` for the prefix first, and when a `sed` renames a
+  key in `ui.ts`, check with `git diff` that it only touched the new call site.
+- **`npm run check` takes ~10 minutes, longer than one tool call may run:** start it with `nohup ... &`, poll
+  `pgrep` with sleeps, and do not edit source files while the build step may still be running.

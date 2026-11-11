@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.0 - 2026-11-11 (run 44)
+
+- **Translation layer:** the contract cards (new order, arrives in, reward, swap, PAID!) and the Barn Find card
+  (locked/next/working/finished/revealed/waiting texts, plural "more sale(s)") moved to `en.ts`; shared `Claim`,
+  `Sell`, `In progress` and `Working…` keys added. Nothing changes for players.
+
 ## 0.43.0 - 2026-11-11 (run 43)
 
 - **Translation layer:** the HUD button labels, the tab names, crew cards (Hired / Working / Hire), the lot, repair bay,
