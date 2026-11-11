@@ -50,4 +50,14 @@ describe('i18n', () => {
     expect(t('ui.barn.next', { intro: '', name: 'Weld', value: '$9' })).toBe('Next: Weld. Sells for about $9');
     expect(t('ui.claim', { reward: '$1' })).toBe('Claim $1');
   });
+
+  it('aria labels, banners and toasts come from the catalog (P1.9b)', () => {
+    expect(t('aria.nodeBuy', { name: 'Grip', cost: 3 })).toBe('Grip: buy for 3 Legacy Points');
+    expect(t('aria.nodeCost', { name: 'Grip', cost: 3 })).toBe('Grip: costs 3 Legacy Points');
+    expect(t('aria.tier', { n: 2, max: 3 })).toBe('Tier 2 of 3');
+    expect(t('aria.mapBtn', { city: 'Motor City' })).toBe('Motor City map');
+    expect(t('toast.medal', { icon: '🥉', name: 'Crusher', cash: '$9', gems: t('toast.medal.gems', { n: 2 }) })).toBe('🥉 Crusher: +$9 · +2 💎');
+    expect(t('toast.medal', { icon: '🥉', name: 'Crusher', cash: '$9', gems: '' })).toBe('🥉 Crusher: +$9');
+    expect(t('banner.empire')).toBe('EMPIRE FOR SALE!');
+  });
 });

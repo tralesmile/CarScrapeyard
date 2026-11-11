@@ -741,3 +741,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   key in `ui.ts`, check with `git diff` that it only touched the new call site.
 - **`npm run check` takes ~10 minutes, longer than one tool call may run:** start it with `nohup ... &`, poll
   `pgrep` with sleeps, and do not edit source files while the build step may still be running.
+
+## 2026-11-11 (run 45)
+
+- **A key whose English text differs from an existing one is a new key, not a reuse:** `map.aria` ("{city} city map") looked
+  like the map button's label ("{city} map"), and reusing it would have changed what screen readers say. Grep `en.ts` for
+  the exact text before mapping a string to an old key, and add the unit test for the final text.
+- **When a scheduled run starts, kick off the baseline with `nohup` first and do the string moves while its e2e runs:** the
+  build step is done after ~1 min, after which source edits are safe (the e2e runs on `dist`), so the baseline cost no time.

@@ -330,7 +330,7 @@ export class Ui {
     }
     this.cardsBox = el('div', 'cards');
     this.perkStrip = el('div', 'perk-strip hidden');
-    this.perkStrip.setAttribute('aria-label', 'Legacy perks here');
+    this.perkStrip.setAttribute('aria-label', t('aria.perks'));
     this.panel.append(head, this.perkStrip, this.cardsBox);
 
     this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.tuneBtn, this.banner, this.panel);
@@ -483,7 +483,7 @@ export class Ui {
 
   private dailyPaid(r: DailyReward, title: string) {
     sfx.fanfare();
-    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', walletText(r.gems, r.tokens), r.gift ? '🎁 a gift car is on its way' : ''].filter(Boolean);
+    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', walletText(r.gems, r.tokens), r.gift ? t('banner.gift') : ''].filter(Boolean);
     this.showBanner(title, bits.join(' · '));
     this.deps.onChange();
     this.render();
@@ -830,7 +830,7 @@ export class Ui {
       const cond = ECON.carlot.conditions[lot.condition];
       const stars = conditionStars(lot.condition);
       const html =
-        `<span class="stars" aria-label="Condition ${lot.condition} of 5"><b>${stars.slice(0, lot.condition)}</b>${stars.slice(lot.condition)}</span> ` +
+        `<span class="stars" aria-label="${t('aria.condition', { n: lot.condition })}"><b>${stars.slice(0, lot.condition)}</b>${stars.slice(lot.condition)}</span> ` +
         `${cond.name} ${ECON.families[lot.family].name} · sells for ${formatCash(listPrice(s, lot))} · profit ${formatCash(lotProfit(s, lot))}`;
       if (desc.innerHTML !== html) desc.innerHTML = html;
       fill.style.width = `${Math.max(0, Math.min(1, lot.timeLeft / ECON.carlot.lotSeconds)) * 100}%`;
@@ -1033,7 +1033,7 @@ export class Ui {
     const events = sendLotCarToShop(s, id);
     if (!events.length) return;
     sfx.engine();
-    this.toast(`🎨 Off to ${businessName(s, 'paint')} for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
+    this.toast(t('toast.tune', { shop: businessName(s, 'paint'), service: ECON.paint.services[svc].name.toLowerCase() }), 2500);
     this.deps.onEvents(events);
     this.deps.onChange();
     this.render();
@@ -1201,7 +1201,7 @@ export class Ui {
                 if (!keepBarnCar(s, book)) return;
                 this.deps.onEvents([{ type: 'barnKept', model: s.collection.showcase[s.collection.showcase.length - 1]!, count: s.collection.showcase.length }, ...book]);
                 this.deps.onChange();
-                this.showBanner('IN THE SHOWCASE!', showcaseLine(s));
+                this.showBanner(t('banner.showcase'), showcaseLine(s));
                 sfx.fanfare();
               },
             }
@@ -1311,7 +1311,7 @@ export class Ui {
     // Unlock announcements (once per save).
     if (crusherOn && !s.tutorial.crusherSeen && !this.modalOpen) {
       s.tutorial.crusherSeen = true;
-      this.showBanner('CAR CRUSHER!', 'Crush wrecks for Parts');
+      this.showBanner(t('banner.crusher'), t('banner.crusher.sub'));
       sfx.fanfare();
       this.deps.onChange();
     }
@@ -1320,20 +1320,20 @@ export class Ui {
     for (const [t, b] of this.tabButtons) b.style.display = shownTabs.includes(t) && (t !== 'jobs' || jobsOn) ? '' : 'none';
     if (jobsOn && !s.tutorial.contractsSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.contractsSeen = true;
-      setTimeout(() => this.showBanner('CONTRACTS!', 'New orders on the Jobs board'), 2700);
+      setTimeout(() => this.showBanner(t('banner.contracts'), t('banner.contracts.sub')), 2700);
       this.deps.onChange();
     }
 
     if (jobsOn && dailyUnlocked(s) && !s.tutorial.dailySeen && !this.modalOpen && s.tutorial.contractsSeen) {
       s.tutorial.dailySeen = true;
-      setTimeout(() => this.showBanner('DAILY TASKS!', 'A reward every day and three tasks on the Jobs board'), 2700);
+      setTimeout(() => this.showBanner(t('banner.daily'), t('banner.daily.sub')), 2700);
       if (this.tab === 'jobs') this.buildCards();
       this.deps.onChange();
     }
 
     if (barnUnlocked(s) && !s.tutorial.barnSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.barnSeen = true;
-      setTimeout(() => this.showBanner('BARN FIND!', 'A covered classic at the back of the yard'), 2700);
+      setTimeout(() => this.showBanner(t('banner.barn'), t('banner.barn.sub')), 2700);
       this.deps.onChange();
     }
 
@@ -1343,7 +1343,7 @@ export class Ui {
     const city = cityInfo(currentCity(s));
     if (this.mapBtn.dataset.city !== currentCity(s)) {
       this.mapBtn.dataset.city = currentCity(s);
-      this.mapBtn.setAttribute('aria-label', `${city.name} map`);
+      this.mapBtn.setAttribute('aria-label', t('aria.mapBtn', { city: city.name }));
       this.mapBtn.title = `${city.name} map`;
       const tag = this.mapBtn.querySelector('.city-tag')!;
       tag.textContent = city.icon;
@@ -1371,12 +1371,12 @@ export class Ui {
     }
     if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
       this.legacyAnnounced = true;
-      this.showBanner('EMPIRE FOR SALE!', 'Open the 🗺 map to sell it for Legacy Points');
+      this.showBanner(t('banner.empire'), t('banner.empire.sub'));
       sfx.fanfare();
     }
     if (mapOn && !s.tutorial.mapSeen && !this.mapAnnounced && !this.modalOpen && s.tutorial.crusherSeen) {
       this.mapAnnounced = true;
-      setTimeout(() => this.showBanner('CITY MAP!', 'Tap 🗺 to see what you can build next'), 2700);
+      setTimeout(() => this.showBanner(t('banner.map'), t('banner.map.sub')), 2700);
     }
 
     this.renderHint(s);
@@ -1424,7 +1424,7 @@ export class Ui {
     const box = el('div', 'modal city-map');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'City map');
+    box.setAttribute('aria-label', t('aria.cityMap'));
     box.append(el('h2', 'display', cityInfo(currentCity(s)).name));
     const art = el('div', 'map-art');
     const list = el('div', 'map-list');
@@ -1461,7 +1461,7 @@ export class Ui {
             // Map tier (P1.1d): the business grows on the map with lot slots / repair bays.
             const stars = el('span', 'map-stars');
             stars.textContent = '★'.repeat(r.tier) + '☆'.repeat(Math.max(0, MAX_TIER - r.tier));
-            stars.setAttribute('aria-label', `Tier ${r.tier} of ${MAX_TIER}`);
+            stars.setAttribute('aria-label', t('aria.tier', { n: r.tier, max: MAX_TIER }));
             name.append(' ', stars);
           }
           const line = el('div', 'map-line');
@@ -1485,7 +1485,7 @@ export class Ui {
               if (r.status === 'forSale') {
                 if (!openBusiness(cur, r.id)) return sfx.denied();
                 sfx.fanfare();
-                this.toast(`${r.icon} ${r.name} is open!`);
+                this.toast(t('toast.open', { icon: r.icon, name: r.name }));
               } else if (switchBusiness(cur, r.id)) {
                 sfx.tap();
                 close();
@@ -1777,7 +1777,7 @@ export class Ui {
     const li = (xs: string[]) => xs.map((x) => `<li>${x}</li>`).join('');
     let city: CityId = p.cities.find((c) => c.picked)?.id ?? currentCity(s);
     const picker = p.cities.length
-      ? `<div class="city-pick" role="radiogroup" aria-label="City for the next empire">` +
+      ? `<div class="city-pick" role="radiogroup" aria-label="${t('aria.nextCity')}">` +
         p.cities
           .map(
             (c) =>
@@ -1856,7 +1856,7 @@ export class Ui {
     const box = el('div', 'modal');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'Legacy tree');
+    box.setAttribute('aria-label', t('aria.legacyTree'));
     box.append(el('h2', 'display', `${LEGACY_ICON} Legacy`));
     const header = el('p', 'tree-head');
     const tabs = el('div', 'tree-tabs');
@@ -1901,7 +1901,7 @@ export class Ui {
           else {
             const b = el('button', 'tree-buy', n.action) as HTMLButtonElement;
             b.disabled = !n.canBuy;
-            b.setAttribute('aria-label', `${n.name}: ${n.canBuy ? 'buy for' : 'costs'} ${n.cost} Legacy Points`);
+            b.setAttribute('aria-label', t(n.canBuy ? 'aria.nodeBuy' : 'aria.nodeCost', { name: n.name, cost: n.cost }));
             b.onclick = () => {
               if (!buyNode(this.deps.state(), n.id)) {
                 sfx.denied();
@@ -1986,7 +1986,7 @@ export class Ui {
     if (!before) return;
     const up = AWARD_IDS.filter((id) => now[id] > before[id] && now[id] > s.achievements.claimed[id]);
     if (up.length === 0) return;
-    this.toast(up.length === 1 ? medalToast(s, up[0]!) : `🏅 ${up.length} new medals! Claim them in the 📒 book`, 4000);
+    this.toast(up.length === 1 ? medalToast(s, up[0]!) : t('toast.medals', { n: up.length }), 4000);
     sfx.bonus();
   }
 
@@ -2003,7 +2003,7 @@ export class Ui {
     const box = el('div', 'modal');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'Collection book');
+    box.setAttribute('aria-label', t('aria.book'));
     box.append(el('h2', 'display', '📒 Collection'));
     const header = el('p', 'book-head');
     const tabs = el('div', 'tree-tabs book-tabs');
@@ -2096,12 +2096,12 @@ export class Ui {
           row.innerHTML = `<span class="award-icon" aria-hidden="true">${it.icon}</span><div class="award-body"><b>${it.name}</b><small>${it.available ? it.line : it.why}</small></div>`;
           const btn = el('button', 'buy award-claim shop-buy', `${it.price} ${cur}`) as HTMLButtonElement;
           btn.disabled = !it.available || !it.affordable;
-          btn.setAttribute('aria-label', `Buy ${it.name} for ${it.price} ${it.currency}`);
+          btn.setAttribute('aria-label', t('aria.buy', { name: it.name, price: it.price, currency: it.currency }));
           btn.onclick = () => {
             const msg = buyShopItem(this.deps.state(), it.id);
             if (!msg) return;
             sfx.coin();
-            this.toast(`${it.icon} ${it.name}: ${msg}`, 2500);
+            this.toast(t('toast.shop', { icon: it.icon, name: it.name, msg }), 2500);
             this.deps.onChange();
             paint();
           };
@@ -2129,7 +2129,7 @@ export class Ui {
             const medals = c.medals.map((m, i) => `<i class="medal ${m}" title="${ECON.achievements.medals[i]}">${ECON.achievements.medalIcons[i]}</i>`).join('');
             row.innerHTML =
               `<span class="award-icon" aria-hidden="true">${c.icon}</span><div class="award-body"><b>${c.name}</b>` +
-              `<span class="award-medals" aria-label="${c.medals.filter((m) => m === 'claimed').length} of ${c.medals.length} medals">${medals}</span>` +
+              `<span class="award-medals" aria-label="${t('aria.medals', { n: c.medals.filter((m) => m === 'claimed').length, max: c.medals.length })}">${medals}</span>` +
               `<small>${c.line}</small><span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span></div>`;
             if (c.claimable) {
               const btn = el('button', 'buy award-claim', c.claimText) as HTMLButtonElement;
@@ -2137,7 +2137,7 @@ export class Ui {
                 const r = claimAward(this.deps.state(), c.id);
                 if (!r) return;
                 sfx.coin();
-                this.toast(`${ECON.achievements.medalIcons[r.tier]} ${ECON.achievements.list[c.id].name}: +${formatCash(r.cash)}${r.gems ? ` · +${r.gems} 💎` : ''}`, 2500);
+                this.toast(t('toast.medal', { icon: ECON.achievements.medalIcons[r.tier] ?? '', name: ECON.achievements.list[c.id].name, cash: formatCash(r.cash), gems: r.gems ? t('toast.medal.gems', { n: r.gems }) : '' }), 2500);
                 this.deps.onChange();
                 paint();
               };
@@ -2189,12 +2189,12 @@ export class Ui {
             img.alt = '';
             const name = c.collected ? c.model : '???';
             const badge = c.collected && c.rarity !== 'common' ? `<i class="book-rarity ${c.rarity}">${c.rarityLabel}</i>` : '';
-            const stars = c.collected ? `<span class="book-stars" aria-label="${c.stars} of 3 mastery stars">${'★'.repeat(c.stars)}<s>${'★'.repeat(3 - c.stars)}</s></span>` : '';
+            const stars = c.collected ? `<span class="book-stars" aria-label="${t('aria.stars', { n: c.stars })}">${'★'.repeat(c.stars)}<s>${'★'.repeat(3 - c.stars)}</s></span>` : '';
             const bar = c.collected ? `<span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span>` : '';
             card.innerHTML = `${fresh.has(c.model) ? '<i class="book-new">NEW</i>' : ''}${badge}`;
             card.prepend(img);
             card.insertAdjacentHTML('beforeend', `<b>${name}</b>${stars}<small>${c.line}</small>${bar}`);
-            card.setAttribute('aria-label', c.collected ? `${c.model}, best ${c.rarityLabel}, ${c.kept ? 'in your showcase' : c.line}` : 'Not found yet');
+            card.setAttribute('aria-label', c.collected ? t('aria.card', { model: c.model, rarity: c.rarityLabel, line: c.kept ? t('aria.showcase') : c.line }) : t('aria.notFound'));
             grid.append(card);
           }
           sec.append(head, grid);

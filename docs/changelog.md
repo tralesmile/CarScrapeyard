@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.45.0 - 2026-11-11 (run 45)
+
+- **Translation layer:** all `aria-label` texts in `ui.ts` (perks, condition stars, map button, tiers, Legacy nodes, shop
+  buttons, medals, mastery stars, book cards), the unlock banners (Car Crusher, Contracts, Daily tasks, Barn find, Empire
+  for sale, City map, Showcase, gift car) and the toasts (tune trip, business open, medals, shop, medal claim) moved to
+  `en.ts` (`aria.*`, `banner.*`, `toast.*`). Nothing changes for players.
+
 ## 0.44.0 - 2026-11-11 (run 44)
 
 - **Translation layer:** the contract cards (new order, arrives in, reward, swap, PAID!) and the Barn Find card
