@@ -70,3 +70,14 @@ describe('daily card texts', () => {
     expect(t('daily.cal.tomorrow', { what: '$1K' })).toBe('Tomorrow: $1K');
   });
 });
+
+describe('scene texts', () => {
+  it('builds the floating texts and labels shown on the canvas scenes', () => {
+    expect(t('scene.spareParts', { n: 3 })).toBe('Spare parts! −3 ⚙');
+    expect(t('scene.buyerBonus', { icon: '🔧', name: 'Tradie', pct: 15 })).toBe('🔧 Tradie +15%');
+    expect(t('scene.lot.forSale', { price: '$9K' })).toBe('FOR SALE\n$9K');
+    expect(t('scene.lot.atPaint', { name: 'Midtown Paint' })).toBe('Your car is at Midtown Paint 🎨');
+    expect(t('scene.paint.tip', { cash: '$2K' })).toBe('⚡ Quick tip +$2K');
+    expect(t('scene.slot.ready')).toBe('Ready!');
+  });
+});

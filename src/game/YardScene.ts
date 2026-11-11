@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { t } from '../i18n';
 import { removeTexturesSafely } from './textureSafe';
 import { sfx } from '../audio/sfx';
 import { currentCity } from '../core/cities';
@@ -540,12 +541,12 @@ export class YardScene extends Phaser.Scene {
     }
     // Little sign above the roof.
     let label = '';
-    if (b.status === 'covered') label = b.stage === 0 ? 'Barn find!' : `${b.stage}/${ECON.barn.stages.length}`;
+    if (b.status === 'covered') label = b.stage === 0 ? t('scene.barn.find') : `${b.stage}/${ECON.barn.stages.length}`;
     else if (b.status === 'working') {
       const t = Math.ceil(b.timeLeft);
       label = `🔧 ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-    } else if (b.status === 'finished') label = '✨ Reveal!';
-    else if (b.status === 'revealed') label = '💰 Sell!';
+    } else if (b.status === 'finished') label = t('scene.barn.reveal');
+    else if (b.status === 'revealed') label = t('scene.barn.sell');
     this.barnLabel.setVisible(label !== '');
     if (this.barnLabel.text !== label) this.barnLabel.setText(label);
     const pulse = b.status === 'finished' || b.status === 'revealed' ? 1 + 0.08 * Math.sin(this.time.now / 160) : 1;
@@ -683,7 +684,7 @@ export class YardScene extends Phaser.Scene {
       this.tweens.add({ targets: car, scale: carScale, duration: 500, ease: 'Back.easeOut' });
       if (!this.calm) this.cameras.main.flash(300, 255, 240, 200);
       sparkle.explode(40, cx, cy);
-      this.floatText(cx, cy - th * 0.45, 'LEGENDARY CLASSIC!', '#f5b700', 30, 25);
+      this.floatText(cx, cy - th * 0.45, t('scene.legendary'), '#f5b700', 30, 25);
       this.time.delayedCall(800, shown);
     });
     let closed = false;
@@ -866,7 +867,7 @@ export class YardScene extends Phaser.Scene {
       s.frame.strokeRoundedRect(-geo.w / 2, -geo.h / 2, geo.w, geo.h, this.px(12));
       s.dirt.setAlpha(car.dirt * 0.85);
       const stage = carStage(car);
-      const label = stage === 'dirty' ? 'Dirty' : stage === 'damaged' ? 'Repair' : 'Ready!';
+      const label = stage === 'dirty' ? t('scene.slot.dirty') : stage === 'damaged' ? t('scene.slot.repair') : t('scene.slot.ready');
       if (s.label.text !== label) s.label.setText(label);
       s.label.setColor(stage === 'ready' ? '#3bc45a' : '#f6f7f9');
       const progress =
@@ -938,7 +939,7 @@ export class YardScene extends Phaser.Scene {
           this.onSold(e.carId, e.amount);
           if (e.buyer && e.carId === this.bigCarId) {
             const b = ECON.buyers.kinds[e.buyer];
-            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.55, `${b.icon} ${b.name} +${Math.round(b.bonus * 100)}%`, '#f5b700', 22);
+            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.55, t('scene.buyerBonus', { icon: b.icon, name: b.name, pct: Math.round(b.bonus * 100) }), '#f5b700', 22);
           }
           break;
         case 'legendary':
@@ -947,14 +948,14 @@ export class YardScene extends Phaser.Scene {
         case 'crushed':
           if (e.auto) {
             this.stationCrush();
-            this.floatText(this.scale.width / 2, this.px(this.focusArea().cy) - this.px(70), '♻ Scrapper', '#e8762b', 22);
+            this.floatText(this.scale.width / 2, this.px(this.focusArea().cy) - this.px(70), t('scene.scrapper'), '#e8762b', 22);
           }
           this.onCrushed(e.car.id, e.parts, e.cash);
           break;
         case 'partsUsed':
           if (e.carId === this.bigCarId) {
             sfx.parts();
-            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.4, `Spare parts! −${e.parts} ⚙`, '#f5b700', 20);
+            this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.4, t('scene.spareParts', { n: e.parts }), '#f5b700', 20);
           }
           break;
         case 'arrived':
@@ -1120,7 +1121,7 @@ export class YardScene extends Phaser.Scene {
             for (let i = 0; i < 8; i++) {
               this.smoke.emitParticleAt(b.centerX + (i - 3.5) * (b.width / 9), groundY, 2);
             }
-            this.floatText(b.centerX, groundY - crushedH - this.px(60), `+${parts} ⚙ Parts`, '#f5b700', 30);
+            this.floatText(b.centerX, groundY - crushedH - this.px(60), t('scene.partsGain', { n: parts }), '#f5b700', 30);
             if (cash > 0) this.coinBurst(b.centerX, groundY - crushedH, cash);
             // Raise the press, slide the cube away.
             this.tweens.add({ targets: plate, y: -plateH * 2, duration: 420, delay: 250, ease: 'Quad.easeOut', onComplete: () => plate.destroy() });

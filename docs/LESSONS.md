@@ -759,3 +759,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   texture while an image (a lot thumbnail waiting for the next rebuild) still showed it. Fix it where textures are freed
   (one helper for every scene), not by re-running the e2e until it passes. When a flake note says "if it recurs, log X",
   add the logging in the same run it first happens, so the second occurrence is diagnosable.
+
+## 2026-11-11 (run 47)
+
+- **Scene strings are few and mostly template literals: list them with one grep (`floatText|setText`) before writing the move
+  script, then move them in a single pass.** The script asserted one occurrence per old string, so it either applied
+  everything or nothing; `tsc` plus one catalog unit test was enough to trust the result without reading each diff.
+- **The scheduled prompt's `add_repo` step may be a no-op:** the repo was already cloned and in scope (as in run 43), so
+  `git fetch` and `git checkout -B dev origin/dev` was all that was needed.

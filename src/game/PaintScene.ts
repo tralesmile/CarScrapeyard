@@ -5,6 +5,7 @@
 // this one runs the core tick for every business and forwards every event to the bridge.
 
 import { removeTexturesSafely } from './textureSafe';
+import { t } from '../i18n';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -358,7 +359,7 @@ export class PaintScene extends Phaser.Scene {
       this.time.delayedCall(this.calm ? 1 : 620, () => this.carArrived(job.id));
       sfx.engine();
     }
-    this.label.setText(job.lotCarId !== undefined ? `${job.model} · your lot car` : `${job.model} · ${formatCash(job.fee)}`);
+    this.label.setText(job.lotCarId !== undefined ? t('scene.paint.lotCar', { model: job.model }) : `${job.model} · ${formatCash(job.fee)}`);
     this.applyReveal(job);
     if (this.arriving) {
       this.ticket.setVisible(false);
@@ -733,7 +734,7 @@ export class PaintScene extends Phaser.Scene {
     const car = this.bigCar;
     sfx.repaired();
     this.glitter.explode(this.calm ? 4 : 10, car.x, car.y - car.displayHeight * 0.15);
-    this.floatText(car.x, car.y - car.displayHeight * 0.4, `✓ ${ECON.paint.services[service].name}`, '#c7b8e8', 18);
+    this.floatText(car.x, car.y - car.displayHeight * 0.4, t('scene.paint.done', { name: ECON.paint.services[service].name }), '#c7b8e8', 18);
     if (service === 'tune') this.tuneBurst(job);
   }
 
@@ -759,10 +760,10 @@ export class PaintScene extends Phaser.Scene {
       this.applyReveal({ ...job, step: job.services.length, work: 0 });
       this.driveOff(job.id);
     } else this.time.delayedCall(800, () => this.releaseTextures(job.id));
-    if (job.lotCarId !== undefined) this.floatText(from.x, from.y - this.px(40), `🏷️ Back to the lot +${formatCash(lotValue)}`, '#c7b8e8', 22);
+    if (job.lotCarId !== undefined) this.floatText(from.x, from.y - this.px(40), t('scene.paint.backToLot', { cash: formatCash(lotValue) }), '#c7b8e8', 22);
     else this.coinBurst(from.x, from.y, amount - tip);
     if (tip > 0) {
-      this.floatText(from.x, from.y - this.px(70), `⚡ Quick tip +${formatCash(tip)}`, '#f5b700', 22);
+      this.floatText(from.x, from.y - this.px(70), t('scene.paint.tip', { cash: formatCash(tip) }), '#f5b700', 22);
       sfx.bonus();
     }
   }

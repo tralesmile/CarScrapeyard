@@ -4,6 +4,7 @@
 // runs everything), so this scene forwards every event to the bridge like the yard and the garage.
 
 import { removeTexturesSafely } from './textureSafe';
+import { t } from '../i18n';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -279,7 +280,7 @@ export class CarLotScene extends Phaser.Scene {
       // The hint says it during the first sales; after that the empty platform says where to go.
       const l = this.bridge.state.carlot;
       const away = l.cars.some((c) => !lotCarHere(c));
-      if (!this.carLeaving) this.label.setText(away ? `Your car is at ${businessName(this.bridge.state, 'paint')} 🎨` : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
+      if (!this.carLeaving) this.label.setText(away ? t('scene.lot.atPaint', { name: businessName(this.bridge.state, 'paint') }) : l.cars.length === 0 && l.sold >= 3 ? t('scene.lot.buyHint') : '');
       return;
     }
     if (car.id !== this.bigId || this.bigCar.texture.key !== this.ensureTextures(car)) {
@@ -334,7 +335,7 @@ export class CarLotScene extends Phaser.Scene {
     if (key !== this.tagKey) {
       const fresh = !this.tagKey.startsWith(`${car.id}|`);
       this.tagKey = key;
-      this.tagText.setText(`FOR SALE\n${price}`);
+      this.tagText.setText(t('scene.lot.forSale', { price }));
       const w = this.tagText.width + this.px(18);
       const h = this.tagText.height + this.px(10);
       const g = this.tag.list[0] as Phaser.GameObjects.Graphics;
@@ -591,7 +592,7 @@ export class CarLotScene extends Phaser.Scene {
       if (e.type === 'lotRefurbished' && e.car.id === this.bigId) {
         sfx.repaired();
         this.glitter.explode(this.calm ? 6 : 18, this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.2);
-        this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.5, 'Like new!', '#f5b700', 22);
+        this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.5, t('scene.lot.likeNew'), '#f5b700', 22);
       }
       if (e.type === 'lotSold') this.onSold(e.car, e.amount, e.profit, e.buyer, e.bonus);
     }
@@ -605,10 +606,10 @@ export class CarLotScene extends Phaser.Scene {
       this.tag.setVisible(false);
       this.barG.clear();
       this.buyerTakes(car.id, buyer);
-      this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, `Profit ${formatCash(profit)}`, '#f5b700', 18);
+      this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, t('scene.lot.profit', { cash: formatCash(profit) }), '#f5b700', 18);
     } else this.time.delayedCall(800, () => this.releaseTextures(car.id));
     if (buyer && bonus > 0) {
-      this.floatText(from.x, from.y - this.px(70), `${ECON.carlot.buyers[buyer].name} paid +${Math.round(bonus * 100)}%`, '#fbf3e4', 16);
+      this.floatText(from.x, from.y - this.px(70), t('scene.lot.buyerPaid', { name: ECON.carlot.buyers[buyer].name, pct: Math.round(bonus * 100) }), '#fbf3e4', 16);
     }
     this.coinBurst(from.x, from.y, amount);
   }

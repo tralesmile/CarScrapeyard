@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.47.0 - 2026-11-11 (run 47)
+
+- **Translation layer:** the floating texts and labels drawn on the yard, Used Car Lot and Paint & Tuning scenes (barn
+  sign, slot labels, LEGENDARY CLASSIC!, buyer bonus, Scrapper, parts, FOR SALE tag, profit, quick tip, ...) moved to
+  `en.ts` (`scene.*`). Nothing changes for players.
+
 ## 0.46.0 - 2026-11-11 (run 46)
 
 - **Translation layer:** the daily calendar card and the three daily task cards (title, day counter, today/tomorrow text,
