@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.43.0 - 2026-11-11 (run 43)
+
+- **Translation layer:** the HUD button labels, the tab names, crew cards (Hired / Working / Hire), the lot, repair bay,
+  foreman, forecourt spot and booth cards, the haggle slider texts and "Coming soon" moved to `en.ts` (41 keys);
+  nothing changes for players.
+
 ## 0.41.0 - 2026-11-10 (run 41)
 
 - **Translation layer:** the Sell Empire row and preview, Grandpa Joe's lines, city teaser and ordinals, the Legacy tree

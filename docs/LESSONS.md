@@ -725,3 +725,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 
 - **`npm ci` plus a foreground `npm run check` overruns the 10 min tool limit; start the check with `nohup ... &` writing to a
   log in the scratchpad and poll the log tail.** Source edits are safe while the e2e runs on `dist`.
+
+## 2026-11-11 (run 43)
+
+- **A move script that asserts the exact occurrence count of every old string fails before writing anything, so a wrong
+  guess (I expected 2 `'Hired'` lines, there was 1) costs a re-run, not a half-edited file.** Keep that, and print the
+  per-pattern counts for loops over similar lines.
+- **If the scheduled prompt names a tool that is not present (`add_repo`), check whether the repo is already cloned and
+  in scope before giving up:** here it was, so the run could proceed.

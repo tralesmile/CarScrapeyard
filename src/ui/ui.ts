@@ -232,9 +232,9 @@ export class Ui {
     this.cash.setAttribute('aria-live', 'polite');
     this.rate = el('div', 'rate', '');
     this.partsEl = el('div', 'parts hidden', '');
-    this.partsEl.title = 'Parts';
+    this.partsEl.title = t('ui.hud.parts');
     this.soundBtn = el('button', 'icon-btn sound-btn') as HTMLButtonElement;
-    this.soundBtn.setAttribute('aria-label', 'Toggle sound');
+    this.soundBtn.setAttribute('aria-label', t('ui.hud.sound'));
     this.soundBtn.onclick = () => {
       const s = this.deps.state();
       s.settings.sound = !s.settings.sound;
@@ -246,11 +246,11 @@ export class Ui {
     this.settingsBtn.setAttribute('aria-label', t('settings.title'));
     this.settingsBtn.onclick = () => this.openSettings();
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="city-tag hidden" aria-hidden="true"></span><span class="dot"></span>') as HTMLButtonElement;
-    this.mapBtn.setAttribute('aria-label', 'City map');
+    this.mapBtn.setAttribute('aria-label', t('ui.hud.map'));
     this.mapBtn.onclick = () => this.openMap();
     this.bookBtn = el('button', 'icon-btn book-btn hidden', '📒<span class="dot"></span>') as HTMLButtonElement;
-    this.bookBtn.setAttribute('aria-label', 'Collection book');
-    this.bookBtn.title = 'Collection book';
+    this.bookBtn.setAttribute('aria-label', t('ui.hud.book'));
+    this.bookBtn.title = t('ui.hud.book');
     this.bookBtn.onclick = () => this.openBook();
     this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
     this.legacyChip.onclick = () => this.openLegacyInfo();
@@ -264,10 +264,10 @@ export class Ui {
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
     this.sell.onclick = () => this.onSell();
     this.crush = el('button', 'crush display hidden') as HTMLButtonElement;
-    this.crush.setAttribute('aria-label', 'Crush this wreck for parts');
+    this.crush.setAttribute('aria-label', t('ui.hud.crush'));
     this.crush.onclick = () => this.onCrush();
     this.tuneBtn = el('button', 'crush tune display hidden') as HTMLButtonElement;
-    this.tuneBtn.setAttribute('aria-label', 'Send this car to Paint & Tuning');
+    this.tuneBtn.setAttribute('aria-label', t('ui.hud.tune'));
     this.tuneBtn.onclick = () => this.onTuneLotCar();
 
     this.banner = el('div', 'banner display');
@@ -282,8 +282,8 @@ export class Ui {
 
     // Haggle slider (replaces the sell button while open).
     this.haggleEl = el('button', 'haggle hidden') as HTMLButtonElement;
-    this.haggleEl.setAttribute('aria-label', 'Tap to stop the needle and close the deal');
-    this.haggleLabel = el('div', 'haggle-label display', 'Tap to close the deal!');
+    this.haggleEl.setAttribute('aria-label', t('ui.haggle.aria'));
+    this.haggleLabel = el('div', 'haggle-label display', t('ui.haggle.close'));
     const track = el('div', 'haggle-track');
     track.append(el('span', 'zone-perfect'));
     this.haggleNeedle = el('i', 'haggle-needle');
@@ -294,17 +294,17 @@ export class Ui {
     const head = el('div', 'panel-head');
     const tabs = el('div', 'tabs');
     const tabNames: [Tab, string][] = [
-      ['upgrades', 'Upgrades'],
-      ['crew', 'Crew'],
-      ['yard', 'Yard'],
-      ['jobs', 'Jobs'],
-      ['gupgrades', 'Garage'],
-      ['gcrew', 'Crew'],
-      ['auction', 'Auction'],
-      ['lupgrades', 'Lot'],
-      ['lcrew', 'Crew'],
-      ['pupgrades', 'Shop'],
-      ['pcrew', 'Crew'],
+      ['upgrades', t('ui.tab.upgrades')],
+      ['crew', t('ui.tab.crew')],
+      ['yard', t('ui.tab.yard')],
+      ['jobs', t('ui.tab.jobs')],
+      ['gupgrades', t('ui.tab.gupgrades')],
+      ['gcrew', t('ui.tab.crew')],
+      ['auction', t('ui.tab.auction')],
+      ['lupgrades', t('ui.tab.lupgrades')],
+      ['lcrew', t('ui.tab.crew')],
+      ['pupgrades', t('ui.tab.pupgrades')],
+      ['pcrew', t('ui.tab.crew')],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -390,9 +390,9 @@ export class Ui {
   private managerCard(kind: ManagerKind): CardView {
     const info = ECON.managers[kind];
     const blurbs: Record<ManagerKind, string> = {
-      mechanic: 'Repairs washed cars for you',
-      washer: 'Pressure-washes new wrecks',
-      seller: 'Sells finished cars, even offline',
+      mechanic: t('ui.crew.mechanic'),
+      washer: t('ui.crew.washer'),
+      seller: t('ui.crew.seller'),
       scrapper: `Crushes a fresh Common wreck now and then to keep ${ECON.crusher.scrapperKeepParts}+ ⚙ in the bin (more if the barn needs it)`,
     };
     const root = el('div', 'card');
@@ -413,10 +413,10 @@ export class Ui {
     const update = (s: GameState) => {
       root.style.display = kind === 'scrapper' && !crusherUnlocked(s) ? 'none' : '';
       const hired = s.managers[kind];
-      setText(lvl, hired ? 'Hired' : '');
+      setText(lvl, hired ? t('ui.crew.hired') : '');
       btn.classList.toggle('done', hired);
       const cost = managerCost(s, kind);
-      setText(btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       btn.disabled = hired || s.cash < cost;
       root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -427,8 +427,8 @@ export class Ui {
     const root = el('div', 'card slot');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Lot Space'), lvl);
-    const desc = el('div', 'desc', 'Room for one more car at a time');
+    title.append(document.createTextNode(t('ui.slot.title')), lvl);
+    const desc = el('div', 'desc', t('ui.slot.desc'));
     const btn = el('button', 'buy') as HTMLButtonElement;
     root.append(title, desc, btn);
     btn.onclick = () => {
@@ -465,7 +465,7 @@ export class Ui {
       if (!unlocked) {
         const left = ECON.crusher.unlockCarsSold - s.carsSold;
         setText(desc, `Opens after ${left} more sale${left === 1 ? '' : 's'}`);
-        setText(btn, 'Locked');
+        setText(btn, t('ui.locked'));
         btn.disabled = true;
         root.classList.remove('ready');
         return;
@@ -652,7 +652,7 @@ export class Ui {
         setText(lvl, '');
         setText(desc, `Something is hiding under a tarp… Opens after ${left} more sale${left === 1 ? '' : 's'}`);
         bar.style.width = '0%';
-        setText(btn, 'Locked');
+        setText(btn, t('ui.locked'));
         btn.disabled = true;
         return;
       }
@@ -695,7 +695,7 @@ export class Ui {
     const root = el('div', 'card');
     const title = el('div', 'title display', 'Repair Garage');
     const desc = el('div', 'desc', 'Your second business. Opens in the next update.');
-    const btn = el('button', 'buy', 'Coming soon') as HTMLButtonElement;
+    const btn = el('button', 'buy', t('ui.comingSoon')) as HTMLButtonElement;
     btn.disabled = true;
     root.append(title, desc, btn);
     return { root, lvl: title, desc, btn, update: () => {} };
@@ -740,7 +740,7 @@ export class Ui {
   }
 
   private garageBayCard(): CardView {
-    const v = this.simpleCard('garage-bay', 'Repair Bay', 'Room for one more customer car', (s) => buyGarageBay(s), () => sfx.buy());
+    const v = this.simpleCard('garage-bay', t('ui.bay.title'), t('ui.bay.desc'), (s) => buyGarageBay(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = garageBayCost(s.garage.bays, cityScale(s));
       setText(v.lvl, `${s.garage.bays} / ${ECON.garage.bays.start + ECON.garage.bays.costs.length}`);
@@ -754,14 +754,14 @@ export class Ui {
 
   private foremanCard(): CardView {
     const f = ECON.garage.foreman;
-    const v = this.simpleCard('garage-foreman', f.name, 'Fixes customer cars for you, even offline', (s) => hireForeman(s), () => sfx.fanfare());
+    const v = this.simpleCard('garage-foreman', f.name, t('ui.foreman.desc'), (s) => hireForeman(s), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.garage.foreman;
-      setText(v.lvl, hired ? 'Hired' : '');
-      setText(v.desc, hired ? `Fixing ${foremanRate(s).toFixed(1)} work/s, even offline` : 'Fixes customer cars for you, even offline');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
+      setText(v.desc, hired ? t('ui.foreman.rate', { rate: foremanRate(s).toFixed(1) }) : t('ui.foreman.desc'));
       v.btn.classList.toggle('done', hired);
       const cost = foremanCost(s);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -861,7 +861,7 @@ export class Ui {
   }
 
   private spotCard(): CardView {
-    const v = this.simpleCard('carlot-spot', 'Forecourt Spot', 'Room for one more car on the lot', (s) => buySpot(s), () => sfx.buy());
+    const v = this.simpleCard('carlot-spot', t('ui.spot.title'), t('ui.spot.desc'), (s) => buySpot(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = spotCost(s.carlot.spots, cityScale(s));
       setText(v.lvl, `${s.carlot.spots} / ${ECON.carlot.spots.start + ECON.carlot.spots.costs.length}`);
@@ -875,16 +875,16 @@ export class Ui {
 
   private lotCrewCard(kind: CarLotCrewKind): CardView {
     const info = ECON.carlot.crew[kind];
-    const blurb = kind === 'detailer' ? 'Refurbishes your cars, even offline' : 'Buys the best-value car at the auction for you';
+    const blurb = kind === 'detailer' ? t('ui.lot.detailer') : t('ui.lot.agent');
     const v = this.simpleCard(`carlot-${kind}`, info.name, blurb, (s) => hireLotCrew(s, kind), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.carlot.crew[kind];
-      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
       if (kind === 'detailer') setText(v.desc, hired ? `Polishing ${detailerRate(s).toFixed(1)} work/s, even offline` : blurb);
       else setText(v.desc, hired ? `Bids when you have ${ECON.carlot.agentReserve}x the price · with the Detailer the lot runs offline` : blurb);
       v.btn.classList.toggle('done', hired);
       const cost = lotCrewCost(s, kind);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -912,7 +912,7 @@ export class Ui {
   }
 
   private boothCard(): CardView {
-    const v = this.simpleCard('paint-booths', 'Extra Booth', 'Room for one more customer car', (s) => buyBooth(s), () => sfx.buy());
+    const v = this.simpleCard('paint-booths', t('ui.booth.title'), t('ui.bay.desc'), (s) => buyBooth(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = boothCost(s.paint.booths, cityScale(s));
       setText(v.lvl, `${s.paint.booths} / ${ECON.paint.booths.start + ECON.paint.booths.costs.length}`);
@@ -930,11 +930,11 @@ export class Ui {
     const v = this.simpleCard('paint-painter', f.name, blurb, (s) => hirePainter(s), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.paint.painter;
-      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
       setText(v.desc, hired ? `Working ${painterRate(s).toFixed(1)} work/s, even offline` : blurb);
       v.btn.classList.toggle('done', hired);
       const cost = painterCost(s);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -1095,7 +1095,7 @@ export class Ui {
     }
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
     hg.classList.toggle('lesson', lesson);
-    setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
+    setText(this.haggleLabel, lesson ? t('ui.haggle.lesson') : t('ui.haggle.close'));
     const tongue = perkChip(this.deps.state(), 'silverTongue');
     if (tongue) this.haggleLabel.append(perkChipEl(tongue));
     const start = performance.now();
@@ -1116,8 +1116,8 @@ export class Ui {
       const mult = pos === null ? 1 : haggleMultiplier(pos, lesson, zone);
       const grade = haggleGrade(mult);
       hg.classList.add('stopped', grade);
-      const words = { perfect: 'PERFECT!', great: 'Great deal!', good: 'Deal!', poor: 'Ouch…' } as const;
-      setText(this.haggleLabel, pos === null ? 'Sold at asking price' : `${words[grade]} x${mult.toFixed(2)}`);
+      const words = { perfect: t('ui.haggle.perfect'), great: t('ui.haggle.great'), good: t('ui.haggle.good'), poor: t('ui.haggle.poor') } as const;
+      setText(this.haggleLabel, pos === null ? t('ui.haggle.asking') : `${words[grade]} x${mult.toFixed(2)}`);
       if (grade === 'perfect') sfx.fanfare();
       else if (grade === 'poor') sfx.denied();
       else sfx.buy();
