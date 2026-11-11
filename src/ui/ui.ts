@@ -368,7 +368,7 @@ export class Ui {
       } else if (kind === 'press') {
         setText(desc, `Crush every ${crusherCooldown(level).toFixed(1)}s · +${crushParts('common', level)} ⚙ per wreck`);
       } else {
-        const what = kind === 'wash' ? 'Wash power' : 'Repair power';
+        const what = t(kind === 'wash' ? 'ui.upg.wash' : 'ui.upg.repair');
         setText(desc, `${what} x${stationPower(level).toFixed(2)}${ms ? ` · x2 at Lv ${ms}` : ''}`);
       }
       if (kind !== 'quality' && kind !== 'press' && ms) {
@@ -454,7 +454,7 @@ export class Ui {
     const root = el('div', 'card crusher');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Car Crusher'), lvl);
+    title.append(document.createTextNode(t('ui.crusher.title')), lvl);
     const desc = el('div', 'desc');
     const btn = el('button', 'buy') as HTMLButtonElement;
     root.append(title, desc, btn);
@@ -693,8 +693,8 @@ export class Ui {
 
   private teaserCard(): CardView {
     const root = el('div', 'card');
-    const title = el('div', 'title display', 'Repair Garage');
-    const desc = el('div', 'desc', 'Your second business. Opens in the next update.');
+    const title = el('div', 'title display', t('ui.teaser.title'));
+    const desc = el('div', 'desc', t('ui.teaser.desc'));
     const btn = el('button', 'buy', t('ui.comingSoon')) as HTMLButtonElement;
     btn.disabled = true;
     root.append(title, desc, btn);
@@ -1062,7 +1062,7 @@ export class Ui {
     if (!show || !car) return;
     this.tuneBtn.disabled = block !== null;
     const svc = ECON.paint.services[lotCarService(car)];
-    const sub = block === 'boothsFull' ? 'Booths busy' : `+${formatCash(lotTuneValue(s, car))}`;
+    const sub = block === 'boothsFull' ? t('ui.lot.boothsBusy') : `+${formatCash(lotTuneValue(s, car))}`;
     // Short names fit beside Sell: "Custom rims" -> "Rims", "Engine tune" -> "Tune".
     const word = svc.name.split(' ').pop() ?? svc.name;
     const html = `${svc.icon} ${word[0]!.toUpperCase()}${word.slice(1)}<small>${sub}</small>`;
@@ -1545,7 +1545,7 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back to the paint shop' };
+    const backTo: Record<BusinessId, string> = { scrapyard: t('ui.back.scrapyard'), garage: t('ui.back.garage'), carlot: t('ui.back.carlot'), paint: t('ui.back.paint') };
     const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
     done.onclick = () => {
       sfx.tap();
@@ -1932,8 +1932,8 @@ export class Ui {
         foot.append(r);
       } else if (v.respecNote) foot.append(el('small', 'tree-note', v.respecNote));
       const st = this.deps.state();
-      const best = st.legacy.bestRunSeconds > 0 ? `Fastest empire: ${formatDuration(st.legacy.bestRunSeconds)} · empires sold: ${st.legacy.sold}. ` : '';
-      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? 'Sell your empire on the city map for more points.'}`));
+      const best = st.legacy.bestRunSeconds > 0 ? t('ui.legacy.fastest', { time: formatDuration(st.legacy.bestRunSeconds), sold: st.legacy.sold }) : '';
+      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? t('ui.legacy.sellHint')}`));
     };
     paint();
     const ok = el('button', 'buy', 'Done') as HTMLButtonElement;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.0 - 2026-11-11 (run 49)
+
+- **Translation layer:** the lot buyers' and paint customers' speech lines, the game event banners and toasts
+  (legendary, barn, orders, first sale of a car type, daily gift, quick tip), the first-launch intro and the last
+  literals in `ui.ts` moved to `en.ts` (`lot.say.*`, `paint.say.*`, `event.*`, `intro.*`, `ui.*`). Nothing changes for players.
+
 ## 0.48.0 - 2026-11-11 (run 48)
 
 - **Translation layer:** the Repair Garage scene texts ("Free bay", yard-parts and parts-bill notes) and the fifteen

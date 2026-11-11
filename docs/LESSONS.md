@@ -775,3 +775,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the test that read the table directly (`CUSTOMER_LINES.map(t)`).
 - **Poll long checks in sleeps under 2 minutes:** a `sleep 240` in one call was killed by the tool timeout; the
   `nohup` check itself kept running, so nothing was lost.
+
+## 2026-11-11 (run 49)
+
+- **Grep for stray literals with more than one pattern before declaring a move done:** the first grep (`floatText|setText`)
+  missed `ui.toast`/`ui.showBanner` calls in `main.ts`; a second grep on `ui\.(toast|showBanner)\(` and `title:|body:|button:`
+  found them. Do both passes up front.
+- **Tables of lines become key tables (`BaseKey[]`) resolved with `t()` at the pick function,** so tests can keep checking
+  stability and length by mapping the keys through `t`.

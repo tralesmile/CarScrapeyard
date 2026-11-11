@@ -81,3 +81,12 @@ describe('scene texts', () => {
     expect(t('scene.slot.ready')).toBe('Ready!');
   });
 });
+
+describe('event and scene lines in the catalog (P1.9b, run 49)', () => {
+  it('banners, toasts and the intro take parameters from the catalog', () => {
+    expect(t('event.legendary.body', { model: 'Stallion GT' })).toBe('A Legendary Stallion GT rolled in');
+    expect(t('event.firstSold', { family: 'Van', n: 2, total: 9 })).toBe('📒 First Van sold! Collection: 2/9 car types');
+    expect(t('ui.legacy.fastest', { time: '3h 2m', sold: 1 })).toContain('empires sold: 1');
+    expect(t('intro.button')).toBe("Let's go!");
+  });
+});

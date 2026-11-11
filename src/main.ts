@@ -33,6 +33,7 @@ import {
   type CrazyGamesGlobal,
   type PokiGlobal,
 } from './platform/portal';
+import { t } from './i18n';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
 import { rivalToast, rivalToastDue } from './ui/storyView';
@@ -92,14 +93,14 @@ function onEvents(events: GameEvent[]) {
     if (e.type === 'sold' || e.type === 'garageFixed') sales.push({ t: performance.now(), amount: e.amount });
     if (e.type === 'lotSold') sales.push({ t: performance.now(), amount: Math.max(0, e.profit) });
     if (e.type === 'familyUnlocked') {
-      ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
+      ui.showBanner(t('event.newCars.title'), t('event.newCars.body', { family: ECON.families[e.family].name }));
       sfx.fanfare();
     }
     // First car of a family sold (P0.14i). The starter families are counted quietly during the first sales,
     // so the tutorial hints and the haggle lesson are not crowded.
     if (e.type === 'firstOfFamily' && (ECON.families[e.family].unlockCarsSold > 0 || state.carsSold > ECON.collection.quietSales)) {
       const total = Object.keys(ECON.families).length;
-      ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
+      ui.toast(t('event.firstSold', { family: ECON.families[e.family].name, n: e.families, total }), 3500);
       sfx.repaired();
     }
     // Collection book (P1.4a): completed sets get a banner, mastery stars a toast.
@@ -109,18 +110,18 @@ function onEvents(events: GameEvent[]) {
       sfx.fanfare();
     }
     if (e.type === 'mastery') ui.toast(masteryToast(e.model, e.stars), 2500);
-    if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
+    if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner(t('event.legendary.title'), t('event.legendary.body', { model: e.car.model }));
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
-      ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
+      ui.toast(t('event.barnStage', { stage: ECON.barn.stages[e.stage - 1]!.name }), 2500);
       sfx.repaired();
     }
     if (e.type === 'barnFinished') {
-      ui.showBanner('RESTORED!', 'Reveal your classic in the Yard tab');
+      ui.showBanner(t('event.restored.title'), t('event.restored.body'));
       sfx.fanfare();
     }
-    if (e.type === 'barnFound' && state.barn.restored > 0) ui.toast('Grandpa Joe found another covered classic!', 3000);
+    if (e.type === 'barnFound' && state.barn.restored > 0) ui.toast(t('event.barnAgain'), 3000);
     if (e.type === 'contractDone') {
-      ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
+      ui.showBanner(t('event.order.title'), t('event.order.body'));
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
@@ -138,14 +139,14 @@ function onEvents(events: GameEvent[]) {
     if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();
     if (e.type === 'paintDone') {
       sales.push({ t: performance.now(), amount: e.amount });
-      if (e.tip > 0 && state.paint.tips === 1) ui.toast(`⚡ Quick tip! Finish an order fast yourself and the customer tips +${Math.round(ECON.paint.tip * 100)}%`, 4000);
+      if (e.tip > 0 && state.paint.tips === 1) ui.toast(t('event.quickTip', { pct: Math.round(ECON.paint.tip * 100) }), 4000);
     }
     if (e.type === 'paintLotCarDone' && state.businesses.active !== 'paint') {
       const car = state.carlot.cars.find((c) => c.id === e.carId);
-      if (car) ui.toast(`🏷️ ${car.model} is back on the lot: +${formatCash(e.value)} on the sticker`, 3000);
+      if (car) ui.toast(t('event.lotBack', { model: car.model, cash: formatCash(e.value) }), 3000);
     }
     if (e.type === 'giftCar') {
-      ui.showBanner('GIFT CAR!', `🎁 ${e.car.model}, ${ECON.rarity[e.car.rarity].label}, from your daily calendar`);
+      ui.showBanner(t('event.gift.title'), t('event.gift.body', { model: e.car.model, rarity: ECON.rarity[e.car.rarity].label }));
       dirty = true;
     }
     if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
@@ -345,10 +346,9 @@ if (loaded) {
 }
 if (!state.tutorial.introSeen) {
   ui.modal({
-    title: "Grandpa Joe's Yard",
-    body:
-      '<p class="note">"Kid, this old scrapyard is yours now. Wash the wrecks, fix them up and sell them. Make it the biggest name in cars."<br>— Grandpa Joe</p>',
-    button: "Let's go!",
+    title: t('intro.title'),
+    body: `<p class="note">${t('intro.body')}<br>${t('intro.signoff')}</p>`,
+    button: t('intro.button'),
     onClose: () => {
       state.tutorial.introSeen = true;
       dirty = true;

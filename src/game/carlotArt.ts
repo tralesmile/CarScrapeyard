@@ -4,6 +4,7 @@
 // context; the layout helpers are unit-tested. Motor City (P1.3d3b): a dusk sky over taller towers with lit windows.
 
 import type { CityId, Condition, LotBuyerKind } from '../core/config';
+import { t, type BaseKey } from '../i18n';
 import { BUYER_W, OUTLINE, person } from './buyerArt';
 
 export interface LotLayout {
@@ -134,18 +135,18 @@ export const CONDITION_RUST: Record<Condition, { patches: number; dents: number 
 };
 
 /** What a walk-up buyer says while looking a car over (P1.2c): a happy line when it is their kind of car. */
-export const LOT_BUYER_LINES: Record<LotBuyerKind, { likes: readonly string[]; plain: readonly string[] }> = {
-  family: { likes: ['Room for the kids!', 'Perfect for school runs!'], plain: ['Hmm, does it fit a pram?', 'Looks tidy enough.'] },
-  collector: { likes: ['All original? Marvellous!', 'Factory paint! I must have it.'], plain: ['Hmm, a few new parts…', 'It will do, I suppose.'] },
-  speed: { likes: ['Ooh, listen to that engine!', 'How fast does it go?'], plain: ['Bit slow for me…', 'It runs, right?'] },
-  tradie: { likes: ['Plenty of room for tools!', 'She will haul a load!'], plain: ['Where do the ladders go?', 'Fair enough, mate.'] },
-  influencer: { likes: ['My followers will love this!', 'Selfie with it first!'], plain: ['Not very photogenic…', 'Hmm, filter it later.'] },
+export const LOT_BUYER_LINES: Record<LotBuyerKind, { likes: readonly BaseKey[]; plain: readonly BaseKey[] }> = {
+  family: { likes: ['lot.say.family.likes.0', 'lot.say.family.likes.1'], plain: ['lot.say.family.plain.0', 'lot.say.family.plain.1'] },
+  collector: { likes: ['lot.say.collector.likes.0', 'lot.say.collector.likes.1'], plain: ['lot.say.collector.plain.0', 'lot.say.collector.plain.1'] },
+  speed: { likes: ['lot.say.speed.likes.0', 'lot.say.speed.likes.1'], plain: ['lot.say.speed.plain.0', 'lot.say.speed.plain.1'] },
+  tradie: { likes: ['lot.say.tradie.likes.0', 'lot.say.tradie.likes.1'], plain: ['lot.say.tradie.plain.0', 'lot.say.tradie.plain.1'] },
+  influencer: { likes: ['lot.say.influencer.likes.0', 'lot.say.influencer.likes.1'], plain: ['lot.say.influencer.plain.0', 'lot.say.influencer.plain.1'] },
 };
 
 /** The buyer's line for this car; `bonus > 0` means they like it. Stable per car so it doesn't flicker. */
 export function lotBuyerLine(kind: LotBuyerKind, bonus: number, carId: number): string {
   const set = bonus > 0 ? LOT_BUYER_LINES[kind].likes : LOT_BUYER_LINES[kind].plain;
-  return set[Math.abs(carId * 7) % set.length] ?? set[0]!;
+  return t(set[Math.abs(carId * 7) % set.length] ?? set[0]!);
 }
 
 /** "★★★☆☆" for a condition grade. */
