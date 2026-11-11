@@ -61,3 +61,12 @@ describe('i18n', () => {
     expect(t('banner.empire')).toBe('EMPIRE FOR SALE!');
   });
 });
+
+describe('daily card texts', () => {
+  it('builds the calendar and task texts from the catalog', () => {
+    expect(t('daily.cal.day', { n: 3, total: 7 })).toBe('Day 3/7');
+    expect(t('daily.claim', { reward: '$5K' })).toBe('Claim $5K');
+    expect(t('daily.task.bonus', { count: 3, cash: '$9K' })).toBe(' · all 3: +$9K');
+    expect(t('daily.cal.tomorrow', { what: '$1K' })).toBe('Tomorrow: $1K');
+  });
+});

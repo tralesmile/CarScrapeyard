@@ -847,7 +847,25 @@ async function waitForServer(url, ms = 15000) {
       return st ? { press: st.press.visible, worker: st.scrapper.visible, y: st.press.y } : null;
     });
     assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
-    await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
+    // The Scrapper needs a fresh Common wreck nobody has started on and no crusher cooldown; the automation may have
+    // cleaned every yard car already, so keep the cooldown at 0 while waiting for the next arrival (flake P1.3u, run 46).
+    try {
+      await page.waitForFunction(
+        (n) => {
+          const s = window.__jye.state;
+          s.crusherCooldown = 0;
+          return s.stats.carsCrushed > n;
+        },
+        crushedBefore,
+        { timeout: 30000 },
+      );
+    } catch (err) {
+      const info = await page.evaluate(() => {
+        const s = window.__jye.state;
+        return { parts: s.parts, rest: s.scrapperRest, cd: s.crusherCooldown, cars: s.cars.map((c) => `${c.rarity}:${c.dirt.toFixed(1)}:${c.damage.toFixed(1)}`) };
+      });
+      throw new Error(`Scrapper never crushed a wreck ${JSON.stringify(info)}: ${err.message}`);
+    }
     await page.waitForTimeout(200);
     // Check the 620 ms slam before the screenshot: a 3x screenshot can take longer than the tween.
     const plateMoved = await page.evaluate(() => {

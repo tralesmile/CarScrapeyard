@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.0 - 2026-11-11 (run 46)
+
+- **Translation layer:** the daily calendar card and the three daily task cards (title, day counter, today/tomorrow text,
+  claim buttons, reward and bonus lines, banners) moved to `en.ts` (`daily.cal.*`, `daily.task.*`, `daily.claim`).
+  Nothing changes for players.
+- **Fix (rare crash):** car textures are freed through `removeTexturesSafely`, so no image can draw a removed texture
+  (the WebGL `glTexture` page error seen twice in e2e). e2e: the Scrapper wait is steadier and reports its state on failure.
+
 ## 0.45.0 - 2026-11-11 (run 45)
 
 - **Translation layer:** all `aria-label` texts in `ui.ts` (perks, condition stars, map button, tiers, Legacy nodes, shop

@@ -4,6 +4,7 @@
 // the exhaust. When the last service is done the customer pays (plus the tip) and drives off. Like the other scenes,
 // this one runs the core tick for every business and forwards every event to the bridge.
 
+import { removeTexturesSafely } from './textureSafe';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -309,7 +310,7 @@ export class PaintScene extends Phaser.Scene {
   }
 
   private releaseTextures(id: number) {
-    for (const k of [`pcar-${id}`, `pnew-${id}`, `pstripe-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [`pcar-${id}`, `pnew-${id}`, `pstripe-${id}`]);
   }
 
   private layers() {

@@ -749,3 +749,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the exact text before mapping a string to an old key, and add the unit test for the final text.
 - **When a scheduled run starts, kick off the baseline with `nohup` first and do the string moves while its e2e runs:** the
   build step is done after ~1 min, after which source edits are safe (the e2e runs on `dist`), so the baseline cost no time.
+
+## 2026-11-11 (run 46)
+
+- **Before swapping literals for `t(...)`, grep the enclosing function for a local named `t`:** the daily task card's
+  `update` had `const t = s.daily.tasks[index]`, which would have shadowed the translator (a runtime TypeError that `tsc`
+  may not flag in every case). Rename the local (`task`) in the same edit.
+- **A flake that recurs twice with the same stack is a real race, not noise:** `glTexture` of null came from freeing a
+  texture while an image (a lot thumbnail waiting for the next rebuild) still showed it. Fix it where textures are freed
+  (one helper for every scene), not by re-running the e2e until it passes. When a flake note says "if it recurs, log X",
+  add the logging in the same run it first happens, so the second occurrence is diagnosable.

@@ -493,7 +493,7 @@ export class Ui {
     const root = el('div', 'card daily calendar');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('📅 Daily'), lvl);
+    title.append(document.createTextNode(t('daily.cal.title')), lvl);
     const strip = el('div', 'cal-strip');
     strip.setAttribute('aria-hidden', 'true');
     const desc = el('div', 'desc');
@@ -502,7 +502,7 @@ export class Ui {
     let key = '';
     btn.onclick = () => {
       const r = claimCalendar(this.deps.state());
-      if (r) this.dailyPaid(r, r.gift ? 'GIFT CAR!' : 'DAILY REWARD!');
+      if (r) this.dailyPaid(r, r.gift ? t('daily.cal.bannerGift') : t('daily.cal.banner'));
     };
     const update = (s: GameState) => {
       const cells = calendarCells(s);
@@ -514,11 +514,11 @@ export class Ui {
       const open = canClaimCalendar(s);
       const idx = calendarIndex(s);
       const r = calendarReward(s);
-      const what = r.gift ? `🎁 an ${ECON.rarity[ECON.daily.giftRarity].label} car for the yard` : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}${r.gems ? ` + ${r.gems} 💎` : ''}${r.tokens ? ` + ${r.tokens} 🎟` : ''}`;
+      const what = r.gift ? t('daily.cal.giftWhat', { rarity: ECON.rarity[ECON.daily.giftRarity].label }) : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}${r.gems ? ` + ${r.gems} 💎` : ''}${r.tokens ? ` + ${r.tokens} 🎟` : ''}`;
       root.classList.toggle('ready', open);
-      setText(lvl, `Day ${idx + 1}/${ECON.daily.calendar.length}`);
-      setText(desc, open ? `Today: ${what}. Play every day for the gift car on day 7.` : `Tomorrow: ${what}`);
-      setText(btn, open ? (r.gift ? 'Claim gift car' : `Claim ${formatCash(r.cash)}`) : `Next in ${waitText(msToReset(this.deps.now()))}`);
+      setText(lvl, t('daily.cal.day', { n: idx + 1, total: ECON.daily.calendar.length }));
+      setText(desc, open ? t('daily.cal.today', { what }) : t('daily.cal.tomorrow', { what }));
+      setText(btn, open ? (r.gift ? t('daily.cal.claimGift') : t('daily.claim', { reward: formatCash(r.cash) })) : t('daily.cal.next', { wait: waitText(msToReset(this.deps.now())) }));
       btn.disabled = !open;
     };
     return { root, lvl, desc, btn, update };
@@ -542,25 +542,25 @@ export class Ui {
       if (!r) return;
       // The third claim also pays the all-done bonus.
       const b = claimBonus(s);
-      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false, gems: r.gems + b.gems, tokens: r.tokens + b.tokens } : r, b ? 'ALL DAILIES DONE!' : 'TASK DONE!');
+      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false, gems: r.gems + b.gems, tokens: r.tokens + b.tokens } : r, b ? t('daily.task.bannerAll') : t('daily.task.banner'));
     };
     const update = (s: GameState) => {
-      const t = s.daily.tasks[index];
-      root.style.display = t ? '' : 'none';
-      if (!t) return;
-      const done = taskDone(t);
-      root.classList.toggle('ready', done && !t.claimed);
-      root.classList.toggle('claimed', t.claimed);
-      setText(name, taskLabel(t.kind, t.target));
-      setText(lvl, `${t.progress}/${t.target}`);
-      bar.style.width = `${(t.progress / t.target) * 100}%`;
-      const r = taskReward(s, t);
+      const task = s.daily.tasks[index];
+      root.style.display = task ? '' : 'none';
+      if (!task) return;
+      const done = taskDone(task);
+      root.classList.toggle('ready', done && !task.claimed);
+      root.classList.toggle('claimed', task.claimed);
+      setText(name, taskLabel(task.kind, task.target));
+      setText(lvl, `${task.progress}/${task.target}`);
+      bar.style.width = `${(task.progress / task.target) * 100}%`;
+      const r = taskReward(s, task);
       const reward = `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''} + ${r.tokens} 🎟`;
       const left = s.daily.tasks.filter((x) => !x.claimed).length;
-      const bonus = !s.daily.bonusClaimed && left > 0 ? ` · all ${s.daily.tasks.length}: +${formatCash(bonusReward(s).cash)}` : '';
-      setText(desc, t.claimed ? `Claimed · ${resetText(msToReset(this.deps.now()))}` : `Reward ${reward}${bonus}`);
-      setText(btn, t.claimed ? '✓ Claimed' : done ? `Claim ${reward}` : 'In progress');
-      btn.disabled = t.claimed || !done;
+      const bonus = !s.daily.bonusClaimed && left > 0 ? t('daily.task.bonus', { count: s.daily.tasks.length, cash: formatCash(bonusReward(s).cash) }) : '';
+      setText(desc, task.claimed ? t('daily.task.claimedDesc', { reset: resetText(msToReset(this.deps.now())) }) : t('daily.task.reward', { reward, bonus }));
+      setText(btn, task.claimed ? t('daily.task.claimed') : done ? t('daily.claim', { reward }) : t('daily.task.progress'));
+      btn.disabled = task.claimed || !done;
     };
     return { root, lvl, desc, bar, btn, update };
   }

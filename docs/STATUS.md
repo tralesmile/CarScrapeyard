@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-11 (run 45; next run is run 46). Runs now start every 3 hours.
+Last updated: 2026-11-11 (run 46; next run is run 47). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -174,9 +174,13 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short
       stack. If it recurs, read the tag and look for a texture removed/regenerated while a sprite still uses it.
+      Recurred in run 46 after "lot cars through the paint shop" (`batchSprite` -> `glTexture`): all scenes now free car
+      textures through `removeTexturesSafely` (`src/game/textureSafe.ts`), which repoints images still using them (also in
+      containers) to `__WHITE` first. Tick this when a few runs pass without the error.
 - [ ] P1.3u e2e flake (run 45): the "scrapper" section's `waitForFunction(carsCrushed > n)` timed out once (20 s) in a run
       that passed on the immediate re-run; code was unrelated (string moves). If it recurs, log whether a wreck was in the
-      yard and `scrapperRest` when it times out.
+      yard and `scrapperRest` when it times out. Run 46: it recurred; the wait now zeroes `crusherCooldown`, waits 30 s and
+      throws the parts, rest, cooldown and yard cars on a timeout (likely cause: the automation cleaned every yard car).
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
 - [x] P1.3q2 Quality (run 25, fixed run 26): on a 320x568 phone the paint shop's tap hint pill covered the lower half
@@ -271,7 +275,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
       plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
       the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
-  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts`; run 40: `cityMap.ts` and the Settings sheet in `ui.ts`; run 41: `legacyView.ts`; run 42: the lot, barn, crush, Sell Empire and Welcome back modals in `ui.ts`; run 43: HUD labels, tabs, crew/lot/garage/paint cards and the haggle slider; run 44: contract and barn cards; run 45: aria labels, event banners and toasts in `ui.ts`; left: the daily cards,
+  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts`; run 40: `cityMap.ts` and the Settings sheet in `ui.ts`; run 41: `legacyView.ts`; run 42: the lot, barn, crush, Sell Empire and Welcome back modals in `ui.ts`; run 43: HUD labels, tabs, crew/lot/garage/paint cards and the haggle slider; run 44: contract and barn cards; run 45: aria labels, event banners and toasts in `ui.ts`; run 46: the daily calendar and task cards; left:
         `workLabel`-style progress texts, scene/game strings (`src/game`), ...)
         into `en.ts` one view per run, then add a language setting once a second language exists.
 - [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),

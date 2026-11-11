@@ -3,6 +3,7 @@
 // take it at the list price. Owned cars show in the spot row above. The other businesses keep ticking (the core tick
 // runs everything), so this scene forwards every event to the bridge like the yard and the garage.
 
+import { removeTexturesSafely } from './textureSafe';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -252,7 +253,7 @@ export class CarLotScene extends Phaser.Scene {
 
   private releaseTextures(id: number) {
     const keys = this.textures.getTextureKeys().filter((k) => k.startsWith(`lcar-${id}-`));
-    for (const k of [...keys, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [...keys, `lrust-${id}`]);
   }
 
   private placeBigCar() {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { removeTexturesSafely } from './textureSafe';
 import { sfx } from '../audio/sfx';
 import { currentCity } from '../core/cities';
 import { ECON } from '../core/config';
@@ -339,7 +340,7 @@ export class YardScene extends Phaser.Scene {
   }
 
   private releaseCarTextures(id: number) {
-    for (const k of [`car-${id}`, `rust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [`car-${id}`, `rust-${id}`]);
   }
 
   // ---- background ----------------------------------------------------------

@@ -2,6 +2,7 @@
 // fix it, then the customer pays and drives off. The scrapyard keeps ticking (the core tick runs everything), so this
 // scene forwards every event to the bridge just like the yard does.
 
+import { removeTexturesSafely } from './textureSafe';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -321,7 +322,7 @@ export class GarageScene extends Phaser.Scene {
   }
 
   private releaseTextures(id: number) {
-    for (const k of [`gcar-${id}`, `grust-${id}`, `gthumb-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [`gcar-${id}`, `grust-${id}`, `gthumb-${id}`]);
   }
 
   private placeBigCar() {
