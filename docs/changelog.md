@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.48.0 - 2026-11-11 (run 48)
+
+- **Translation layer:** the Repair Garage scene texts ("Free bay", yard-parts and parts-bill notes) and the fifteen
+  customer lines moved to `en.ts` (`scene.garage.*`, `garage.say.*`). Nothing changes for players.
+
 ## 0.47.0 - 2026-11-11 (run 47)
 
 - **Translation layer:** the floating texts and labels drawn on the yard, Used Car Lot and Paint & Tuning scenes (barn

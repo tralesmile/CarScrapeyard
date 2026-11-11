@@ -767,3 +767,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   everything or nothing; `tsc` plus one catalog unit test was enough to trust the result without reading each diff.
 - **The scheduled prompt's `add_repo` step may be a no-op:** the repo was already cloned and in scope (as in run 43), so
   `git fetch` and `git checkout -B dev origin/dev` was all that was needed.
+
+## 2026-11-11 (run 48)
+
+- **When a data table of strings becomes catalog keys, type it with `BaseKey`, not `MessageKey`:** `t()` takes `BaseKey`
+  (plural suffixes stripped), so a `MessageKey[]` fails to compile with a confusing 350-member union error. Also update
+  the test that read the table directly (`CUSTOMER_LINES.map(t)`).
+- **Poll long checks in sleeps under 2 minutes:** a `sleep 240` in one call was killed by the tool timeout; the
+  `nohup` check itself kept running, so nothing was lost.
