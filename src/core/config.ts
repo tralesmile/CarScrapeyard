@@ -664,3 +664,7 @@ export const MODEL_NAMES: Record<CarFamily, readonly string[]> = {
   sports: ['Kaze Raiden', 'Regalia Vento', 'Vortex Arrow', 'Stallion Blaze'],
   hyper: ['Vortex Zenith', 'Stallion Phantom', 'Kaze Tempest', 'Regalia Halo'],
 };
+
+/** Highest upgrade level a save may hold. Costs grow exponentially, so nobody gets near it; the cap keeps a corrupt level
+ * from overflowing a price or income formula to Infinity. */
+export const MAX_SAVED_LEVEL = 1000;

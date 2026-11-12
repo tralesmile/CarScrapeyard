@@ -798,3 +798,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   while it runs, and apply it only after the baseline finishes.
 - **Data tables in `config.ts` hold English display names:** when moving them to the catalog, keep the config name for
   balance tools and add a unit test that the catalog text equals it, so the two cannot drift apart.
+
+
+## 2026-11-12 (run 52)
+
+- **When every planned task is done, fuzz the boundaries instead of polishing:** a 70-line seeded corruption test over the
+  save loader found two real crashes in minutes that 40 hand-written save tests had missed. Print the seed in the failure
+  message and walk the state for non-finite numbers to find the culprit; the first guess (a clamped level) was wrong.
+- **Caps must be checked against the formulas that consume them:** a "sane" level cap of 99,999 still overflowed
+  `1.1^level`. Pick caps from where the formula stays finite, and keep them in `config.ts`.
+

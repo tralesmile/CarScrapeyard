@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.52.0 - 2026-11-12 (run 52)
+
+- **Safer saves:** a damaged save file can no longer crash the game or turn cash into Infinity. A fuzz test now corrupts
+  random save fields and plays on; the two bugs it found are fixed (negative car counter, absurd upgrade levels / paint
+  fees). Upgrade levels in a save are capped at 1000 (nobody can buy that many). Nothing changes for normal play.
+
 ## 0.51.0 - 2026-11-12 (run 51)
 
 - **Translation layer:** the five garage fault names (fault bubble) and the garage tap hint moved to `en.ts`

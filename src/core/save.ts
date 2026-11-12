@@ -9,7 +9,7 @@ import { sanitizeDaily } from './daily';
 import { sanitizeAchievements } from './achievements';
 import { sanitizeWallet } from './wallet';
 import { sanitizeStory } from './story';
-import { ECON } from './config';
+import { ECON, MAX_SAVED_LEVEL } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
 import { sanitizeCarLot } from './carlot';
@@ -122,7 +122,7 @@ function sane(state: GameState): boolean {
   if (state.cash > state.lifetimeEarnings + gift + 1) return false;
   if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;
-  return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l < 100_000);
+  return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l <= MAX_SAVED_LEVEL);
 }
 
 export function serialize(state: GameState, now: number): string {
@@ -141,6 +141,10 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     const raw = JSON.parse(env.data) as Record<string, unknown>;
     const migrated = migrate(raw, env.v);
     const state = withDefaults(migrated, newGame(now));
+    // Counters that pick what arrives next: a negative or fractional value would leave no unlocked car family.
+    state.carsSold = Math.max(0, Math.floor(state.carsSold));
+    state.nextCarId = Math.max(1, Math.floor(state.nextCarId));
+    state.rng = state.rng >>> 0;
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract).map((c) => ({ ...c, rerolled: c.rerolled === true }));
     state.buyer = validBuyer(state.buyer);

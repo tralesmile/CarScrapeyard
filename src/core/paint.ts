@@ -4,7 +4,7 @@
 // from sim.ts once the shop is open, whichever business is on screen.
 
 import type { CarFamily, PaintService, PaintUpgradeKind } from './config';
-import { ECON, MODEL_NAMES, PAINTS } from './config';
+import { ECON, MODEL_NAMES, PAINTS, MAX_SAVED_LEVEL } from './config';
 import { carlotOpen, ensureLotFocus, findLotCar, lotCarHere, lotCarReady } from './carlot';
 import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
@@ -361,7 +361,7 @@ function validJob(j: unknown): j is PaintJob {
   if (!j || typeof j !== 'object') return false;
   const o = j as Record<string, unknown>;
   const nums = ['id', 'paint', 'newPaint', 'step', 'work', 'fee', 'age'].every(
-    (k) => typeof o[k] === 'number' && Number.isFinite(o[k] as number) && (o[k] as number) >= 0,
+    (k) => typeof o[k] === 'number' && Number.isFinite(o[k] as number) && (o[k] as number) >= 0 && (o[k] as number) <= 1e18,
   );
   if (!nums || typeof o.family !== 'string' || !(o.family in ECON.families) || typeof o.model !== 'string') return false;
   const sv = o.services;
@@ -395,7 +395,7 @@ export function sanitizePaint(p: GameState['paint']): void {
   const c = ECON.paint;
   const maxBooths = c.booths.start + c.booths.costs.length;
   p.booths = Math.min(maxBooths, Math.max(c.booths.start, Math.floor(p.booths)));
-  for (const k of PAINT_UPGRADES) p.levels[k] = Math.max(1, Math.min(99_999, Math.floor(p.levels[k])));
+  for (const k of PAINT_UPGRADES) p.levels[k] = Math.max(1, Math.min(MAX_SAVED_LEVEL, Math.floor(p.levels[k])));
   p.painter = p.painter === true;
   p.jobs = p.jobs.filter(validJob).slice(0, p.booths);
   // Work left can't be more than the current service needs.

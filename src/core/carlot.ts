@@ -3,7 +3,7 @@
 // lot is open, whichever business is on screen.
 
 import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, LotBuyerKind, PaintService } from './config';
-import { ECON, MODEL_NAMES, PAINTS } from './config';
+import { ECON, MODEL_NAMES, PAINTS, MAX_SAVED_LEVEL } from './config';
 import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
@@ -493,7 +493,7 @@ export function sanitizeCarLot(l: GameState['carlot']): void {
   const c = ECON.carlot;
   const maxSpots = c.spots.start + c.spots.costs.length;
   l.spots = Math.min(maxSpots, Math.max(c.spots.start, Math.floor(l.spots)));
-  for (const k of CARLOT_UPGRADES) l.levels[k] = Math.max(1, Math.min(99_999, Math.floor(l.levels[k])));
+  for (const k of CARLOT_UPGRADES) l.levels[k] = Math.max(1, Math.min(MAX_SAVED_LEVEL, Math.floor(l.levels[k])));
   for (const k of CARLOT_CREW) l.crew[k] = l.crew[k] === true;
   const board: (AuctionLot | null)[] = [];
   const refill: number[] = [];

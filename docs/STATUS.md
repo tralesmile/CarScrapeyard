@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-12 (run 51; next run is run 52). Runs now start every 3 hours.
+Last updated: 2026-11-12 (run 52; next run is run 53). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -170,6 +170,11 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       as a fallback).
 - [x] P1.3s e2e flake (run 23): the 560 px paint-shop check failed once with no ticket, because the Painter finished the
       held 3-unit order during the resize. The order is held again (work 20) right before the resize.
+- [x] P1.3v Save hardening (run 52): `tests/save-fuzz.test.ts` corrupts random fields of a normal and a late-game state
+      (1500 seeds each, replayable) and plays a minute after loading. It found two crashes: a negative `carsSold` left no
+      car family unlocked (`weighted` read an empty list), and an absurd upgrade level or a paint job fee overflowed income
+      to Infinity. Fixed in `save.ts` (counters clamped), `MAX_SAVED_LEVEL = 1000` for all upgrade levels, and paint job
+      numbers capped at 1e18. Next fuzz ideas: corrupt the garage and lot cars at a higher rate; fuzz a post-Sell-Empire state.
 - [ ] P1.3t e2e flake (run 38): the first baseline `npm run check` failed at the very end with a page error
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short
