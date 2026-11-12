@@ -783,3 +783,10 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   found them. Do both passes up front.
 - **Tables of lines become key tables (`BaseKey[]`) resolved with `t()` at the pick function,** so tests can keep checking
   stability and length by mapping the keys through `t`.
+
+## 2026-11-12 (run 50)
+
+- **Do not edit source while a background `npm run check` is still running:** the build and e2e read the tree as it
+  changes, so the result would not describe either version. Edit only docs during a run, or wait and re-run.
+- **A full `npm run check` now takes about 12 minutes:** start it with `nohup` right away, poll in sleeps under 2 minutes,
+  and do the doc edits while it runs. A foreground call hits the 10-minute tool limit.

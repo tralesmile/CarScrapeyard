@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-11 (run 49; next run is run 50). Runs now start every 3 hours.
+Last updated: 2026-11-12 (run 50; next run is run 51). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -275,7 +275,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
       plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
       the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
-  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts`; run 40: `cityMap.ts` and the Settings sheet in `ui.ts`; run 41: `legacyView.ts`; run 42: the lot, barn, crush, Sell Empire and Welcome back modals in `ui.ts`; run 43: HUD labels, tabs, crew/lot/garage/paint cards and the haggle slider; run 44: contract and barn cards; run 45: aria labels, event banners and toasts in `ui.ts`; run 46: the daily calendar and task cards; run 47: the yard, lot and paint scene texts (`scene.*`); run 48: the garage scene texts and the customer lines (`garage.say.*`); run 49: lot buyer and paint customer lines (`lot.say.*`, `paint.say.*`), game event banners/toasts and the intro in `main.ts` (`event.*`, `intro.*`), the last literals in `ui.ts`; left:
+  - [ ] P1.9b Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts`; run 40: `cityMap.ts` and the Settings sheet in `ui.ts`; run 41: `legacyView.ts`; run 42: the lot, barn, crush, Sell Empire and Welcome back modals in `ui.ts`; run 43: HUD labels, tabs, crew/lot/garage/paint cards and the haggle slider; run 44: contract and barn cards; run 45: aria labels, event banners and toasts in `ui.ts`; run 46: the daily calendar and task cards; run 47: the yard, lot and paint scene texts (`scene.*`); run 48: the garage scene texts and the customer lines (`garage.say.*`); run 50: the last scene literals (`scene.lot.atShop`, `scene.lot.freeSpot`, `scene.paint.freeBooth`); run 49: lot buyer and paint customer lines (`lot.say.*`, `paint.say.*`), game event banners/toasts and the intro in `main.ts` (`event.*`, `intro.*`), the last literals in `ui.ts`; left:
         a grep for stray literals in `src/game` (garage fault bubble name/model labels); then add a language setting once a
         second language exists.
 - [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),

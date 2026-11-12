@@ -516,14 +516,14 @@ export class CarLotScene extends Phaser.Scene {
           // Away at the paint shop: the thumbnail fades and says so.
           if (away) img.setAlpha(0.35);
           items.push(img, icon);
-          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), 'At the shop', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
+          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), t('scene.lot.atShop'), { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
           // A buyer is looking this car over (shown on the platform when it is the big car).
           if (l.buyer && l.buyer.carId === car.id && car.id !== this.bigId) {
             const buyerIcon = ECON.buyers.kinds[l.buyer.kind].icon;
             items.push(this.add.text(-this.px(w / 2 - 13), -this.px(h / 2 - 12), buyerIcon, { fontSize: `${this.px(13)}px` }).setOrigin(0.5));
           }
         } else {
-          items.push(this.add.text(0, 0, 'Free spot', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
+          items.push(this.add.text(0, 0, t('scene.lot.freeSpot'), { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
         }
         const container = this.add.container(x, y, items).setDepth(4);
         container.setSize(this.px(w), this.px(h));

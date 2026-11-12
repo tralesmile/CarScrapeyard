@@ -645,7 +645,7 @@ export class PaintScene extends Phaser.Scene {
             const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), svc ? ECON.paint.services[svc].icon : '✓', { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
             items.push(img, icon);
           } else {
-            items.push(this.add.text(0, 0, 'Free booth', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
+            items.push(this.add.text(0, 0, t('scene.paint.freeBooth'), { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
           }
           const container = this.add.container(x, this.px(a.rowY), items).setDepth(4);
           container.setSize(this.px(w), this.px(h));

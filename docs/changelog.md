@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.50.0 - 2026-11-12 (run 50)
+
+- **Translation layer:** the last three scene literals ("At the shop", "Free spot", "Free booth") moved to `en.ts`
+  (`scene.lot.atShop`, `scene.lot.freeSpot`, `scene.paint.freeBooth`). Nothing changes for players.
+
 ## 0.49.0 - 2026-11-11 (run 49)
 
 - **Translation layer:** the lot buyers' and paint customers' speech lines, the game event banners and toasts
