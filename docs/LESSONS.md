@@ -816,3 +816,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   the e2e uses `dist` but vitest reads sources.
 - **A fuzz extension that finds nothing is still a result:** target subtrees with a high corruption rate instead of
   widening the same global rate; it proves the repair code covers those branches and costs 3 seconds of test time.
+
+## 2026-11-12 (run 54)
+
+- **When there is no `add_repo` tool and the repo is already cloned on a detached `main`, just check out `dev`:** the
+  scheduled prompt's step 1 can be satisfied by the existing clone; do not waste a turn searching for the tool.
+- **Fuzz helpers that only recurse into objects skip scalar top-level fields:** `lastSeen` and `pendingOffline` came back
+  unchanged until the mutate step replaced scalars directly. Check that a fuzz really mutates what it targets (a quick
+  count of changed fields) before trusting a green result.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.54.0 - 2026-11-12 (run 54)
+
+- **Even more fuzzing (tests only):** damaged collection-book and daily-task data, absurd clocks (NaN, Infinity, far past
+  and future) and a broken last-seen time are now tested too. Everything held, so nothing changes for players.
+
 ## 0.53.0 - 2026-11-12 (run 53)
 
 - **More save fuzzing (tests only):** the corruption test now also hammers the garage, car lot and paint shop data at a
