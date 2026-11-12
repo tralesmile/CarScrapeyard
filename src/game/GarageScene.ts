@@ -604,7 +604,7 @@ export class GarageScene extends Phaser.Scene {
 
   private drawBubble(job: GarageJob) {
     const f = ECON.garage.faults[job.fault];
-    this.bubbleText.setText(`${f.icon} ${f.name}`).setY(-this.px(6));
+    this.bubbleText.setText(`${f.icon} ${t(`garage.fault.${job.fault}`)}`).setY(-this.px(6));
     const g = this.bubble.list[0] as Phaser.GameObjects.Graphics;
     const w = Math.max(this.bubbleText.width + this.px(24), this.px(120));
     this.bubbleW = w;

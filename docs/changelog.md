@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.51.0 - 2026-11-12 (run 51)
+
+- **Translation layer:** the five garage fault names (fault bubble) and the garage tap hint moved to `en.ts`
+  (`garage.fault.*`, `garage.tapHint`). Car model names stay as proper nouns. Nothing changes for players.
+
 ## 0.50.0 - 2026-11-12 (run 50)
 
 - **Translation layer:** the last three scene literals ("At the shop", "Free spot", "Free booth") moved to `en.ts`

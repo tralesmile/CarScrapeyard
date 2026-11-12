@@ -90,3 +90,13 @@ describe('event and scene lines in the catalog (P1.9b, run 49)', () => {
     expect(t('intro.button')).toBe("Let's go!");
   });
 });
+
+describe('garage fault names in the catalog (P1.9b, run 51)', () => {
+  it('has a name for every fault, matching the config names', async () => {
+    const { ECON } = await import('../src/core/config');
+    for (const [fault, def] of Object.entries(ECON.garage.faults)) {
+      expect(t(`garage.fault.${fault}` as Parameters<typeof t>[0])).toBe(def.name);
+    }
+    expect(t('garage.tapHint', { fault: 'flat tyre' })).toBe('👆 Tap the car to fix the flat tyre!');
+  });
+});

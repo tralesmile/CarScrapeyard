@@ -790,3 +790,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   changes, so the result would not describe either version. Edit only docs during a run, or wait and re-run.
 - **A full `npm run check` now takes about 12 minutes:** start it with `nohup` right away, poll in sleeps under 2 minutes,
   and do the doc edits while it runs. A foreground call hits the 10-minute tool limit.
+
+## 2026-11-12 (run 51)
+
+- **Poll the baseline check with a `pgrep` line in the same call as the `tail`:** it shows RUNNING/DONE without guessing from
+  the log's last line, and the sleeps stay under 2 minutes. Prepare the next edit as a script with `assert count == 1`
+  while it runs, and apply it only after the baseline finishes.
+- **Data tables in `config.ts` hold English display names:** when moving them to the catalog, keep the config name for
+  balance tools and add a unit test that the catalog text equals it, so the two cannot drift apart.

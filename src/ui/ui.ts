@@ -1601,7 +1601,7 @@ export class Ui {
       else if (pj && svc && s.paint.jobsDone < 3) text = `👆 Tap the car: ${ECON.paint.services[svc].name.toLowerCase()}!`;
     } else if (s.businesses.active === 'garage') {
       if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
-      else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
+      else if (job && s.garage.jobsDone < 3) text = t('garage.tapHint', { fault: t(`garage.fault.${job.fault}`).toLowerCase() });
     } else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
     else if (car && learning) {
       const stage = carStage(car);
