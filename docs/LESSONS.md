@@ -808,3 +808,11 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Caps must be checked against the formulas that consume them:** a "sane" level cap of 99,999 still overflowed
   `1.1^level`. Pick caps from where the formula stays finite, and keep them in `config.ts`.
 
+
+## 2026-11-12 (run 53)
+
+- **A full `npm run check` takes about 12 minutes now, longer than one tool call (10 min max):** start it with
+  `nohup ... &`, write docs while it runs, and poll with sleeps under 2 minutes. Edit only tests/docs while it runs, since
+  the e2e uses `dist` but vitest reads sources.
+- **A fuzz extension that finds nothing is still a result:** target subtrees with a high corruption rate instead of
+  widening the same global rate; it proves the repair code covers those branches and costs 3 seconds of test time.

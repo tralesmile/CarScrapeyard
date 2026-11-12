@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.53.0 - 2026-11-12 (run 53)
+
+- **More save fuzzing (tests only):** the corruption test now also hammers the garage, car lot and paint shop data at a
+  high rate, and a game after "Sell Empire" (legacy and business data). No new crashes found, so saves are sturdier than
+  feared. Nothing changes for players.
+
 ## 0.52.0 - 2026-11-12 (run 52)
 
 - **Safer saves:** a damaged save file can no longer crash the game or turn cash into Infinity. A fuzz test now corrupts

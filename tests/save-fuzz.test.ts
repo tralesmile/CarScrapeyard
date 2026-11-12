@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checksum, deserialize, serialize } from '../src/core/save';
 import { tick } from '../src/core/sim';
+import { sellEmpire } from '../src/core/legacy';
 import { newGame } from '../src/core/state';
 
 const T0 = 1_800_000_000_000;
@@ -47,15 +48,49 @@ describe('save corruption fuzz', () => {
     tick(base, 1200);
     fuzz(base);
   });
+
+  it('survives heavy corruption of only the garage, lot and paint shop subtrees', () => {
+    const base = lateGame(7);
+    fuzz(base, ['garage', 'carlot', 'paint'], 0.15, 600);
+  });
+
+  it('holds after an empire was sold and the next city is running', () => {
+    const base = lateGame(9);
+    base.lifetimeEarnings = 5e13;
+    const sold = sellEmpire(base, T0);
+    expect(sold).not.toBeNull();
+    tick(base, 600);
+    fuzz(base);
+    fuzz(base, ['legacy', 'businesses'], 0.1, 600);
+  });
 });
 
-function fuzz(base: ReturnType<typeof newGame>): void {
+function lateGame(seed: number): ReturnType<typeof newGame> {
+  const base = newGame(T0, seed);
+  base.managers = { mechanic: true, washer: true, seller: true, scrapper: true };
+  base.cash = 1e12;
+  base.lifetimeEarnings = 1e12;
+  base.parts = 500;
+  base.carsSold = 400;
+  for (const id of Object.keys(base.businesses.opened) as (keyof typeof base.businesses.opened)[]) base.businesses.opened[id] = true;
+  tick(base, 1200);
+  return base;
+}
+
+function fuzz(base: ReturnType<typeof newGame>, only?: string[], rateBoost = 0, seeds = 1500): void {
   {
-    const tree = JSON.parse(JSON.stringify(base)) as unknown;
+    const tree = JSON.parse(JSON.stringify(base)) as Record<string, unknown>;
     let loaded = 0;
-    for (let seed = 1; seed <= 1500; seed++) {
+    for (let seed = 1; seed <= seeds; seed++) {
       const rnd = lcg(seed);
-      const data = JSON.stringify(corrupt(tree, rnd, 0.02 + (seed % 5) * 0.02));
+      const rate = 0.02 + (seed % 5) * 0.02 + rateBoost;
+      let mutated: unknown;
+      if (only) {
+        const copy: Record<string, unknown> = { ...tree };
+        for (const k of only) copy[k] = corrupt(tree[k], rnd, rate);
+        mutated = copy;
+      } else mutated = corrupt(tree, rnd, rate);
+      const data = JSON.stringify(mutated);
       const text = JSON.stringify({ v: SAVE_V, savedAt: T0, sum: checksum(data), data });
       let result: ReturnType<typeof deserialize>;
       try {
@@ -74,6 +109,6 @@ function fuzz(base: ReturnType<typeof newGame>): void {
       expect(Number.isFinite(result.state.lifetimeEarnings), `seed ${seed} lifetime`).toBe(true);
     }
     // Most light corruptions are repaired rather than rejected, so the fuzz really exercises the game after load.
-    expect(loaded).toBeGreaterThan(30);
+    expect(loaded).toBeGreaterThan(only ? 10 : 30);
   }
 }
