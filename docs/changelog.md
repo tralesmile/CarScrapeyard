@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.56.0 - 2026-11-12 (run 56)
+
+- **Fuzzing the other businesses (tests only):** random players pressing every Repair Garage, Used Car Lot and Paint &
+  Tuning button, plus damaged data for those three shops, all stay finite and save/load cleanly. Nothing changes for players.
+
 ## 0.55.0 - 2026-11-12 (run 55)
 
 - **Fuzzing the late game (tests only):** damaged Legacy tree, medal, gem and story data, plus 60 simulated random players

@@ -834,3 +834,12 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **A random-action fuzz must only use public actions:** poking `state.cash` directly made the save loader reject a
   perfectly legal-looking state (cash above lifetime earnings); that was the test's fault. Use `addCash`, and assert the
   random player really progressed (cars sold) so a green run is not an empty one.
+
+
+## 2026-11-12 (run 56)
+
+- **Assert that a fuzz did real work, not just that it did not throw:** the business fuzz checks that the random players
+  finished over 100 garage/paint jobs and sold 20 lot cars, so a green run cannot be an idle one. Opening every business
+  and giving cash up front (through public setup) is what made the random player reach those actions.
+- **Start the baseline `npm run check` with `nohup` in the first call and keep tests in the scratchpad until it ends:** this
+  worked as planned in run 56 (baseline green in ~12 minutes with no lost call).
