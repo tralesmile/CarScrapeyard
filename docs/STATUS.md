@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-12 (run 54; next run is run 55). Runs now start every 3 hours.
+Last updated: 2026-11-12 (run 55; next run is run 56). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -176,8 +176,10 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       to Infinity. Fixed in `save.ts` (counters clamped), `MAX_SAVED_LEVEL = 1000` for all upgrade levels, and paint job
       numbers capped at 1e18. Run 53 fuzzed the garage, lot, paint shop and a post-Sell-Empire state: no new crashes. Run 54 fuzzed the collection book,
       daily tasks, `queueOffline` with 11 absurd clocks (NaN, Infinity, negative, 1e300) and corrupted `lastSeen`/`pendingOffline`
-      (`tests/save-fuzz2.test.ts`): no crashes, nothing to fix. Next fuzz ideas: fuzz the legacy tree and awards state; replay
-      a long run with random action calls (taps, upgrades, crush) through the public `sim.ts` actions.
+      (`tests/save-fuzz2.test.ts`): no crashes, nothing to fix. Run 55 (`tests/save-fuzz3.test.ts`): fuzzed the legacy tree, achievements, wallet and story
+      subtrees (800 seeds, then buying every node, respec, medals, shop, a sale) and replayed 60 random players (600 public
+      actions each: wash, tap, sell, crush, upgrades, hire, contracts, Sell Empire) with a non-finite walk and a save
+      round-trip: no crashes, nothing to fix. Next fuzz ideas: random actions in the garage, lot and paint shop.
 - [ ] P1.3t e2e flake (run 38): the first baseline `npm run check` failed at the very end with a page error
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short

@@ -824,3 +824,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Fuzz helpers that only recurse into objects skip scalar top-level fields:** `lastSeen` and `pendingOffline` came back
   unchanged until the mutate step replaced scalars directly. Check that a fuzz really mutates what it targets (a quick
   count of changed fields) before trusting a green result.
+
+
+## 2026-11-12 (run 55)
+
+- **Start `npm run check` with `nohup ... &` in the very first call, not in the foreground:** run 55 lost 10 minutes (a
+  killed foreground call) before restarting it. Write the new test in the scratchpad while it runs and copy it into
+  `tests/` only after it finishes.
+- **A random-action fuzz must only use public actions:** poking `state.cash` directly made the save loader reject a
+  perfectly legal-looking state (cash above lifetime earnings); that was the test's fault. Use `addCash`, and assert the
+  random player really progressed (cars sold) so a green run is not an empty one.

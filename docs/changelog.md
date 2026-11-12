@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.55.0 - 2026-11-12 (run 55)
+
+- **Fuzzing the late game (tests only):** damaged Legacy tree, medal, gem and story data, plus 60 simulated random players
+  pressing every scrapyard button in a random order (including Sell Empire), all stay finite and save/load cleanly.
+  Nothing changes for players.
+
 ## 0.54.0 - 2026-11-12 (run 54)
 
 - **Even more fuzzing (tests only):** damaged collection-book and daily-task data, absurd clocks (NaN, Infinity, far past
