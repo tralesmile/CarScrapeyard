@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.63.0 - 2026-11-13 (run 63)
+
+- **Store text and legal drafts (P2.6a, P2.7a):** `docs/store/` now holds the store listing (title, short and full description,
+  keywords, screenshot list, 30 s preview script), a draft privacy policy and terms, and the data-safety / age-rating answers,
+  all matched to what the build does today (nothing collected, analytics off, optional rewarded ads). No game code changed.
+
 ## 0.62.0 - 2026-11-13 (run 62)
 
 - **Rewarded ads, second half (P2.2b): the 2x income boost.** After 20 sales, inside the phone app, a blue "⚡ x2 · ad" chip

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-13 (run 62; next run is run 63). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 63; next run is run 64). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -341,7 +341,12 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation
 - [ ] P2.5 Push notifications (garage full, offline cap reached); then let contract timers run offline (from P0.14c)
 - [ ] P2.6 Store assets: icon, screenshots, preview video script, store text
+  - [x] P2.6a Store text (run 63): `docs/store/listing.md` (title, short and full description, keywords, screenshot list, 30 s preview script).
+  - [ ] P2.6b Real icon and screenshots: need a real build and the final icon (with P2.1b).
 - [ ] P2.7 Privacy policy, terms, data safety and age-rating answers
+  - [x] P2.7a Drafts (run 63): `docs/store/privacy-policy.md`, `terms.md`, `data-safety-and-rating.md`, matched to the build today
+        (nothing collected; analytics off). The owner fills the [placeholders] and a lawyer should review before publishing.
+  - [ ] P2.7b Consent screen in the app (UMP / analytics opt-in), together with P2.2c.
 
 ## Phase 3+ — Global launch and live ops
 

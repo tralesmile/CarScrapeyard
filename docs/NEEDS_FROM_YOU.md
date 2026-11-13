@@ -140,6 +140,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       (needs Android Studio and a phone or emulator; steps in `docs/mobile.md`). Tell Claude if the notch / gesture bar covers
       any buttons. Claude cannot build the APK in its cloud workspace (no Android SDK), so the first real device check is yours.
 
+- [ ] **Review the store text and legal drafts (run 63):** `docs/store/` has the listing, privacy policy, terms and data-safety
+      answers. Fill the [placeholders] (your name or company, country, contact email) and have a lawyer glance at the policy
+      before it goes on a website; Google Play and Apple both require a public privacy-policy URL.
+
 ## Soon (Phase 1, web MVP)
 
 - [ ] **Cloudflare account** (free): connect this repo in Cloudflare Pages so every push to `main`

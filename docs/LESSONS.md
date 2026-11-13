@@ -896,3 +896,10 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   auction prices are created, so a timed boost there would miss everything already queued. Boosting the amount at the four
   payout sites (`boosted(state, amount)`) makes it apply instantly and keeps the sim untouched.
 - **Count a timed effect on game time (`tick`), not the wall clock:** it stays testable and cannot be cheated by changing the phone clock.
+
+## 2026-11-13 (run 63)
+
+- **`npm run check` now takes over 10 minutes, longer than one shell call allows:** start it with `nohup ... > log &` and poll the
+  log with `sleep`; a foreground call is killed at the timeout and the result is lost.
+- **When every code task left is blocked on the owner's accounts, ship the paper work that is not:** store text and policy drafts
+  matched to the real data flows need no account and unblock the owner's later steps; list the placeholders they must fill.
