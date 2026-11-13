@@ -1,5 +1,5 @@
 // Haptic feedback. Web uses navigator.vibrate (Android Chrome; iOS Safari ignores it).
-// Capacitor builds will swap the backend for the Haptics plugin (P2.1); game code only
+// Capacitor builds swap the backend for the Haptics plugin (`setBackend`, P2.1); game code only
 // calls `haptics.play(kind)`.
 
 export type HapticKind = 'tick' | 'tap' | 'success' | 'heavy' | 'error' | 'celebrate';
@@ -27,6 +27,11 @@ export class Haptics {
     private vibrate: VibrateFn | null,
     private clock: () => number = () => performance.now(),
   ) {}
+
+  /** Swap the backend (the Capacitor shell plays the native haptic engine instead of navigator.vibrate). */
+  setBackend(vibrate: VibrateFn | null) {
+    this.vibrate = vibrate;
+  }
 
   /** True if this device can vibrate at all (used to hide the setting where it does nothing). */
   get supported(): boolean {

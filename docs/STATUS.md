@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-13 (run 59; next run is run 60). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 60; next run is run 61). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -317,6 +317,14 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 ## Phase 2 — Mobile soft launch
 
 - [ ] P2.1 Capacitor Android + iOS projects; safe areas; back button; haptics plugin
+  - [x] P2.1a Shells and bridge (run 60): Capacitor 7 (`capacitor.config.ts`, `android/`, `ios/`, `npm run cap:sync|cap:android|cap:ios`),
+        `src/platform/native.ts` (pure, `window.Capacitor` injected: `detectNative`, `nativeVibrate`, `bindBackButton`,
+        `bindAppState`), `Haptics.setBackend`, `Ui.handleBack()` (`data-back` on the safe dismiss button of every sheet), `platform.name`
+        is `android`/`ios`, no service worker in the shell, portrait lock on phones. Unit tests (`tests/native.test.ts`) and an e2e
+        with a Capacitor stub (back, exit, app state, haptics). How to build: `docs/mobile.md`.
+  - [ ] P2.1b Device checks (needs the owner's machine or a CI job): build the debug APK / Xcode project, check safe areas (notch,
+        gesture bar; `env(safe-area-inset-*)` is already used in `style.css`), status bar colour (`@capacitor/status-bar`), splash screen
+        and the real icons (`@capacitor/assets` from `public/icons/icon.svg`), an Android build job in CI.
 - [ ] P2.2 AdMob rewarded ads adapter (double offline, 2x boost)
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Junkyard Empire</string>
+    <string name="title_activity_main">Junkyard Empire</string>
+    <string name="package_name">com.junkyardempire.game</string>
+    <string name="custom_url_scheme">com.junkyardempire.game</string>
+</resources>

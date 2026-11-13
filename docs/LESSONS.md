@@ -867,3 +867,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   different moments, so a mid-run edit makes the baseline result meaningless. Wait for the baseline, then edit (or edit docs only).
 - **Grep for leftover literals before planning a string-move task:** a one-line `grep` showed only 3 toasts were left, so the task
   took minutes instead of a full run.
+
+## 2026-11-13 (run 60)
+
+- **A native shell needs no native imports in game code:** Capacitor injects `window.Capacitor.Plugins`, so a pure adapter
+  that takes the global as an argument is unit-testable with plain objects and the e2e can fake the whole shell with
+  `addInitScript`. Both the page and the shell report app state, so route them through one idempotent function.
+- **Give every sheet a `data-back` dismiss button instead of teaching the back handler about each modal:** a rule
+  ("secondary, or the only button, never a choice") keeps decisions like sell-vs-keep from being made by a stray press.
+- **Cloud runs cannot build an APK (no Android SDK):** generate the projects (`cap add`), test the bridge in the browser, and
+  list device checks as a separate unchecked task for the owner's machine rather than claiming the whole task done.

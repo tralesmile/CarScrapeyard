@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.60.0 - 2026-11-13 (run 60)
+
+- **Native app shells (P2.1, first half):** the game now has Android and iOS projects (Capacitor 7, in `android/` and `ios/`,
+  portrait only on phones). Inside the app the Android back button closes the topmost sheet (Settings, Book, map, story, intro)
+  and only exits the app when nothing is open; the barn reveal's sell/keep choice swallows the press instead of choosing for
+  you. Pausing and resuming the app saves and shows the welcome-back popup like switching tabs does. Haptics use the phone's
+  native haptic engine (light tap, heavy thump, success / error buzz) instead of `navigator.vibrate`. The web game is
+  unchanged; the service worker stays off in the app. Nothing to see on the web yet; building the apps needs Android Studio / Xcode
+  (see `docs/mobile.md`).
 ## 0.59.0 - 2026-11-13 (run 59)
 
 - **Translation prep finished:** the last three toast texts (storage full, new day, private browsing) now live in the string

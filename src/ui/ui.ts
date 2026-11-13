@@ -1547,6 +1547,7 @@ export class Ui {
     }, 500);
     const backTo: Record<BusinessId, string> = { scrapyard: t('ui.back.scrapyard'), garage: t('ui.back.garage'), carlot: t('ui.back.carlot'), paint: t('ui.back.paint') };
     const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
+    done.dataset.back = '1';
     done.onclick = () => {
       sfx.tap();
       close();
@@ -1669,6 +1670,17 @@ export class Ui {
     }, 460);
   }
 
+  /** System back button (Android): dismisses the topmost modal and returns true; false when nothing is open. */
+  handleBack(): boolean {
+    const backs = this.root.querySelectorAll<HTMLElement>(':scope > .modal-back');
+    const top = backs[backs.length - 1];
+    if (!top) return false;
+    const btn = top.querySelector<HTMLElement>('[data-back]');
+    // A modal without a safe dismiss (the barn reveal's choice) swallows the press instead of exiting the app.
+    btn?.click();
+    return true;
+  }
+
   toast(message: string, ms = 4000) {
     // Toasts stack in one column under the top bar, so two at once never print over each other (found in run 31).
     let stack = this.root.querySelector<HTMLElement>(':scope > .toasts');
@@ -1727,6 +1739,8 @@ export class Ui {
     };
     const btn = el('button', 'buy', opts.button) as HTMLButtonElement;
     btn.onclick = () => close();
+    // The system back button dismisses a modal through its secondary button, or its only button; a choice (sell / keep) is never made for the player.
+    if (!opts.secondary && !opts.third) btn.dataset.back = '1';
     box.append(btn);
     if (opts.third) {
       const third = el('button', 'third', opts.third) as HTMLButtonElement;
@@ -1736,6 +1750,7 @@ export class Ui {
     if (opts.secondary) {
       const sec = el('button', 'secondary', opts.secondary) as HTMLButtonElement;
       sec.onclick = () => close('secondary');
+      sec.dataset.back = '1';
       box.append(sec);
     }
     back.append(box);
@@ -1937,6 +1952,7 @@ export class Ui {
     };
     paint();
     const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    ok.dataset.back = '1';
     ok.onclick = close;
     box.append(header, tabs, list, foot, ok);
     back.append(box);
@@ -2204,6 +2220,7 @@ export class Ui {
     };
     paint();
     const ok = el('button', 'buy book-done', 'Done') as HTMLButtonElement;
+    ok.dataset.back = '1';
     ok.onclick = close;
     box.append(header, tabs, list, ok);
     back.append(box);
@@ -2364,6 +2381,7 @@ export class Ui {
       `<b>${t('settings.credits.title')}</b> v${version}<br>${t('settings.credits.line1')}<br>${t('settings.credits.line2')}<br>${t('settings.credits.line3')}`,
     );
     const done = el('button', 'buy', t('settings.done')) as HTMLButtonElement;
+    done.dataset.back = '1';
     done.onclick = () => {
       sfx.tap();
       close();

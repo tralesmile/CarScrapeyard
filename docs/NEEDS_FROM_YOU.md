@@ -133,6 +133,10 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 
+- [ ] **Try the Android app shell when convenient (run 60, optional):** `npm run cap:android` opens the project in Android Studio
+      (needs Android Studio and a phone or emulator; steps in `docs/mobile.md`). Tell Claude if the notch / gesture bar covers
+      any buttons. Claude cannot build the APK in its cloud workspace (no Android SDK), so the first real device check is yours.
+
 ## Soon (Phase 1, web MVP)
 
 - [ ] **Cloudflare account** (free): connect this repo in Cloudflare Pages so every push to `main`

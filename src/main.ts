@@ -24,6 +24,7 @@ import { refreshDaily } from './core/daily';
 import { music } from './audio/music';
 import { analytics, MemorySink, Tracker } from './platform/analytics';
 import { createWebPlatform } from './platform/platform';
+import { bindAppState, bindBackButton, detectNative, nativeVibrate, type CapacitorGlobal } from './platform/native';
 import {
   bindGameplayToVisibility,
   createCrazyGamesSdk,
@@ -47,7 +48,9 @@ const portalSdk =
     : portalName === 'crazygames' && portalGlobals.CrazyGames
       ? createCrazyGamesSdk(portalGlobals.CrazyGames)
       : null;
-const platform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : createWebPlatform();
+const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
+const nativeName = detectNative(capacitor);
+const platform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : { ...createWebPlatform(), name: nativeName ?? ('web' as const) };
 if (portalSdk) {
   bindGameplayToVisibility(portalSdk, document);
   portalSdk.loadingFinished();
@@ -60,6 +63,7 @@ sfx.enabled = state.settings.sound;
 sfx.setVolume(state.settings.sfxVolume);
 sfx.setMusicVolume(state.settings.musicVolume);
 haptics.enabled = state.settings.vibration;
+if (nativeName && capacitor?.Plugins?.Haptics) haptics.setBackend(nativeVibrate(capacitor.Plugins.Haptics));
 setNumberFormat(state.settings.numberFormat);
 
 // ---- income rate (rolling 30 s window of real sales) ------------------------
@@ -326,8 +330,11 @@ setInterval(() => tracker.look(state), 1000);
 analytics.track('session_start', { returning: !!loaded });
 
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
+let appHidden = false;
+function setAppHidden(hidden: boolean) {
+  if (hidden === appHidden) return; // the page and the native shell both report; act once per change
+  appHidden = hidden;
+  if (hidden) {
     hiddenAt = platform.now();
     saveNow();
     sfx.suspend();
@@ -336,7 +343,13 @@ document.addEventListener('visibilitychange', () => {
     const r = queueOffline(state, platform.now());
     if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot, r.paint);
   }
-});
+}
+document.addEventListener('visibilitychange', () => setAppHidden(document.hidden));
+// Native shell (P2.1): app state from Capacitor, and the Android back button closes modals before it exits the app.
+if (nativeName) {
+  bindAppState(capacitor?.Plugins?.App, (active) => setAppHidden(!active));
+  bindBackButton(capacitor?.Plugins?.App, () => ui.handleBack());
+}
 window.addEventListener('pagehide', () => saveNow());
 
 // ---- first launch / returning player --------------------------------------
@@ -363,7 +376,7 @@ ui.render();
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink, haptics };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }
 
@@ -372,6 +385,7 @@ if (
   import.meta.env.PROD &&
   'serviceWorker' in navigator &&
   !location.search.includes('debug') &&
+  !nativeName &&
   location.protocol.startsWith('http')
 ) {
   window.addEventListener('load', () => {

@@ -2407,6 +2407,47 @@ async function waitForServer(url, ms = 15000) {
     assert(pokiCalls.includes('init') && pokiCalls.includes('loaded') && pokiCalls.includes('start'), 'Poki SDK gets init, loading finished and gameplay start (' + pokiCalls.join(',') + ')');
     await pk.close();
 
+    console.log('native shell (Capacitor stub, P2.1)');
+    const nv = await browser.newPage({ viewport: { width: 390, height: 780 } });
+    nv.on('pageerror', (e) => errors.push('native pageerror: ' + e.message));
+    await nv.addInitScript(() => {
+      window.__cap = { listeners: {}, haptics: [], exits: 0 };
+      window.Capacitor = {
+        isNativePlatform: () => true,
+        getPlatform: () => 'android',
+        Plugins: {
+          App: {
+            addListener: (ev, cb) => { window.__cap.listeners[ev] = cb; },
+            exitApp: () => { window.__cap.exits++; },
+          },
+          Haptics: {
+            impact: (o) => { window.__cap.haptics.push('impact:' + o.style); },
+            notification: (o) => { window.__cap.haptics.push('notification:' + o.type); },
+          },
+        },
+      };
+    });
+    await nv.goto(URL);
+    await nv.waitForSelector('#game canvas', { timeout: 15000 });
+    await nv.waitForSelector('.modal-back .modal', { timeout: 8000 });
+    assert(await nv.evaluate(() => typeof window.__cap.listeners.backButton === 'function' && typeof window.__cap.listeners.appStateChange === 'function'), 'the native shell gets back-button and app-state listeners');
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    await nv.waitForSelector('.modal-back', { state: 'detached', timeout: 3000 });
+    assert(await nv.evaluate(() => window.__cap.exits === 0 && window.__jye.state.tutorial.introSeen), 'back dismisses the intro modal and does not exit the app');
+    await nv.click('.settings-btn');
+    await nv.waitForSelector('.modal-back .modal', { timeout: 3000 });
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    await nv.waitForSelector('.modal-back', { state: 'detached', timeout: 3000 });
+    assert(await nv.evaluate(() => window.__cap.exits === 0), 'back closes the Settings sheet');
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    assert(await nv.evaluate(() => window.__cap.exits === 1), 'back with nothing open exits the app');
+    await nv.evaluate(() => window.__cap.listeners.appStateChange({ isActive: false }));
+    await nv.evaluate(() => window.__cap.listeners.appStateChange({ isActive: true }));
+    await nv.evaluate(() => window.__jye.state.settings.vibration = true);
+    await nv.evaluate(() => { window.__jye.haptics.play('heavy'); window.__jye.haptics.play('success'); });
+    assert(await nv.evaluate(() => window.__cap.haptics.length > 0 && window.__cap.haptics.every((h) => /^(impact|notification):/.test(h))), 'native haptics play through the plugin (' + (await nv.evaluate(() => window.__cap.haptics.join(','))) + ')');
+    await nv.close();
+
     console.log('desktop layout');
     const d = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     d.on('pageerror', (e) => errors.push('desktop pageerror: ' + e.message));
