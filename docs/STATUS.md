@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-13 (run 60; next run is run 61). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 61; next run is run 62). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -326,6 +326,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         gesture bar; `env(safe-area-inset-*)` is already used in `style.css`), status bar colour (`@capacitor/status-bar`), splash screen
         and the real icons (`@capacitor/assets` from `public/icons/icon.svg`), an Android build job in CI.
 - [ ] P2.2 AdMob rewarded ads adapter (double offline, 2x boost)
+  - [x] P2.2a Adapter + double offline (run 61): `src/platform/admob.ts` (pure, plugin injected via `Capacitor.Plugins.AdMob`; init,
+        preload, one ad at a time, reward only if the reward event fired before dismissal, never throws, hidden when ads are
+        removed), `withAdMob` wraps `Platform`, Google test unit ids until the owner's AdMob account exists, `ECON.ads.offlineMultiplier = 2`.
+        The welcome-back popup shows "Watch an ad: collect x2" (`third` button, back = plain Collect via `backMain`) when
+        `platform.rewardedAdAvailable()`. 6 unit tests (`tests/admob.test.ts`), e2e with a stubbed AdMob plugin (double, plain x1).
+  - [ ] P2.2b 2x income boost (e.g. 10 min x2 per ad, a HUD button when an ad is ready, cooldown): needs `state.boost`, a place in
+        `incomeMultiplier`, a sim A/B (bots never watch ads, so pacing targets must stay unchanged), save default + unit tests.
+  - [ ] P2.2c Real ad unit ids, the `@capacitor-community/admob` plugin install + app ids in the Android/iOS projects, consent (UMP)
+        screen: needs the owner's AdMob account (see NEEDS_FROM_YOU).
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation
 - [ ] P2.5 Push notifications (garage full, offline cap reached); then let contract timers run offline (from P0.14c)

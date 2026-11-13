@@ -2,6 +2,7 @@
 // `Capacitor.Plugins`, so the web build bundles no native code. Everything here takes the global as an argument, so it is
 // unit-tested with plain objects and does nothing on the web.
 
+import type { AdMobPlugin } from './admob';
 import { HAPTIC_PATTERNS, type HapticKind, type VibrateFn } from './haptics';
 
 export type NativeName = 'ios' | 'android';
@@ -20,7 +21,7 @@ export interface AppPlugin {
 export interface CapacitorGlobal {
   isNativePlatform?: () => boolean;
   getPlatform?: () => string;
-  Plugins?: { App?: AppPlugin; Haptics?: HapticsPlugin };
+  Plugins?: { App?: AppPlugin; Haptics?: HapticsPlugin; AdMob?: AdMobPlugin };
 }
 
 /** 'ios' / 'android' inside a Capacitor shell, otherwise null (plain web, portals). */

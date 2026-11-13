@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.61.0 - 2026-11-13 (run 61)
+
+- **Rewarded ads, first half (P2.2):** inside the phone app the welcome-back popup gets a "📺 Watch an ad: collect x2" button
+  next to the normal Collect, whenever a video ad is loaded. Watching it to the end doubles the offline earnings; closing it early
+  (or no ad available) pays the normal amount, and the plain Collect button always works (the Android back button presses it). It
+  uses Google's test ad units until you have an AdMob account. Nothing changes on the web build. The 2x income boost is next.
 ## 0.60.0 - 2026-11-13 (run 60)
 
 - **Native app shells (P2.1, first half):** the game now has Android and iOS projects (Capacitor 7, in `android/` and `ios/`,

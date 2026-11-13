@@ -2411,7 +2411,7 @@ async function waitForServer(url, ms = 15000) {
     const nv = await browser.newPage({ viewport: { width: 390, height: 780 } });
     nv.on('pageerror', (e) => errors.push('native pageerror: ' + e.message));
     await nv.addInitScript(() => {
-      window.__cap = { listeners: {}, haptics: [], exits: 0 };
+      window.__cap = { listeners: {}, haptics: [], exits: 0, ads: 0 };
       window.Capacitor = {
         isNativePlatform: () => true,
         getPlatform: () => 'android',
@@ -2419,6 +2419,13 @@ async function waitForServer(url, ms = 15000) {
           App: {
             addListener: (ev, cb) => { window.__cap.listeners[ev] = cb; },
             exitApp: () => { window.__cap.exits++; },
+          },
+          AdMob: {
+            ads: 0, listeners: {},
+            initialize: async () => {},
+            prepareRewardVideoAd: async () => {},
+            addListener(ev, cb) { this.listeners[ev] = cb; },
+            showRewardVideoAd: async function () { window.__cap.ads++; setTimeout(() => { this.listeners.onRewardedVideoAdReward?.(); this.listeners.onRewardedVideoAdDismissed?.(); }, 50); },
           },
           Haptics: {
             impact: (o) => { window.__cap.haptics.push('impact:' + o.style); },
@@ -2446,6 +2453,18 @@ async function waitForServer(url, ms = 15000) {
     await nv.evaluate(() => window.__jye.state.settings.vibration = true);
     await nv.evaluate(() => { window.__jye.haptics.play('heavy'); window.__jye.haptics.play('success'); });
     assert(await nv.evaluate(() => window.__cap.haptics.length > 0 && window.__cap.haptics.every((h) => /^(impact|notification):/.test(h))), 'native haptics play through the plugin (' + (await nv.evaluate(() => window.__cap.haptics.join(','))) + ')');
+    // Rewarded ad on the welcome-back popup (P2.2): watch one to collect double.
+    await nv.evaluate(() => { window.__jye.state.pendingOffline = 1000; window.__jye.state.cash = 0; window.__jye.offerOffline(3600); });
+    await nv.waitForSelector('.modal-back.welcome .modal .third', { timeout: 3000 });
+    const adLabel = await nv.textContent('.modal-back.welcome .third');
+    assert(/Watch an ad: collect x2/.test(adLabel), 'the welcome-back popup offers the rewarded ad (' + adLabel.trim() + ')');
+    await nv.click('.modal-back.welcome .third');
+    await nv.waitForFunction(() => window.__jye.state.pendingOffline === 0, null, { timeout: 5000 });
+    assert((await nv.evaluate(() => window.__cap.ads)) === 1 && (await nv.evaluate(() => window.__jye.state.cash)) === 2000, 'watching the ad pays double (cash ' + (await nv.evaluate(() => window.__jye.state.cash)) + ')');
+    await nv.evaluate(() => { window.__jye.state.pendingOffline = 1000; window.__jye.state.cash = 0; window.__jye.offerOffline(3600); });
+    await nv.waitForSelector('.modal-back.welcome .modal .buy', { timeout: 3000 });
+    await nv.click('.modal-back.welcome .buy');
+    assert((await nv.evaluate(() => window.__jye.state.cash)) === 1000, 'plain Collect still pays x1 with the ad offered');
     await nv.close();
 
     console.log('desktop layout');

@@ -83,6 +83,12 @@ export const ECON = {
     minSecondsForPopup: 30,
   },
 
+  /** Rewarded ads (P2.2): optional, never required. */
+  ads: {
+    /** Watching one ad on the welcome-back popup multiplies the collected offline earnings by this. */
+    offlineMultiplier: 2,
+  },
+
   rarity: {
     common: { weight: 78, valueMult: 1, label: 'Common' },
     rare: { weight: 17, valueMult: 2.5, label: 'Rare' },

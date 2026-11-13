@@ -26,7 +26,7 @@ npm run cap:android   # builds the web game, syncs it, opens Android Studio (nee
 npm run cap:ios       # same for Xcode (macOS only)
 ```
 
-After changing web code run `npm run cap:sync`. Ads, purchases, cloud save and push notifications are P2.2-P2.5.
+After changing web code run `npm run cap:sync`. Rewarded ads (P2.2a) go through `Capacitor.Plugins.AdMob` (the community AdMob plugin, not installed yet: it needs the owner's AdMob app ids, see NEEDS_FROM_YOU); without it no ad is offered. Purchases, cloud save and push notifications are P2.3-P2.5.
 
 ## Testing without a device
 

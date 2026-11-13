@@ -149,7 +149,7 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 ## Later (Phase 2, mobile)
 
 - [ ] Apple Developer Program ($99/year) and a way to build iOS (Codemagic free tier or a Mac).
-- [ ] Google AdMob account; Firebase project; RevenueCat account.
+- [ ] Google AdMob account (run 61: the app already offers a rewarded ad on the welcome-back popup with Google's test ids; real ids, app ids and the consent screen need your account); Firebase project; RevenueCat account.
 - [ ] 20–25 Android testers for the closed test.
 - [ ] Bank/tax details in Google Play Console and App Store Connect for payouts.
 

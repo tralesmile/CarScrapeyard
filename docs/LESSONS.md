@@ -877,3 +877,12 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   ("secondary, or the only button, never a choice") keeps decisions like sell-vs-keep from being made by a stray press.
 - **Cloud runs cannot build an APK (no Android SDK):** generate the projects (`cap add`), test the bridge in the browser, and
   list device checks as a separate unchecked task for the owner's machine rather than claiming the whole task done.
+
+## 2026-11-13 (run 61)
+
+- **Draft new source files outside `src/` while the baseline check runs:** `tsc`, the build and vitest read `src/` at different
+  moments; drafting in the scratchpad and copying in after the baseline was green kept the baseline meaningful and lost no time.
+- **Reuse a parameter that already exists before touching economy code:** `collectOffline(state, multiplier)` already took a
+  multiplier, so "double offline" needed no core change, no save field and no sim run (bots never watch ads).
+- **Give a modal's extra choice an explicit back rule:** the `third` button made the main button lose `data-back`; `backMain`
+  restores it so the system back button can never trigger an ad or a purchase.

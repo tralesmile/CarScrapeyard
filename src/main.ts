@@ -24,6 +24,7 @@ import { refreshDaily } from './core/daily';
 import { music } from './audio/music';
 import { analytics, MemorySink, Tracker } from './platform/analytics';
 import { createWebPlatform } from './platform/platform';
+import { createAdMobAds, TEST_REWARDED_ID, withAdMob } from './platform/admob';
 import { bindAppState, bindBackButton, detectNative, nativeVibrate, type CapacitorGlobal } from './platform/native';
 import {
   bindGameplayToVisibility,
@@ -50,7 +51,14 @@ const portalSdk =
       : null;
 const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
 const nativeName = detectNative(capacitor);
-const platform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : { ...createWebPlatform(), name: nativeName ?? ('web' as const) };
+const basePlatform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : { ...createWebPlatform(), name: nativeName ?? ('web' as const) };
+// Rewarded ads inside the native shell (P2.2). Test ad units until the owner's AdMob account exists.
+const admob =
+  nativeName && capacitor?.Plugins?.AdMob
+    ? createAdMobAds(capacitor.Plugins.AdMob, { adId: TEST_REWARDED_ID[nativeName], testing: true })
+    : null;
+const platform = admob ? withAdMob(basePlatform, admob) : basePlatform;
+void admob?.init();
 if (portalSdk) {
   bindGameplayToVisibility(portalSdk, document);
   portalSdk.loadingFinished();
@@ -315,6 +323,14 @@ function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint 
     garage,
     carlot,
     paint,
+    platform.rewardedAdAvailable()
+      ? () => {
+          void platform.showRewardedAd('offline_double').then((earned) => {
+            collectOffline(state, earned ? ECON.ads.offlineMultiplier : 1);
+            saveNow();
+          });
+        }
+      : undefined,
   );
 }
 
@@ -376,7 +392,7 @@ ui.render();
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink, haptics };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink, haptics, offerOffline };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
 }
 

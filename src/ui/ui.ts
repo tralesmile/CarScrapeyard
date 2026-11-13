@@ -1711,6 +1711,8 @@ export class Ui {
     /** An optional middle choice between the main and the secondary button (e.g. keep a classic instead of selling). */
     third?: string;
     onThird?: () => void;
+    /** The system back button presses the main button (only when it is the safe choice). */
+    backMain?: boolean;
     /** Extra class on the backdrop (e.g. 'reveal' keeps the top of the screen visible). */
     cls?: string;
   }) {
@@ -1740,7 +1742,7 @@ export class Ui {
     const btn = el('button', 'buy', opts.button) as HTMLButtonElement;
     btn.onclick = () => close();
     // The system back button dismisses a modal through its secondary button, or its only button; a choice (sell / keep) is never made for the player.
-    if (!opts.secondary && !opts.third) btn.dataset.back = '1';
+    if ((!opts.secondary && !opts.third) || opts.backMain) btn.dataset.back = '1';
     box.append(btn);
     if (opts.third) {
       const third = el('button', 'third', opts.third) as HTMLButtonElement;
@@ -2407,7 +2409,17 @@ export class Ui {
     return this.shownBiz === 'carlot' && this.tab === 'auction';
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0, paint = 0) {
+  offlineModal(
+    seconds: number,
+    earned: number,
+    parts: number,
+    onCollect: () => void,
+    garage = 0,
+    carlot = 0,
+    paint = 0,
+    /** Offered only when a rewarded ad is ready: the player watches it and collects more. */
+    onWatchAd?: () => void,
+  ) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     const shop =
       (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
@@ -2426,6 +2438,9 @@ export class Ui {
       big: formatCash(earned),
       button: t('ui.welcome.collect'),
       onClose: onCollect,
+      third: onWatchAd ? t('ui.welcome.watchAd', { mult: ECON.ads.offlineMultiplier }) : undefined,
+      onThird: onWatchAd,
+      backMain: !!onWatchAd,
       cls: 'welcome',
     });
   }

@@ -230,6 +230,7 @@ export const en = {
   'ui.sold.title': 'EMPIRE SOLD!',
   'ui.welcome.title': 'Welcome back!',
   'ui.welcome.collect': 'Collect',
+  'ui.welcome.watchAd': '📺 Watch an ad: collect x{mult}',
   'ui.hud.parts': 'Parts',
   'ui.hud.sound': 'Toggle sound',
   'ui.hud.map': 'City map',
