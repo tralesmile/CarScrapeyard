@@ -850,3 +850,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   hours. Asserting `carsSold` grew exposed it; hire the crew (`mechanic`, `washer`, `seller`) first. Check manager kind names in
   `config.ts` (`seller`, not `salesperson`).
 - **`serialize`/`deserialize` take `now`:** read the signature before writing a test against them.
+
+## 2026-11-13 (run 58)
+
+- **I again ran `npm run check` under `timeout 580` in the foreground and lost 10 minutes** (it needs ~17). The rule was already
+  in this file: start it with `nohup bash -c '... ; echo EXIT $?' &` in the very first call and poll with `sleep`.
+- **Removing a modal from the DOM leaves the UI's `modalOpen` flag stuck:** a test tool that deletes `.modal-back` must also reset
+  `ui.modalOpen`, or the next `.map-btn` click silently does nothing (no error, no page error). Debug with a screenshot.
+- **Headless Chromium has no GPU:** frame times (~15 fps at 1x) are only useful relatively. Check `game.scene.getScenes(true)`
+  in a probe to prove the scene really switched (my first version measured the yard four times).
+- **Do not run a perf probe while the e2e runs:** both fight for the CPU and the numbers are meaningless.

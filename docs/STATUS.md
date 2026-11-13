@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-13 (run 57; next run is run 58). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 58; next run is run 59). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -184,7 +184,15 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       subtrees loaded and kept playing: no crashes, nothing to fix. The fuzz list is now exhausted; next quality ideas:
       performance profile of the scenes on a low-end phone, and a longer-session soak (hours of ticks) for memory growth.
       Run 57 (`tests/soak.test.ts`): a 48-hour soak (crew hired, every business open, 10 s ticks) keeps the save size flat (hour 48 under
-      2x hour 12), nothing non-finite, and the crew really sold cars. Still open: scene performance profile on a low-end phone.
+      2x hour 12), nothing non-finite, and the crew really sold cars. Run 58 added the scene performance probe (`npm run perf`,
+      `tools/perf-probe.cjs`: every business opened through the map on an emulated iPhone, CPU throttle 1x/4x via CDP, 4 s
+      of animation frames per scene; prints median/p95 frame time, slow-frame share, Phaser textures, JS heap; fails only
+      if a scene is under 2 fps; not part of `npm run check`). Headless Chromium has no GPU (software GL), so absolute
+      fps are not phone numbers; compare runs with each other. First readings (1x / 4x median ms): yard 67-83 / 117,
+      garage 67 / 117, lot 50 / 83, paint 67 / 100; textures 12 (yard) to 36 (paint, all scenes loaded); heap ~25 MB.
+- [ ] P1.3v Idea from the run 58 probe (not scheduled): the yard is the heaviest scene and the one players see most. Try
+      an adaptive pixel ratio (drop `dpr` from 2.5 to 2 or 1.5 when the first seconds average > 40 ms per frame) and
+      profile what the yard draws per frame (dirt blobs, backdrop, customers). Needs a real low-end phone to confirm.
 - [ ] P1.3t e2e flake (run 38): the first baseline `npm run check` failed at the very end with a page error
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short

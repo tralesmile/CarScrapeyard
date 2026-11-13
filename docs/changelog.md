@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.58.0 - 2026-11-13 (run 58)
+
+- **Performance probe (tooling only):** `npm run perf` opens every business on an emulated phone with the CPU slowed down
+  and prints frame times, texture counts and memory per scene (results in `screenshots/perf.json`). First readings show
+  the yard scene is the heaviest one. Nothing changes for players yet.
+
 ## 0.57.0 - 2026-11-13 (run 57)
 
 - **Long-session soak test (tests only):** 48 hours of game time with the crew working and every business open keeps the save

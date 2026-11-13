@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "sim": "vitest run tests/balance.test.ts --reporter=verbose",
+    "perf": "NODE_PATH=$(npm root -g) node tools/perf-probe.cjs",
     "e2e": "NODE_PATH=$(npm root -g) node tools/e2e-smoke.cjs",
     "check": "npm run build && npm test && npm run e2e"
   },
