@@ -3,12 +3,13 @@
 // is open, whichever business is on screen.
 
 import type { CarFamily, GarageFault, GarageUpgradeKind } from './config';
-import { ECON, MODEL_NAMES, PAINTS } from './config';
+import { ECON, MODEL_NAMES, PAINTS, MAX_SAVED_LEVEL } from './config';
 import { barnReservesParts } from './barn';
 import { stationPower, unlockedFamilies } from './formulas';
 import { pick, weighted } from './rng';
 import type { GameState, GarageJob } from './state';
 import { incomeMultiplier } from './legacy';
+import { boosted } from './boost';
 import { cityPrice, cityScale } from './cities';
 import { crewPerk, offlineCap, tapPerk } from './legacyTree';
 
@@ -100,7 +101,8 @@ export function jobPayout(state: GameState, job: GarageJob): { amount: number; p
 }
 
 function finishJob(state: GameState, job: GarageJob, auto: boolean, events: GarageSink): void {
-  const { amount, parts } = jobPayout(state, job);
+  const { amount: base, parts } = jobPayout(state, job);
+  const amount = boosted(state, base);
   state.parts -= parts;
   state.cash += amount;
   state.lifetimeEarnings += amount;
@@ -221,7 +223,7 @@ export function garageOfflineEarnings(state: GameState, seconds: number): number
 export function sanitizeGarage(g: GameState['garage']): void {
   const maxBays = ECON.garage.bays.start + ECON.garage.bays.costs.length;
   g.bays = Math.min(maxBays, Math.max(ECON.garage.bays.start, Math.floor(g.bays)));
-  for (const k of GARAGE_UPGRADES) g.levels[k] = Math.max(1, Math.min(99_999, Math.floor(g.levels[k])));
+  for (const k of GARAGE_UPGRADES) g.levels[k] = Math.max(1, Math.min(MAX_SAVED_LEVEL, Math.floor(g.levels[k])));
   g.jobs = g.jobs.filter(
     (j) =>
       !!j &&

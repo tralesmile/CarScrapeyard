@@ -93,8 +93,56 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       New since run 26: **neon nights.** After 7 pm (your phone's clock) Motor City turns to night: stars, a crescent
       moon, lit windows and neon signs, a floodlit work bay. Settings → City lights lets you pick Auto, always Day or
       always Night. Do you like it following the real clock, or would you rather it cycle while you play?
+      New since run 27: your second empire is now quicker than your first (the Legacy Points curve is softer: about
+      3h20m instead of 4h45m for a fast player), and Motor City is x3 instead of x5. The **Collection book** has started:
+      every car model and barn classic you sell is recorded with its best rarity and mastery stars, and completing a set
+      (all four Vans, one Kaze in every car type, all 16 barn classics) gives a permanent value bonus with a "SET
+      COMPLETE!" banner. The book screen comes next run. Are +5% set bonuses worth chasing, or should sets give
+      something you can see (a trophy in the yard, a paint colour)?
+      New since run 28: **the Collection book screen.** Tap 📒 in the top bar: every car type, brand and barn classic set
+      with its progress and bonus, and a card per car (a dark silhouette until you find it, then its picture, best
+      rarity, mastery stars and how many more sales to the next star). New finds get a red NEW badge. On small phones the
+      top bar is tidier: the income rate sits under your cash and the sound button is in Settings (☰) only. Is the book
+      fun to browse, and do you miss the sound button in the top bar?
+      New since run 29: **keep a barn classic.** When you pull the tarp off a restored classic you can now "🏆 Keep it"
+      instead of selling: no cash, but it stands in your showcase (Collection book → Classics) and adds +0.5% to all
+      your income forever, even after Sell Empire (one of each classic, +8% at most). Is that worth giving up the sale
+      for? Would you like to see the kept cars in the yard (a trophy shelf by the barn)?
+      Also new in run 29: **daily tasks and a 7-day login calendar** on the Jobs board (after 80 sales). Three tasks a
+      day, a reward for every day you play and an Epic gift car on day 7. A new day starts at 04:00 UTC (5 am in
+      London in winter, 8 pm in California); a missed day pauses the calendar instead of resetting it. Is 04:00 UTC a
+      good reset time for you and your testers, and should a missed day reset the calendar (stricter, more "streak")?
+      New since run 30: **achievements** (📒 book → Awards: 14 awards with bronze to diamond medals, claimed for cash).
+      New since run 31: **a story.** Vince Valvano, a rival tycoon in a gold jacket, visits your yard after 20 sales and
+      offers one dollar for it; Grandpa Joe answers. More short scenes come when you open the garage, when Vince grabs
+      an auction lot you let go (it gets a purple VINCE! stamp), when the paint shop opens, and at the end of chapter 1
+      when you can sell your empire (Vince leaves for Motor City). Right now Vince is only story and flavour: he never
+      costs you money. Do you want him to be a real rival (e.g. bidding against you at the auction, a monthly sales
+      race with a prize), or is light flavour better for a relaxing idle game? Are the scenes too long or too many?
+      New since run 32: **story chapter 2 in Motor City.** Vince greets you in his city, his gold Valvano Motors tower
+      stands on the Motor City map, and he gives up at the end of your first Motor City empire. The 📒 book has a new
+      Story page where you can read every scene again. The real-rival question above is still open.
+      New since run 34: **a Shop page in the 📒 book** where 💎 gems buy a barn rush, a parts crate or a cash bag, and
+      🎟 auction tokens buy a free Good-condition car for your Used Car Lot. Are the prices right for ~3 gems a day, and
+      is the Shop easy to find inside the book, or should it have its own button?
+      New since run 35: **music.** A looping soundtrack plays after your first tap: three layers at the start, and each
+      business you open (garage, lot, paint shop) adds one more; Motor City sounds different (minor key, faster).
+      Settings has Music and Effects volume sliders. Is it pleasant after 10 minutes, too loud/repetitive, or would you
+      rather have it off by default? (Real recorded music would need a composer or licensed tracks; the synth score is
+      a placeholder that costs nothing.)
+      New since run 62 (phone app only, needs a rewarded ad to be ready): a blue "⚡ x2 · ad" chip in the top bar after 20
+      sales; one ad = x2 on every sale, repair and paint payout for 10 minutes, then a 5-minute wait. Is 10 minutes on / 5 off
+      a fair deal, or should the boost be shorter or rarer so it does not cheapen the game?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
+
+- [ ] **Try the Android app shell when convenient (run 60, optional):** `npm run cap:android` opens the project in Android Studio
+      (needs Android Studio and a phone or emulator; steps in `docs/mobile.md`). Tell Claude if the notch / gesture bar covers
+      any buttons. Claude cannot build the APK in its cloud workspace (no Android SDK), so the first real device check is yours.
+
+- [ ] **Review the store text and legal drafts (run 63):** `docs/store/` has the listing, privacy policy, terms and data-safety
+      answers. Fill the [placeholders] (your name or company, country, contact email) and have a lawyer glance at the policy
+      before it goes on a website; Google Play and Apple both require a public privacy-policy URL.
 
 ## Soon (Phase 1, web MVP)
 
@@ -108,7 +156,7 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
 ## Later (Phase 2, mobile)
 
 - [ ] Apple Developer Program ($99/year) and a way to build iOS (Codemagic free tier or a Mac).
-- [ ] Google AdMob account; Firebase project; RevenueCat account.
+- [ ] Google AdMob account (run 61: the app already offers a rewarded ad on the welcome-back popup with Google's test ids; real ids, app ids and the consent screen need your account); Firebase project; RevenueCat account.
 - [ ] 20–25 Android testers for the closed test.
 - [ ] Bank/tax details in Google Play Console and App Store Connect for payouts.
 

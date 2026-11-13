@@ -1,6 +1,13 @@
 // DOM UI: top bar, hints, sell button, upgrade panel, modals.
 // DOM instead of canvas for UI: crisp text, accessibility, easy translation.
 
+import { bookUnlocked, inShowcase, markBookSeen, unseenEntries, type CollectionEvent } from '../core/collection';
+import { bookView, pctText, showcaseLine, type BookPage } from './collectionView';
+import { awardsView, medalToast } from './awardsView';
+import { walletText } from '../core/wallet';
+import { buyShopItem, shopItems } from '../core/shop';
+import { AWARD_IDS, awardsToClaim, claimAward, tiersReached, type AwardId } from '../core/achievements';
+import { THUMB_H, THUMB_W, carThumb } from '../game/bookArt';
 import { haptics } from '../platform/haptics';
 import { sfx } from '../audio/sfx';
 import { ECON, type ManagerKind, type UpgradeKind } from '../core/config';
@@ -25,11 +32,31 @@ import {
 } from '../core/sim';
 import type { Car, GameState, LotCar } from '../core/state';
 import { buyerMatches, buyerMultiplier, buyersUnlocked } from '../core/buyers';
-import { barnHasAction, barnStageCost, barnUnlocked, barnValue, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
+import {
+  bonusReward,
+  calendarIndex,
+  calendarReward,
+  canClaimCalendar,
+  claimBonus,
+  claimCalendar,
+  claimTask,
+  dailyHasClaim,
+  dailyUnlocked,
+  msToReset,
+  taskDone,
+  taskReward,
+  type DailyReward,
+} from '../core/daily';
+import { calendarCells, resetText, taskDoneToast, taskLabel, waitText, waitingLines } from './dailyView';
+import { barnHasAction, barnStageCost, barnUnlocked, barnValue, canKeepBarnCar, keepBarnCar, nextBarnStage, revealBarn, sellBarnCar, startBarnStage } from '../core/barn';
 import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switchBusiness, canOpenBusiness } from '../core/businesses';
-import { cityMapSvg, mapRows } from './cityMap';
+import { cityMapSvg, mapRows, rivalRow } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
+import { boostActive, canStartBoost } from '../core/boost';
+import { dueBeat, markBeatSeen, type StoryBeatId } from '../core/story';
+import { speaker, storyLog, storyScene } from './storyView';
+import { portraitUrl } from '../game/portraitArt';
 import {
   buyGarageBay,
   buyGarageUpgrade,
@@ -68,6 +95,7 @@ import { conditionStars } from '../game/carlotArt';
 import { HINT_BELOW_AREA } from '../game/garageArt';
 import { haggleGrade, haggleMultiplier, hagglePosition, isHaggleLesson, wantsHaggle } from '../core/haggle';
 import { barnStageSeconds, buyNode, offlineCap, perfectZone, respecTree } from '../core/legacyTree';
+import { t } from '../i18n';
 
 /** Yard tabs, the Repair Garage's and the Used Car Lot's own tabs (each set shows while that business is on screen). */
 type Tab = 'upgrades' | 'crew' | 'yard' | 'jobs' | 'gupgrades' | 'gcrew' | 'auction' | 'lupgrades' | 'lcrew' | 'pupgrades' | 'pcrew';
@@ -84,6 +112,8 @@ export interface UiDeps {
   onEvents: (events: GameEvent[]) => void;
   onChange: () => void;
   incomePerSecond: () => number;
+  /** Platform clock (ms), for the daily reset countdown. */
+  now: () => number;
   /** Play the barn reveal in the scene; `shown` runs when the car is on screen. Returns a function that closes it. */
   barnReveal: (shown: () => void) => () => void;
   /** Delete every save and start over (after the player confirmed). */
@@ -94,6 +124,10 @@ export interface UiDeps {
   sellEmpire: (city: CityId) => SoldEmpire | null;
   /** Start the new empire's scenes fresh (a reload: every scene and texture is rebuilt from the saved game). */
   restart: () => void;
+  /** Is a rewarded ad ready for the income boost (P2.2b)? */
+  boostAdReady: () => boolean;
+  /** The player tapped the boost chip: show the ad, then start the boost. */
+  watchBoostAd: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -127,6 +161,14 @@ export class Ui {
   private soundBtn!: HTMLButtonElement;
   private settingsBtn!: HTMLButtonElement;
   private mapBtn!: HTMLButtonElement;
+  private bookBtn!: HTMLButtonElement;
+  /** The 📒 button was on at the last render (null before the first): a toast when it first appears in play. */
+  private bookWasOn: boolean | null = null;
+  private bookPage: BookPage | 'awards' | 'story' | 'shop' = 'cars';
+  /** Story log (P1.6c): the scene opened for reading in the book, if any. */
+  private storyOpen: StoryBeatId | null = null;
+  /** Medal tiers reached per award at the last render (null until the book opens up), for the "medal!" toast. */
+  private awardTiers: Record<AwardId, number> | null = null;
   /** The map banner was shown this session (it repeats each session until the map is opened). */
   private mapAnnounced = false;
   /** The "empire for sale" banner was shown this session (P1.3b). */
@@ -135,6 +177,8 @@ export class Ui {
   private legacyTab: LegacyBranch = 'mechanic';
   /** HUD chip with the Legacy income multiplier, once the player owns points (P1.3b). */
   private legacyChip!: HTMLButtonElement;
+  /** HUD chip: x2 income boost for a rewarded ad, or the time left while it runs (P2.2b). */
+  private boostChip!: HTMLButtonElement;
   private hint!: HTMLElement;
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
@@ -147,7 +191,7 @@ export class Ui {
   private cards: CardView[] = [];
   private tab: Tab = 'upgrades';
   /** Auction card stamps (P1.2c): "SOLD!" when a lot went to another bidder, "YOURS!" when you won it. */
-  private stamps: ({ text: string; cls: 'won' | 'lost'; until: number } | null)[] = [];
+  private stamps: ({ text: string; cls: 'won' | 'lost' | 'rival'; until: number } | null)[] = [];
   /** Business the panel was last built for; the tab set swaps when it changes. */
   private shownBiz: string = 'scrapyard';
   private mode: BuyMode = 1;
@@ -195,9 +239,9 @@ export class Ui {
     this.cash.setAttribute('aria-live', 'polite');
     this.rate = el('div', 'rate', '');
     this.partsEl = el('div', 'parts hidden', '');
-    this.partsEl.title = 'Parts';
+    this.partsEl.title = t('ui.hud.parts');
     this.soundBtn = el('button', 'icon-btn sound-btn') as HTMLButtonElement;
-    this.soundBtn.setAttribute('aria-label', 'Toggle sound');
+    this.soundBtn.setAttribute('aria-label', t('ui.hud.sound'));
     this.soundBtn.onclick = () => {
       const s = this.deps.state();
       s.settings.sound = !s.settings.sound;
@@ -206,23 +250,35 @@ export class Ui {
       this.render();
     };
     this.settingsBtn = el('button', 'icon-btn settings-btn', '☰') as HTMLButtonElement;
-    this.settingsBtn.setAttribute('aria-label', 'Settings');
+    this.settingsBtn.setAttribute('aria-label', t('settings.title'));
     this.settingsBtn.onclick = () => this.openSettings();
     this.mapBtn = el('button', 'icon-btn map-btn hidden', '🗺<span class="city-tag hidden" aria-hidden="true"></span><span class="dot"></span>') as HTMLButtonElement;
-    this.mapBtn.setAttribute('aria-label', 'City map');
+    this.mapBtn.setAttribute('aria-label', t('ui.hud.map'));
     this.mapBtn.onclick = () => this.openMap();
+    this.bookBtn = el('button', 'icon-btn book-btn hidden', '📒<span class="dot"></span>') as HTMLButtonElement;
+    this.bookBtn.setAttribute('aria-label', t('ui.hud.book'));
+    this.bookBtn.title = t('ui.hud.book');
+    this.bookBtn.onclick = () => this.openBook();
     this.legacyChip = el('button', 'legacy-chip hidden') as HTMLButtonElement;
     this.legacyChip.onclick = () => this.openLegacyInfo();
-    hud.append(this.cash, this.rate, el('div', 'spacer'), this.legacyChip, this.partsEl, this.mapBtn, this.soundBtn, this.settingsBtn);
+    const money = el('div', 'money');
+    money.append(this.cash, this.rate);
+    const chips = el('div', 'chips');
+    this.boostChip = el('button', 'boost-chip hidden') as HTMLButtonElement;
+    this.boostChip.onclick = () => {
+      if (canStartBoost(this.deps.state()) && this.deps.boostAdReady()) this.deps.watchBoostAd();
+    };
+    chips.append(this.boostChip, this.legacyChip, this.partsEl);
+    hud.append(money, el('div', 'spacer'), chips, this.bookBtn, this.mapBtn, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
     this.sell = el('button', 'sell display hidden') as HTMLButtonElement;
     this.sell.onclick = () => this.onSell();
     this.crush = el('button', 'crush display hidden') as HTMLButtonElement;
-    this.crush.setAttribute('aria-label', 'Crush this wreck for parts');
+    this.crush.setAttribute('aria-label', t('ui.hud.crush'));
     this.crush.onclick = () => this.onCrush();
     this.tuneBtn = el('button', 'crush tune display hidden') as HTMLButtonElement;
-    this.tuneBtn.setAttribute('aria-label', 'Send this car to Paint & Tuning');
+    this.tuneBtn.setAttribute('aria-label', t('ui.hud.tune'));
     this.tuneBtn.onclick = () => this.onTuneLotCar();
 
     this.banner = el('div', 'banner display');
@@ -237,8 +293,8 @@ export class Ui {
 
     // Haggle slider (replaces the sell button while open).
     this.haggleEl = el('button', 'haggle hidden') as HTMLButtonElement;
-    this.haggleEl.setAttribute('aria-label', 'Tap to stop the needle and close the deal');
-    this.haggleLabel = el('div', 'haggle-label display', 'Tap to close the deal!');
+    this.haggleEl.setAttribute('aria-label', t('ui.haggle.aria'));
+    this.haggleLabel = el('div', 'haggle-label display', t('ui.haggle.close'));
     const track = el('div', 'haggle-track');
     track.append(el('span', 'zone-perfect'));
     this.haggleNeedle = el('i', 'haggle-needle');
@@ -249,17 +305,17 @@ export class Ui {
     const head = el('div', 'panel-head');
     const tabs = el('div', 'tabs');
     const tabNames: [Tab, string][] = [
-      ['upgrades', 'Upgrades'],
-      ['crew', 'Crew'],
-      ['yard', 'Yard'],
-      ['jobs', 'Jobs'],
-      ['gupgrades', 'Garage'],
-      ['gcrew', 'Crew'],
-      ['auction', 'Auction'],
-      ['lupgrades', 'Lot'],
-      ['lcrew', 'Crew'],
-      ['pupgrades', 'Shop'],
-      ['pcrew', 'Crew'],
+      ['upgrades', t('ui.tab.upgrades')],
+      ['crew', t('ui.tab.crew')],
+      ['yard', t('ui.tab.yard')],
+      ['jobs', t('ui.tab.jobs')],
+      ['gupgrades', t('ui.tab.gupgrades')],
+      ['gcrew', t('ui.tab.crew')],
+      ['auction', t('ui.tab.auction')],
+      ['lupgrades', t('ui.tab.lupgrades')],
+      ['lcrew', t('ui.tab.crew')],
+      ['pupgrades', t('ui.tab.pupgrades')],
+      ['pcrew', t('ui.tab.crew')],
     ];
     for (const [id, label] of tabNames) {
       const b = el('button', 'tab', `${label}<span class="dot"></span>`) as HTMLButtonElement;
@@ -285,7 +341,7 @@ export class Ui {
     }
     this.cardsBox = el('div', 'cards');
     this.perkStrip = el('div', 'perk-strip hidden');
-    this.perkStrip.setAttribute('aria-label', 'Legacy perks here');
+    this.perkStrip.setAttribute('aria-label', t('aria.perks'));
     this.panel.append(head, this.perkStrip, this.cardsBox);
 
     this.root.append(hud, this.buyerEl, this.hint, this.sell, this.haggleEl, this.crush, this.tuneBtn, this.banner, this.panel);
@@ -323,7 +379,7 @@ export class Ui {
       } else if (kind === 'press') {
         setText(desc, `Crush every ${crusherCooldown(level).toFixed(1)}s · +${crushParts('common', level)} ⚙ per wreck`);
       } else {
-        const what = kind === 'wash' ? 'Wash power' : 'Repair power';
+        const what = t(kind === 'wash' ? 'ui.upg.wash' : 'ui.upg.repair');
         setText(desc, `${what} x${stationPower(level).toFixed(2)}${ms ? ` · x2 at Lv ${ms}` : ''}`);
       }
       if (kind !== 'quality' && kind !== 'press' && ms) {
@@ -345,9 +401,9 @@ export class Ui {
   private managerCard(kind: ManagerKind): CardView {
     const info = ECON.managers[kind];
     const blurbs: Record<ManagerKind, string> = {
-      mechanic: 'Repairs washed cars for you',
-      washer: 'Pressure-washes new wrecks',
-      seller: 'Sells finished cars, even offline',
+      mechanic: t('ui.crew.mechanic'),
+      washer: t('ui.crew.washer'),
+      seller: t('ui.crew.seller'),
       scrapper: `Crushes a fresh Common wreck now and then to keep ${ECON.crusher.scrapperKeepParts}+ ⚙ in the bin (more if the barn needs it)`,
     };
     const root = el('div', 'card');
@@ -368,10 +424,10 @@ export class Ui {
     const update = (s: GameState) => {
       root.style.display = kind === 'scrapper' && !crusherUnlocked(s) ? 'none' : '';
       const hired = s.managers[kind];
-      setText(lvl, hired ? 'Hired' : '');
+      setText(lvl, hired ? t('ui.crew.hired') : '');
       btn.classList.toggle('done', hired);
       const cost = managerCost(s, kind);
-      setText(btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       btn.disabled = hired || s.cash < cost;
       root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -382,8 +438,8 @@ export class Ui {
     const root = el('div', 'card slot');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Lot Space'), lvl);
-    const desc = el('div', 'desc', 'Room for one more car at a time');
+    title.append(document.createTextNode(t('ui.slot.title')), lvl);
+    const desc = el('div', 'desc', t('ui.slot.desc'));
     const btn = el('button', 'buy') as HTMLButtonElement;
     root.append(title, desc, btn);
     btn.onclick = () => {
@@ -409,7 +465,7 @@ export class Ui {
     const root = el('div', 'card crusher');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Car Crusher'), lvl);
+    title.append(document.createTextNode(t('ui.crusher.title')), lvl);
     const desc = el('div', 'desc');
     const btn = el('button', 'buy') as HTMLButtonElement;
     root.append(title, desc, btn);
@@ -420,7 +476,7 @@ export class Ui {
       if (!unlocked) {
         const left = ECON.crusher.unlockCarsSold - s.carsSold;
         setText(desc, `Opens after ${left} more sale${left === 1 ? '' : 's'}`);
-        setText(btn, 'Locked');
+        setText(btn, t('ui.locked'));
         btn.disabled = true;
         root.classList.remove('ready');
         return;
@@ -432,6 +488,92 @@ export class Ui {
       btn.disabled = !ok;
     };
     return { root, lvl, desc, btn, update };
+  }
+
+  // ---- Daily tasks and login calendar (P1.5b) -------------------------------
+
+  private dailyPaid(r: DailyReward, title: string) {
+    sfx.fanfare();
+    const bits = [r.cash > 0 ? `+${formatCash(r.cash)}` : '', r.parts ? `+${r.parts} ⚙` : '', walletText(r.gems, r.tokens), r.gift ? t('banner.gift') : ''].filter(Boolean);
+    this.showBanner(title, bits.join(' · '));
+    this.deps.onChange();
+    this.render();
+  }
+
+  private calendarCard(): CardView {
+    const root = el('div', 'card daily calendar');
+    const title = el('div', 'title display');
+    const lvl = el('span', 'lvl');
+    title.append(document.createTextNode(t('daily.cal.title')), lvl);
+    const strip = el('div', 'cal-strip');
+    strip.setAttribute('aria-hidden', 'true');
+    const desc = el('div', 'desc');
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, strip, desc, btn);
+    let key = '';
+    btn.onclick = () => {
+      const r = claimCalendar(this.deps.state());
+      if (r) this.dailyPaid(r, r.gift ? t('daily.cal.bannerGift') : t('daily.cal.banner'));
+    };
+    const update = (s: GameState) => {
+      const cells = calendarCells(s);
+      const k = cells.map((c) => c.state[0]).join('');
+      if (k !== key) {
+        key = k;
+        strip.innerHTML = cells.map((c) => `<span class="cal-cell ${c.state}">${c.state === 'claimed' ? '✓' : c.gift ? '🎁' : c.day}</span>`).join('');
+      }
+      const open = canClaimCalendar(s);
+      const idx = calendarIndex(s);
+      const r = calendarReward(s);
+      const what = r.gift ? t('daily.cal.giftWhat', { rarity: ECON.rarity[ECON.daily.giftRarity].label }) : `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''}${r.gems ? ` + ${r.gems} 💎` : ''}${r.tokens ? ` + ${r.tokens} 🎟` : ''}`;
+      root.classList.toggle('ready', open);
+      setText(lvl, t('daily.cal.day', { n: idx + 1, total: ECON.daily.calendar.length }));
+      setText(desc, open ? t('daily.cal.today', { what }) : t('daily.cal.tomorrow', { what }));
+      setText(btn, open ? (r.gift ? t('daily.cal.claimGift') : t('daily.claim', { reward: formatCash(r.cash) })) : t('daily.cal.next', { wait: waitText(msToReset(this.deps.now())) }));
+      btn.disabled = !open;
+    };
+    return { root, lvl, desc, btn, update };
+  }
+
+  private dailyTaskCard(index: number): CardView {
+    const root = el('div', 'card daily task');
+    const title = el('div', 'title display');
+    const name = el('span');
+    const lvl = el('span', 'lvl');
+    title.append(name, lvl);
+    const desc = el('div', 'desc');
+    const barWrap = el('div', 'bar');
+    const bar = el('i');
+    barWrap.append(bar);
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    root.append(title, desc, barWrap, btn);
+    btn.onclick = () => {
+      const s = this.deps.state();
+      const r = claimTask(s, index);
+      if (!r) return;
+      // The third claim also pays the all-done bonus.
+      const b = claimBonus(s);
+      this.dailyPaid(b ? { cash: r.cash + b.cash, parts: r.parts + b.parts, gift: false, gems: r.gems + b.gems, tokens: r.tokens + b.tokens } : r, b ? t('daily.task.bannerAll') : t('daily.task.banner'));
+    };
+    const update = (s: GameState) => {
+      const task = s.daily.tasks[index];
+      root.style.display = task ? '' : 'none';
+      if (!task) return;
+      const done = taskDone(task);
+      root.classList.toggle('ready', done && !task.claimed);
+      root.classList.toggle('claimed', task.claimed);
+      setText(name, taskLabel(task.kind, task.target));
+      setText(lvl, `${task.progress}/${task.target}`);
+      bar.style.width = `${(task.progress / task.target) * 100}%`;
+      const r = taskReward(s, task);
+      const reward = `${formatCash(r.cash)}${r.parts ? ` + ${r.parts} ⚙` : ''} + ${r.tokens} 🎟`;
+      const left = s.daily.tasks.filter((x) => !x.claimed).length;
+      const bonus = !s.daily.bonusClaimed && left > 0 ? t('daily.task.bonus', { count: s.daily.tasks.length, cash: formatCash(bonusReward(s).cash) }) : '';
+      setText(desc, task.claimed ? t('daily.task.claimedDesc', { reset: resetText(msToReset(this.deps.now())) }) : t('daily.task.reward', { reward, bonus }));
+      setText(btn, task.claimed ? t('daily.task.claimed') : done ? t('daily.claim', { reward }) : t('daily.task.progress'));
+      btn.disabled = task.claimed || !done;
+    };
+    return { root, lvl, desc, bar, btn, update };
   }
 
   private contractCard(index: number): CardView {
@@ -463,7 +605,7 @@ export class Ui {
       const reward = claimContract(s, c.id);
       if (reward.cash > 0 || reward.parts > 0) {
         sfx.fanfare();
-        this.showBanner('PAID!', `+${formatCash(reward.cash)}${reward.parts ? ` · +${reward.parts} ⚙` : ''}`);
+        this.showBanner(t('ui.contract.paid'), `+${formatCash(reward.cash)}${reward.parts ? ` · +${reward.parts} ⚙` : ''}`);
         this.deps.onChange();
         this.render();
       }
@@ -473,11 +615,11 @@ export class Ui {
       root.classList.toggle('ready', c?.status === 'done');
       btn.classList.toggle('swap', canRerollContract(c));
       if (!c || c.status === 'empty') {
-        setText(name, 'New order');
+        setText(name, t('ui.contract.new'));
         setText(lvl, '');
-        setText(desc, c ? `Arrives in ${formatDuration(Math.ceil(c.timeLeft))}` : 'Arriving…');
+        setText(desc, c ? t('ui.contract.arrives', { time: formatDuration(Math.ceil(c.timeLeft)) }) : t('ui.contract.arriving'));
         bar.style.width = '0%';
-        setText(btn, 'Waiting');
+        setText(btn, t('ui.contract.waiting'));
         btn.disabled = true;
         return;
       }
@@ -486,13 +628,13 @@ export class Ui {
       const reward = `${formatCash(c.rewardCash)}${c.rewardParts ? ` + ${c.rewardParts} ⚙` : ''}`;
       bar.style.width = `${(c.progress / c.target) * 100}%`;
       if (c.status === 'done') {
-        setText(desc, 'Order complete!');
-        setText(btn, `Claim ${reward}`);
+        setText(desc, t('ui.contract.complete'));
+        setText(btn, t('ui.claim', { reward }));
         btn.disabled = false;
       } else {
-        setText(desc, `Reward ${reward} · ${formatDuration(Math.ceil(c.timeLeft))} left`);
+        setText(desc, t('ui.contract.reward', { reward, time: formatDuration(Math.ceil(c.timeLeft)) }));
         const swap = canRerollContract(c);
-        setText(btn, swap ? '🔄 Swap order (free)' : 'In progress');
+        setText(btn, swap ? t('ui.contract.swap') : t('ui.inProgress'));
         btn.disabled = !swap;
       }
     };
@@ -503,7 +645,7 @@ export class Ui {
     const root = el('div', 'card barn');
     const title = el('div', 'title display');
     const lvl = el('span', 'lvl');
-    title.append(document.createTextNode('Barn Find'), lvl);
+    title.append(document.createTextNode(t('ui.barn.card')), lvl);
     const desc = el('div', 'desc');
     const barWrap = el('div', 'bar');
     const bar = el('i');
@@ -519,9 +661,9 @@ export class Ui {
       if (!barnUnlocked(s)) {
         const left = ECON.barn.unlockCarsSold - s.carsSold;
         setText(lvl, '');
-        setText(desc, `Something is hiding under a tarp… Opens after ${left} more sale${left === 1 ? '' : 's'}`);
+        setText(desc, t('ui.barn.locked', { count: left }));
         bar.style.width = '0%';
-        setText(btn, 'Locked');
+        setText(btn, t('ui.locked'));
         btn.disabled = true;
         return;
       }
@@ -529,30 +671,30 @@ export class Ui {
       if (b.status === 'covered') {
         const st = nextBarnStage(s)!;
         const cost = barnStageCost(s);
-        setText(desc, `${b.stage === 0 ? 'A covered classic! ' : ''}Next: ${st.name}. Sells for about ${formatCash(barnValue(s))}`);
+        setText(desc, t('ui.barn.next', { intro: b.stage === 0 ? t('ui.barn.intro') : '', name: st.name, value: formatCash(barnValue(s)) }));
         bar.style.width = `${(b.stage / stages) * 100}%`;
         setText(btn, `${formatCash(cost.cash)}${cost.parts ? ` + ${cost.parts} ⚙` : ''}`);
         btn.disabled = s.cash < cost.cash || s.parts < cost.parts;
       } else if (b.status === 'working') {
         const st = ECON.barn.stages[b.stage]!;
-        setText(desc, `${st.name}… ${formatDuration(Math.ceil(b.timeLeft))} left (keeps going while you're away)`);
+        setText(desc, t('ui.barn.working', { name: st.name, time: formatDuration(Math.ceil(b.timeLeft)) }));
         bar.style.width = `${((b.stage + 1 - b.timeLeft / Math.max(1e-6, barnStageSeconds(s, b.stage))) / stages) * 100}%`;
-        setText(btn, 'Working…');
+        setText(btn, t('ui.working'));
         btn.disabled = true;
       } else if (b.status === 'finished') {
-        setText(desc, 'Restoration complete! Pull off the tarp.');
+        setText(desc, t('ui.barn.finished'));
         bar.style.width = '100%';
-        setText(btn, 'Reveal!');
+        setText(btn, t('ui.barn.reveal'));
         btn.disabled = false;
       } else if (b.status === 'revealed') {
-        setText(desc, `${b.model}, Legendary classic. A collector is waiting.`);
+        setText(desc, t('ui.barn.revealed', { model: b.model, keep: canKeepBarnCar(s) ? t('ui.barn.keepHint') : '' }));
         bar.style.width = '100%';
-        setText(btn, `Sell ${formatCash(b.value)}`);
+        setText(btn, t('ui.sell', { value: formatCash(b.value) }));
         btn.disabled = false;
       } else {
-        setText(desc, `Grandpa Joe is asking around for the next barn find… ${formatDuration(Math.ceil(b.timeLeft))}`);
+        setText(desc, t('ui.barn.waiting', { time: formatDuration(Math.ceil(b.timeLeft)) }));
         bar.style.width = '0%';
-        setText(btn, `Restored: ${b.restored}`);
+        setText(btn, t('ui.barn.restored', { count: b.restored }));
         btn.classList.add('done');
         btn.disabled = true;
       }
@@ -562,9 +704,9 @@ export class Ui {
 
   private teaserCard(): CardView {
     const root = el('div', 'card');
-    const title = el('div', 'title display', 'Repair Garage');
-    const desc = el('div', 'desc', 'Your second business. Opens in the next update.');
-    const btn = el('button', 'buy', 'Coming soon') as HTMLButtonElement;
+    const title = el('div', 'title display', t('ui.teaser.title'));
+    const desc = el('div', 'desc', t('ui.teaser.desc'));
+    const btn = el('button', 'buy', t('ui.comingSoon')) as HTMLButtonElement;
     btn.disabled = true;
     root.append(title, desc, btn);
     return { root, lvl: title, desc, btn, update: () => {} };
@@ -609,7 +751,7 @@ export class Ui {
   }
 
   private garageBayCard(): CardView {
-    const v = this.simpleCard('garage-bay', 'Repair Bay', 'Room for one more customer car', (s) => buyGarageBay(s), () => sfx.buy());
+    const v = this.simpleCard('garage-bay', t('ui.bay.title'), t('ui.bay.desc'), (s) => buyGarageBay(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = garageBayCost(s.garage.bays, cityScale(s));
       setText(v.lvl, `${s.garage.bays} / ${ECON.garage.bays.start + ECON.garage.bays.costs.length}`);
@@ -623,14 +765,14 @@ export class Ui {
 
   private foremanCard(): CardView {
     const f = ECON.garage.foreman;
-    const v = this.simpleCard('garage-foreman', f.name, 'Fixes customer cars for you, even offline', (s) => hireForeman(s), () => sfx.fanfare());
+    const v = this.simpleCard('garage-foreman', f.name, t('ui.foreman.desc'), (s) => hireForeman(s), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.garage.foreman;
-      setText(v.lvl, hired ? 'Hired' : '');
-      setText(v.desc, hired ? `Fixing ${foremanRate(s).toFixed(1)} work/s, even offline` : 'Fixes customer cars for you, even offline');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
+      setText(v.desc, hired ? t('ui.foreman.rate', { rate: foremanRate(s).toFixed(1) }) : t('ui.foreman.desc'));
       v.btn.classList.toggle('done', hired);
       const cost = foremanCost(s);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -676,15 +818,16 @@ export class Ui {
         stamp.classList.toggle('hidden', !key);
         stamp.classList.toggle('won', st?.cls === 'won');
         stamp.classList.toggle('lost', st?.cls === 'lost');
+        stamp.classList.toggle('rival', st?.cls === 'rival');
         if (st && key) setText(stamp, st.text);
       }
       root.classList.toggle('empty', !lot);
       root.classList.toggle('closing', !!lot && lot.timeLeft <= ECON.carlot.auctionClosingSeconds);
       if (!lot) {
-        name.textContent = 'Next lot';
+        name.textContent = t('ui.lot.next');
         setText(lvl, '');
         const left = Math.ceil(s.carlot.refill[index] ?? 0);
-        setText(desc, `A new car is rolling onto the auction${left > 0 ? ` in ${left}s` : '…'}`);
+        setText(desc, left > 0 ? t('ui.lot.rollingIn', { s: left }) : t('ui.lot.rolling'));
         fill.style.width = '0%';
         setText(btn, '—');
         btn.disabled = true;
@@ -698,7 +841,7 @@ export class Ui {
       const cond = ECON.carlot.conditions[lot.condition];
       const stars = conditionStars(lot.condition);
       const html =
-        `<span class="stars" aria-label="Condition ${lot.condition} of 5"><b>${stars.slice(0, lot.condition)}</b>${stars.slice(lot.condition)}</span> ` +
+        `<span class="stars" aria-label="${t('aria.condition', { n: lot.condition })}"><b>${stars.slice(0, lot.condition)}</b>${stars.slice(lot.condition)}</span> ` +
         `${cond.name} ${ECON.families[lot.family].name} · sells for ${formatCash(listPrice(s, lot))} · profit ${formatCash(lotProfit(s, lot))}`;
       if (desc.innerHTML !== html) desc.innerHTML = html;
       fill.style.width = `${Math.max(0, Math.min(1, lot.timeLeft / ECON.carlot.lotSeconds)) * 100}%`;
@@ -729,7 +872,7 @@ export class Ui {
   }
 
   private spotCard(): CardView {
-    const v = this.simpleCard('carlot-spot', 'Forecourt Spot', 'Room for one more car on the lot', (s) => buySpot(s), () => sfx.buy());
+    const v = this.simpleCard('carlot-spot', t('ui.spot.title'), t('ui.spot.desc'), (s) => buySpot(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = spotCost(s.carlot.spots, cityScale(s));
       setText(v.lvl, `${s.carlot.spots} / ${ECON.carlot.spots.start + ECON.carlot.spots.costs.length}`);
@@ -743,16 +886,16 @@ export class Ui {
 
   private lotCrewCard(kind: CarLotCrewKind): CardView {
     const info = ECON.carlot.crew[kind];
-    const blurb = kind === 'detailer' ? 'Refurbishes your cars, even offline' : 'Buys the best-value car at the auction for you';
+    const blurb = kind === 'detailer' ? t('ui.lot.detailer') : t('ui.lot.agent');
     const v = this.simpleCard(`carlot-${kind}`, info.name, blurb, (s) => hireLotCrew(s, kind), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.carlot.crew[kind];
-      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
       if (kind === 'detailer') setText(v.desc, hired ? `Polishing ${detailerRate(s).toFixed(1)} work/s, even offline` : blurb);
       else setText(v.desc, hired ? `Bids when you have ${ECON.carlot.agentReserve}x the price · with the Detailer the lot runs offline` : blurb);
       v.btn.classList.toggle('done', hired);
       const cost = lotCrewCost(s, kind);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -780,7 +923,7 @@ export class Ui {
   }
 
   private boothCard(): CardView {
-    const v = this.simpleCard('paint-booths', 'Extra Booth', 'Room for one more customer car', (s) => buyBooth(s), () => sfx.buy());
+    const v = this.simpleCard('paint-booths', t('ui.booth.title'), t('ui.bay.desc'), (s) => buyBooth(s), () => sfx.buy());
     const update = (s: GameState) => {
       const cost = boothCost(s.paint.booths, cityScale(s));
       setText(v.lvl, `${s.paint.booths} / ${ECON.paint.booths.start + ECON.paint.booths.costs.length}`);
@@ -798,11 +941,11 @@ export class Ui {
     const v = this.simpleCard('paint-painter', f.name, blurb, (s) => hirePainter(s), () => sfx.fanfare());
     const update = (s: GameState) => {
       const hired = s.paint.painter;
-      setText(v.lvl, hired ? 'Hired' : '');
+      setText(v.lvl, hired ? t('ui.crew.hired') : '');
       setText(v.desc, hired ? `Working ${painterRate(s).toFixed(1)} work/s, even offline` : blurb);
       v.btn.classList.toggle('done', hired);
       const cost = painterCost(s);
-      setText(v.btn, hired ? 'Working' : `Hire ${formatCash(cost)}`);
+      setText(v.btn, hired ? t('ui.crew.working') : t('ui.crew.hire', { cost: formatCash(cost) }));
       v.btn.disabled = hired || s.cash < cost;
       v.root.classList.toggle('ready', !hired && s.cash >= cost);
     };
@@ -818,6 +961,11 @@ export class Ui {
     this.root.classList.toggle('in-paint', this.shownBiz === 'paint');
     this.tab = BUSINESS_TABS[s.businesses.active][0] ?? 'upgrades';
     this.buildCards();
+  }
+
+  /** Rebuild the Jobs tab's cards (a new day or the daily unlock changes them). */
+  rebuildCards() {
+    if (this.tab === 'jobs') this.buildCards();
   }
 
   private buildCards() {
@@ -838,10 +986,28 @@ export class Ui {
     else if (this.tab === 'lcrew') this.cards = [this.lotCrewCard('detailer'), this.lotCrewCard('agent')];
     else if (this.tab === 'pupgrades') this.cards = [this.paintUpgradeCard('booth'), this.paintUpgradeCard('hype'), this.boothCard()];
     else if (this.tab === 'pcrew') this.cards = [this.painterCard()];
-    else this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
+    else {
+      this.cards = Array.from({ length: ECON.contracts.board }, (_, i) => this.contractCard(i));
+      // Daily tasks and the calendar follow the timed orders (P1.5b).
+      if (dailyUnlocked(this.deps.state())) this.cards.push(this.calendarCard(), ...Array.from({ length: ECON.daily.tasksPerDay }, (_, i) => this.dailyTaskCard(i)));
+    }
     for (const c of this.cards) this.cardsBox.append(c.root);
     this.renderPerkStrip();
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
+  }
+
+  /** The boost chip: the countdown while x2 runs, the offer when an ad is ready, hidden otherwise. */
+  private updateBoostChip(s: GameState): void {
+    const running = boostActive(s);
+    const offer = !running && canStartBoost(s) && this.deps.boostAdReady();
+    const text = running ? t('ui.boost.running', { time: formatDuration(Math.ceil(s.boost.remaining)) }) : offer ? t('ui.boost.offer') : '';
+    this.boostChip.classList.toggle('hidden', !running && !offer);
+    this.boostChip.classList.toggle('running', running);
+    this.boostChip.disabled = running;
+    if (this.boostChip.textContent !== text) {
+      this.boostChip.textContent = text;
+      this.boostChip.setAttribute('aria-label', running ? text : t('ui.boost.aria'));
+    }
   }
 
   /** The chip row of owned Legacy perks that apply to the open tab (hidden when none). */
@@ -892,7 +1058,7 @@ export class Ui {
     const events = sendLotCarToShop(s, id);
     if (!events.length) return;
     sfx.engine();
-    this.toast(`🎨 Off to ${businessName(s, 'paint')} for a ${ECON.paint.services[svc].name.toLowerCase()}`, 2500);
+    this.toast(t('toast.tune', { shop: businessName(s, 'paint'), service: ECON.paint.services[svc].name.toLowerCase() }), 2500);
     this.deps.onEvents(events);
     this.deps.onChange();
     this.render();
@@ -921,14 +1087,14 @@ export class Ui {
     if (!show || !car) return;
     this.tuneBtn.disabled = block !== null;
     const svc = ECON.paint.services[lotCarService(car)];
-    const sub = block === 'boothsFull' ? 'Booths busy' : `+${formatCash(lotTuneValue(s, car))}`;
+    const sub = block === 'boothsFull' ? t('ui.lot.boothsBusy') : `+${formatCash(lotTuneValue(s, car))}`;
     // Short names fit beside Sell: "Custom rims" -> "Rims", "Engine tune" -> "Tune".
     const word = svc.name.split(' ').pop() ?? svc.name;
     const html = `${svc.icon} ${word[0]!.toUpperCase()}${word.slice(1)}<small>${sub}</small>`;
     if (this.tuneBtn.innerHTML !== html) this.tuneBtn.innerHTML = html;
     if (!s.tutorial.lotTuneSeen) {
       s.tutorial.lotTuneSeen = true;
-      this.toast('🎨 Your paint shop can tune lot cars: they sell for more', 4000);
+      this.toast(t('ui.toast.lotTune'), 4000);
       this.deps.onChange();
     }
   }
@@ -954,7 +1120,7 @@ export class Ui {
     }
     hg.classList.remove('hidden', 'stopped', 'perfect', 'great', 'good', 'poor');
     hg.classList.toggle('lesson', lesson);
-    setText(this.haggleLabel, lesson ? 'Haggle! Stop the needle in the green' : 'Tap to close the deal!');
+    setText(this.haggleLabel, lesson ? t('ui.haggle.lesson') : t('ui.haggle.close'));
     const tongue = perkChip(this.deps.state(), 'silverTongue');
     if (tongue) this.haggleLabel.append(perkChipEl(tongue));
     const start = performance.now();
@@ -975,8 +1141,8 @@ export class Ui {
       const mult = pos === null ? 1 : haggleMultiplier(pos, lesson, zone);
       const grade = haggleGrade(mult);
       hg.classList.add('stopped', grade);
-      const words = { perfect: 'PERFECT!', great: 'Great deal!', good: 'Deal!', poor: 'Ouch…' } as const;
-      setText(this.haggleLabel, pos === null ? 'Sold at asking price' : `${words[grade]} x${mult.toFixed(2)}`);
+      const words = { perfect: t('ui.haggle.perfect'), great: t('ui.haggle.great'), good: t('ui.haggle.good'), poor: t('ui.haggle.poor') } as const;
+      setText(this.haggleLabel, pos === null ? t('ui.haggle.asking') : `${words[grade]} x${mult.toFixed(2)}`);
       if (grade === 'perfect') sfx.fanfare();
       else if (grade === 'poor') sfx.denied();
       else sfx.buy();
@@ -1039,18 +1205,40 @@ export class Ui {
     // Banners (e.g. "RESTORED!") stay out of the way of the reveal.
     this.banner.classList.add('muted');
     const reveal = this.deps.barnReveal(() => {
+      const keep = canKeepBarnCar(s);
+      const bonus = pctText(ECON.collection.showcaseBonus);
+      const note = keep
+        ? `<p class="keep-note">Or keep it in your showcase: no cash, but <b>+${bonus} all income</b> for good, even after you sell your empire.</p>`
+        : inShowcase(s, s.barn.model)
+          ? `<p class="keep-note">You already have one in your showcase.</p>`
+          : '';
       this.modal({
-        title: 'Legendary classic!',
-        body: `<p>Under the tarp: a fully restored <b>${s.barn.model}</b>. A collector wants it right now.</p>`,
+        title: t('ui.barn.title'),
+        body: `<p>${t('ui.barn.body', { model: `<b>${s.barn.model}</b>` })}</p>${note}`,
         big: formatCash(s.barn.value),
-        button: 'Sell it!',
+        button: t('ui.barn.sell'),
+        ...(keep
+          ? {
+              third: t('ui.barn.keep', { bonus }),
+              onThird: () => {
+                close();
+                const book: CollectionEvent[] = [];
+                if (!keepBarnCar(s, book)) return;
+                this.deps.onEvents([{ type: 'barnKept', model: s.collection.showcase[s.collection.showcase.length - 1]!, count: s.collection.showcase.length }, ...book]);
+                this.deps.onChange();
+                this.showBanner(t('banner.showcase'), showcaseLine(s));
+                sfx.fanfare();
+              },
+            }
+          : {}),
         secondary: 'Later',
         cls: 'reveal',
         onClose: () => {
           close();
-          const paid = sellBarnCar(s);
+          const book: CollectionEvent[] = [];
+          const paid = sellBarnCar(s, book);
           if (paid > 0) {
-            this.deps.onEvents([{ type: 'barnSold', amount: paid }]);
+            this.deps.onEvents([{ type: 'barnSold', amount: paid }, ...book]);
             this.deps.onChange();
             sfx.fanfare();
           }
@@ -1082,10 +1270,10 @@ export class Ui {
     // Rare finds are worth far more sold: ask first.
     if (car.rarity === 'epic' || car.rarity === 'legendary') {
       this.modal({
-        title: 'Crush this beauty?',
-        body: `<p>This ${ECON.rarity[car.rarity].label} ${car.model} sells for ${formatCash(car.value)} once fixed.</p>`,
-        button: 'Keep it',
-        secondary: `Crush for ${crushParts(car.rarity, s.levels.press)} parts`,
+        title: t('ui.crush.title'),
+        body: `<p>${t('ui.crush.body', { rarity: ECON.rarity[car.rarity].label, model: car.model, value: formatCash(car.value) })}</p>`,
+        button: t('ui.crush.keep'),
+        secondary: t('ui.crush.go', { parts: crushParts(car.rarity, s.levels.press) }),
         onSecondary: doCrush,
       });
       return;
@@ -1148,7 +1336,7 @@ export class Ui {
     // Unlock announcements (once per save).
     if (crusherOn && !s.tutorial.crusherSeen && !this.modalOpen) {
       s.tutorial.crusherSeen = true;
-      this.showBanner('CAR CRUSHER!', 'Crush wrecks for Parts');
+      this.showBanner(t('banner.crusher'), t('banner.crusher.sub'));
       sfx.fanfare();
       this.deps.onChange();
     }
@@ -1157,13 +1345,20 @@ export class Ui {
     for (const [t, b] of this.tabButtons) b.style.display = shownTabs.includes(t) && (t !== 'jobs' || jobsOn) ? '' : 'none';
     if (jobsOn && !s.tutorial.contractsSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.contractsSeen = true;
-      setTimeout(() => this.showBanner('CONTRACTS!', 'New orders on the Jobs board'), 2700);
+      setTimeout(() => this.showBanner(t('banner.contracts'), t('banner.contracts.sub')), 2700);
+      this.deps.onChange();
+    }
+
+    if (jobsOn && dailyUnlocked(s) && !s.tutorial.dailySeen && !this.modalOpen && s.tutorial.contractsSeen) {
+      s.tutorial.dailySeen = true;
+      setTimeout(() => this.showBanner(t('banner.daily'), t('banner.daily.sub')), 2700);
+      if (this.tab === 'jobs') this.buildCards();
       this.deps.onChange();
     }
 
     if (barnUnlocked(s) && !s.tutorial.barnSeen && !this.modalOpen && s.tutorial.crusherSeen) {
       s.tutorial.barnSeen = true;
-      setTimeout(() => this.showBanner('BARN FIND!', 'A covered classic at the back of the yard'), 2700);
+      setTimeout(() => this.showBanner(t('banner.barn'), t('banner.barn.sub')), 2700);
       this.deps.onChange();
     }
 
@@ -1173,13 +1368,21 @@ export class Ui {
     const city = cityInfo(currentCity(s));
     if (this.mapBtn.dataset.city !== currentCity(s)) {
       this.mapBtn.dataset.city = currentCity(s);
-      this.mapBtn.setAttribute('aria-label', `${city.name} map`);
+      this.mapBtn.setAttribute('aria-label', t('aria.mapBtn', { city: city.name }));
       this.mapBtn.title = `${city.name} map`;
       const tag = this.mapBtn.querySelector('.city-tag')!;
       tag.textContent = city.icon;
       tag.classList.toggle('hidden', currentCity(s) === 'rustValley');
     }
     this.mapBtn.querySelector('.dot')!.classList.toggle('on', mapOn && (!s.tutorial.mapSeen || this.mapHasAction(s) || (canSellEmpire(s) && !s.tutorial.legacyOffered)));
+    const bookOn = bookUnlocked(s);
+    this.bookBtn.classList.toggle('hidden', !bookOn);
+    this.bookBtn.querySelector('.dot')!.classList.toggle('on', bookOn && (unseenEntries(s).length > 0 || awardsToClaim(s).length > 0));
+    if (bookOn && this.bookWasOn === false) this.toast(t('ui.toast.book'), 4000);
+    if (bookOn) this.checkMedals(s);
+    this.checkDailyDone(s);
+    this.bookWasOn = bookOn;
+    this.updateBoostChip(s);
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);
     const chipHtml = badge === null ? '' : `${badge}${treeHasBuy(s) ? '<i class="dot on"></i>' : ''}`;
@@ -1187,14 +1390,19 @@ export class Ui {
       this.legacyChip.innerHTML = chipHtml;
       this.legacyChip.setAttribute('aria-label', `Legacy: income ${badge.split(' ')[1]}`);
     }
+    // Story scenes (P1.6) come before the sale banner, so chapter 1's ending leads into it.
+    if (!this.modalOpen && this.haggling === null) {
+      const beat = dueBeat(s);
+      if (beat) this.openStory(beat);
+    }
     if (mapOn && canSellEmpire(s) && !s.tutorial.legacyOffered && !this.legacyAnnounced && !this.modalOpen) {
       this.legacyAnnounced = true;
-      this.showBanner('EMPIRE FOR SALE!', 'Open the 🗺 map to sell it for Legacy Points');
+      this.showBanner(t('banner.empire'), t('banner.empire.sub'));
       sfx.fanfare();
     }
     if (mapOn && !s.tutorial.mapSeen && !this.mapAnnounced && !this.modalOpen && s.tutorial.crusherSeen) {
       this.mapAnnounced = true;
-      setTimeout(() => this.showBanner('CITY MAP!', 'Tap 🗺 to see what you can build next'), 2700);
+      setTimeout(() => this.showBanner(t('banner.map'), t('banner.map.sub')), 2700);
     }
 
     this.renderHint(s);
@@ -1242,7 +1450,7 @@ export class Ui {
     const box = el('div', 'modal city-map');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'City map');
+    box.setAttribute('aria-label', t('aria.cityMap'));
     box.append(el('h2', 'display', cityInfo(currentCity(s)).name));
     const art = el('div', 'map-art');
     const list = el('div', 'map-list');
@@ -1279,7 +1487,7 @@ export class Ui {
             // Map tier (P1.1d): the business grows on the map with lot slots / repair bays.
             const stars = el('span', 'map-stars');
             stars.textContent = '★'.repeat(r.tier) + '☆'.repeat(Math.max(0, MAX_TIER - r.tier));
-            stars.setAttribute('aria-label', `Tier ${r.tier} of ${MAX_TIER}`);
+            stars.setAttribute('aria-label', t('aria.tier', { n: r.tier, max: MAX_TIER }));
             name.append(' ', stars);
           }
           const line = el('div', 'map-line');
@@ -1303,7 +1511,7 @@ export class Ui {
               if (r.status === 'forSale') {
                 if (!openBusiness(cur, r.id)) return sfx.denied();
                 sfx.fanfare();
-                this.toast(`${r.icon} ${r.name} is open!`);
+                this.toast(t('toast.open', { icon: r.icon, name: r.name }));
               } else if (switchBusiness(cur, r.id)) {
                 sfx.tap();
                 close();
@@ -1317,12 +1525,25 @@ export class Ui {
           return row;
         }),
       );
+      // Story (P1.6b): Vince's HQ in Motor City.
+      const rival = rivalRow(st);
+      if (rival) {
+        const row = el('div', 'map-row rival');
+        const text = el('div', 'map-text');
+        const name = el('div', 'map-name display');
+        name.textContent = rival.name;
+        const line = el('div', 'map-line');
+        line.textContent = rival.line;
+        text.append(name, line);
+        row.append(el('div', 'map-icon', '😎'), text);
+        list.append(row);
+      }
       // Prestige (P1.3b): the Sell Empire row once a sale is worth it, else how far the next one is.
       if (sellRow) {
         const row = el('div', `map-row legacy${sellRow.glow ? ' glow' : ''}`);
         const text = el('div', 'map-text');
         const name = el('div', 'map-name display');
-        name.textContent = 'Sell Empire';
+        name.textContent = t('ui.sell.row');
         const line = el('div', 'map-line');
         line.textContent = sellRow.line;
         text.append(name, line);
@@ -1350,8 +1571,9 @@ export class Ui {
       if (!back.isConnected) return window.clearInterval(timer);
       paint();
     }, 500);
-    const backTo: Record<BusinessId, string> = { scrapyard: 'Back to the yard', garage: 'Back to the garage', carlot: 'Back to the lot', paint: 'Back to the paint shop' };
+    const backTo: Record<BusinessId, string> = { scrapyard: t('ui.back.scrapyard'), garage: t('ui.back.garage'), carlot: t('ui.back.carlot'), paint: t('ui.back.paint') };
     const done = el('button', 'buy', backTo[s.businesses.active]) as HTMLButtonElement;
+    done.dataset.back = '1';
     done.onclick = () => {
       sfx.tap();
       close();
@@ -1374,7 +1596,7 @@ export class Ui {
       const c = slotCost(s.slots, cityScale(s));
       return (c !== null && s.cash >= c) || this.barnHasAction(s);
     }
-    if (t === 'jobs') return s.contracts.some((c) => c.status === 'done');
+    if (t === 'jobs') return s.contracts.some((c) => c.status === 'done') || dailyHasClaim(s);
     if (t === 'gcrew') return s.businesses.opened.garage && !s.garage.foreman && s.cash >= foremanCost(s);
     if (t === 'auction') return s.businesses.opened.carlot && s.carlot.cars.length === 0 && s.carlot.board.some((b) => !!b && canBuyLot(s, b.id));
     if (t === 'pcrew') return s.businesses.opened.paint && !s.paint.painter && s.cash >= painterCost(s);
@@ -1406,7 +1628,7 @@ export class Ui {
       else if (pj && svc && s.paint.jobsDone < 3) text = `👆 Tap the car: ${ECON.paint.services[svc].name.toLowerCase()}!`;
     } else if (s.businesses.active === 'garage') {
       if (!job && s.garage.jobsDone === 0) text = 'A customer is on the way...';
-      else if (job && s.garage.jobsDone < 3) text = `👆 Tap the car to fix the ${ECON.garage.faults[job.fault].name.toLowerCase()}!`;
+      else if (job && s.garage.jobsDone < 3) text = t('garage.tapHint', { fault: t(`garage.fault.${job.fault}`).toLowerCase() });
     } else if (!car && s.carsSold === 0) text = 'A wreck is on its way...';
     else if (car && learning) {
       const stage = carStage(car);
@@ -1474,10 +1696,32 @@ export class Ui {
     }, 460);
   }
 
+  /** System back button (Android): dismisses the topmost modal and returns true; false when nothing is open. */
+  handleBack(): boolean {
+    const backs = this.root.querySelectorAll<HTMLElement>(':scope > .modal-back');
+    const top = backs[backs.length - 1];
+    if (!top) return false;
+    const btn = top.querySelector<HTMLElement>('[data-back]');
+    // A modal without a safe dismiss (the barn reveal's choice) swallows the press instead of exiting the app.
+    btn?.click();
+    return true;
+  }
+
   toast(message: string, ms = 4000) {
+    // Toasts stack in one column under the top bar, so two at once never print over each other (found in run 31).
+    let stack = this.root.querySelector<HTMLElement>(':scope > .toasts');
+    if (!stack) {
+      stack = el('div', 'toasts');
+      stack.setAttribute('aria-live', 'polite');
+    }
+    // Above the game and the HUD, but under an open modal: a toast never covers a modal's title (found in run 31).
+    const firstModal = this.root.querySelector(':scope > .modal-back');
+    if (firstModal) this.root.insertBefore(stack, firstModal);
+    else this.root.append(stack);
     const t = el('div', 'toast', '');
     t.textContent = message;
-    this.root.append(t);
+    stack.append(t);
+    while (stack.childElementCount > 3) stack.firstElementChild?.remove();
     setTimeout(() => t.remove(), ms);
   }
 
@@ -1490,6 +1734,11 @@ export class Ui {
     onClose?: () => void;
     /** Called instead of onClose when the secondary button is used. */
     onSecondary?: () => void;
+    /** An optional middle choice between the main and the secondary button (e.g. keep a classic instead of selling). */
+    third?: string;
+    onThird?: () => void;
+    /** The system back button presses the main button (only when it is the safe choice). */
+    backMain?: boolean;
     /** Extra class on the backdrop (e.g. 'reveal' keeps the top of the screen visible). */
     cls?: string;
   }) {
@@ -1505,27 +1754,57 @@ export class Ui {
     p.innerHTML = opts.body;
     box.append(p);
     if (opts.big) box.append(el('div', 'big display', opts.big));
-    const close = (secondary = false) => {
+    const close = (which: 'main' | 'secondary' | 'third' = 'main') => {
       if (!back.isConnected) return;
       back.remove();
       this.modalOpen = false;
       sfx.unlock();
       sfx.tap();
-      if (secondary && opts.onSecondary) opts.onSecondary();
+      if (which === 'secondary' && opts.onSecondary) opts.onSecondary();
+      else if (which === 'third' && opts.onThird) opts.onThird();
       else opts.onClose?.();
       this.render();
     };
     const btn = el('button', 'buy', opts.button) as HTMLButtonElement;
     btn.onclick = () => close();
+    // The system back button dismisses a modal through its secondary button, or its only button; a choice (sell / keep) is never made for the player.
+    if ((!opts.secondary && !opts.third) || opts.backMain) btn.dataset.back = '1';
     box.append(btn);
+    if (opts.third) {
+      const third = el('button', 'third', opts.third) as HTMLButtonElement;
+      third.onclick = () => close('third');
+      box.append(third);
+    }
     if (opts.secondary) {
       const sec = el('button', 'secondary', opts.secondary) as HTMLButtonElement;
-      sec.onclick = () => close(true);
+      sec.onclick = () => close('secondary');
+      sec.dataset.back = '1';
       box.append(sec);
     }
     back.append(box);
     this.root.append(back);
     btn.focus({ preventScroll: true });
+  }
+
+  /** A story scene (P1.6): portraits with speech bubbles, Joe on the left, Vince on the right. Shown once. */
+  openStory(id: StoryBeatId) {
+    if (this.modalOpen) return;
+    const s = this.deps.state();
+    markBeatSeen(s, id);
+    this.deps.onChange();
+    const scene = storyScene(id);
+    const lines = storyLinesHtml(id);
+    const footer = scene.footer ? `<p class="story-footer">${scene.footer}</p>` : '';
+    sfx.fanfare();
+    this.modal({
+      title: scene.title,
+      body: `<div class="story-lines" data-beat="${id}">${lines}</div>${footer}`,
+      button: scene.button,
+      cls: 'story',
+      onClose: () => {
+        if ((id === 'chapter1End' || id === 'chapter2End') && mapUnlocked(s)) setTimeout(() => this.openMap(), 0);
+      },
+    });
   }
 
   /** Sell Empire preview (P1.3b): what the sale gives, what is kept and what resets. Confirming sells at once. */
@@ -1541,7 +1820,7 @@ export class Ui {
     const li = (xs: string[]) => xs.map((x) => `<li>${x}</li>`).join('');
     let city: CityId = p.cities.find((c) => c.picked)?.id ?? currentCity(s);
     const picker = p.cities.length
-      ? `<div class="city-pick" role="radiogroup" aria-label="City for the next empire">` +
+      ? `<div class="city-pick" role="radiogroup" aria-label="${t('aria.nextCity')}">` +
         p.cities
           .map(
             (c) =>
@@ -1552,18 +1831,18 @@ export class Ui {
         `</div>`
       : '';
     this.modal({
-      title: 'Sell your empire?',
+      title: t('ui.sell.title'),
       cls: `sell-empire-preview${picker ? ' has-cities' : ''}`,
       body:
-        `<p>Sell every business and start again in a fresh scrapyard, richer for good.</p>` +
-        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>Legacy Points</small></div>` +
+        `<p>${t('ui.sell.intro')}</p>` +
+        `<div class="legacy-gain"><span class="display">+${p.points} ${LEGACY_ICON}</span><small>${t('ui.sell.points')}</small></div>` +
         `<p class="legacy-mult">All income <b>${p.multNow}</b> → <b class="next">${p.multNext}</b> forever</p>` +
         (picker ? `<p class="city-q"><b>Where next?</b></p>${picker}` : '') +
         `<div class="legacy-cols"><div class="keep"><b>You keep</b><ul>${li(p.keeps)}</ul></div><div class="lose"><b>Starts over</b><ul>${li(p.resets)}</ul></div></div>` +
         `<p class="legacy-run">This empire: ${p.earned} earned in ${p.runTime}</p>` +
         (p.cityTeaser ? `<p class="city-teaser">${p.cityTeaser}</p>` : ''),
-      button: `Sell for +${p.points} ${LEGACY_ICON}`,
-      secondary: 'Not yet',
+      button: t('ui.sell.confirm', { points: p.points, icon: LEGACY_ICON }),
+      secondary: t('ui.sell.notYet'),
       onSecondary: () => {},
       onClose: () => this.confirmSellEmpire(city),
     });
@@ -1595,7 +1874,7 @@ export class Ui {
     // Scattered, not in a line: positions and delays step by coprime strides through the pieces.
     const confetti = Array.from({ length: 18 }, (_, i) => `<i style="--i:${i};--x:${3 + ((i * 7) % 18) * 5.3}%;--d:${1.5 + ((i * 5) % 7) * 0.12}s;--w:${-((i * 11) % 17) * 0.11}s"></i>`).join('');
     this.modal({
-      title: 'EMPIRE SOLD!',
+      title: t('ui.sold.title'),
       cls: 'legacy-celebrate',
       body:
         `<div class="confetti" aria-hidden="true">${confetti}</div>` +
@@ -1620,7 +1899,7 @@ export class Ui {
     const box = el('div', 'modal');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'Legacy tree');
+    box.setAttribute('aria-label', t('aria.legacyTree'));
     box.append(el('h2', 'display', `${LEGACY_ICON} Legacy`));
     const header = el('p', 'tree-head');
     const tabs = el('div', 'tree-tabs');
@@ -1665,7 +1944,7 @@ export class Ui {
           else {
             const b = el('button', 'tree-buy', n.action) as HTMLButtonElement;
             b.disabled = !n.canBuy;
-            b.setAttribute('aria-label', `${n.name}: ${n.canBuy ? 'buy for' : 'costs'} ${n.cost} Legacy Points`);
+            b.setAttribute('aria-label', t(n.canBuy ? 'aria.nodeBuy' : 'aria.nodeCost', { name: n.name, cost: n.cost }));
             b.onclick = () => {
               if (!buyNode(this.deps.state(), n.id)) {
                 sfx.denied();
@@ -1696,11 +1975,12 @@ export class Ui {
         foot.append(r);
       } else if (v.respecNote) foot.append(el('small', 'tree-note', v.respecNote));
       const st = this.deps.state();
-      const best = st.legacy.bestRunSeconds > 0 ? `Fastest empire: ${formatDuration(st.legacy.bestRunSeconds)} · empires sold: ${st.legacy.sold}. ` : '';
-      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? 'Sell your empire on the city map for more points.'}`));
+      const best = st.legacy.bestRunSeconds > 0 ? t('ui.legacy.fastest', { time: formatDuration(st.legacy.bestRunSeconds), sold: st.legacy.sold }) : '';
+      foot.append(el('small', 'tree-note', `${best}${nextSaleLine(st) ?? t('ui.legacy.sellHint')}`));
     };
     paint();
     const ok = el('button', 'buy', 'Done') as HTMLButtonElement;
+    ok.dataset.back = '1';
     ok.onclick = close;
     box.append(header, tabs, list, foot, ok);
     back.append(box);
@@ -1725,6 +2005,257 @@ export class Ui {
     header.classList.add('pulse');
   }
 
+  /** Daily tasks finished at the last render (day and kinds), for the toast outside the scrapyard (P1.5d). */
+  private dailyDoneKey: string | null = null;
+
+  /** A daily task that finishes while the garage, lot or paint shop is on screen gets a toast pointing home. */
+  private checkDailyDone(s: GameState) {
+    const done = s.daily.tasks.filter((t) => taskDone(t));
+    const key = `${s.daily.day}:${done.map((t) => t.kind).join(',')}`;
+    const before = this.dailyDoneKey;
+    this.dailyDoneKey = key;
+    if (before === null || before === key || s.businesses.active === 'scrapyard') return;
+    const [day, kinds] = before.split(':');
+    if (Number(day) !== s.daily.day) return;
+    const fresh = done.find((t) => !t.claimed && !(kinds ?? '').split(',').includes(t.kind));
+    if (fresh) this.toast(taskDoneToast(fresh.kind, fresh.target), 4000);
+  }
+
+  /** A medal reached since the last look shows a toast (achievements, P1.5c). The first look only takes a snapshot. */
+  private checkMedals(s: GameState) {
+    const now = {} as Record<AwardId, number>;
+    for (const id of AWARD_IDS) now[id] = tiersReached(s, id);
+    const before = this.awardTiers;
+    this.awardTiers = now;
+    if (!before) return;
+    const up = AWARD_IDS.filter((id) => now[id] > before[id] && now[id] > s.achievements.claimed[id]);
+    if (up.length === 0) return;
+    this.toast(up.length === 1 ? medalToast(s, up[0]!) : t('toast.medals', { n: up.length }), 4000);
+    sfx.bonus();
+  }
+
+  /**
+   * Collection book (P1.4b): three pages (car types, brands, barn classics), each a list of sets with their bonus and
+   * a grid of model cards (silhouette until found, rarity badge, mastery stars and a bar to the next star). Opening
+   * it marks every entry as seen; entries new since the last visit keep their NEW badge until the book is closed.
+   */
+  openBook() {
+    if (this.modalOpen) return;
+    this.modalOpen = true;
+    sfx.tap();
+    const back = el('div', 'modal-back book');
+    const box = el('div', 'modal');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', t('aria.book'));
+    box.append(el('h2', 'display', '📒 Collection'));
+    const header = el('p', 'book-head');
+    const tabs = el('div', 'tree-tabs book-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const list = el('div', 'book-sets');
+    // Read the view before marking entries as seen, so this visit still shows what is new.
+    const st = this.deps.state();
+    const fresh = new Set(unseenEntries(st));
+    const freshPages = new Set(bookView(st, 'cars').pages.filter((p) => p.isNew).map((p) => p.id));
+    // A medal to claim and no new cars: open on the Awards page.
+    if (freshPages.size === 0 && awardsToClaim(st).length > 0) this.bookPage = 'awards';
+    if (markBookSeen(st) > 0) this.deps.onChange();
+    const close = () => {
+      if (!back.isConnected) return;
+      back.remove();
+      this.modalOpen = false;
+      this.render();
+    };
+    const paint = () => {
+      const s = this.deps.state();
+      const page = this.bookPage;
+      const v = bookView(s, page === 'awards' || page === 'story' || page === 'shop' ? 'cars' : page);
+      const aw = awardsView(s);
+      const log = storyLog(s);
+      const w = s.wallet;
+      header.innerHTML =
+        page === 'awards'
+          ? `<b>🏅 ${aw.header}</b><small>Medals count every empire you have built</small>`
+          : page === 'shop'
+            ? `<b>🛒 Shop</b><small>Gems and tokens come from medals, daily tasks and the calendar</small>`
+            : page === 'story'
+            ? `<b>📖 Story: ${log.have} of ${log.of} scenes</b><small>Tap a scene to read it again</small>`
+            : `<b>${v.header}</b><small>Set bonuses last forever, even after you sell your empire</small>`;
+      if (w.gems > 0 || w.tokens > 0 || page === 'shop') header.innerHTML += `<small class="wallet-line">💎 ${w.gems} gems · 🎟 ${w.tokens} auction tokens</small>`;
+      const storyTab = el('button', `tree-tab${page === 'story' ? ' on' : ''}`, `<span>Story</span><small>${log.have}/${log.of}</small>`) as HTMLButtonElement;
+      storyTab.setAttribute('role', 'tab');
+      storyTab.setAttribute('aria-selected', String(page === 'story'));
+      storyTab.dataset.page = 'story';
+      storyTab.onclick = () => {
+        this.bookPage = 'story';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'story') {
+        const secs: HTMLElement[] = log.chapters.map((c) => {
+          const sec = el('section', 'book-set story-chapter');
+          sec.dataset.chapter = String(c.id);
+          sec.append(el('div', 'book-set-head', `<b>Chapter ${c.id}: ${c.title}</b><span class="book-count">${c.have}/${c.of}</span><small class="book-bonus">${c.city}</small>`));
+          for (const b of c.beats) {
+            if (!b.seen) {
+              sec.append(el('div', 'story-row locked', '🔒 <span>A scene still to come</span>'));
+              continue;
+            }
+            const open = this.storyOpen === b.id;
+            const row = el('button', `story-row${open ? ' open' : ''}`, `${open ? '▾' : '▸'} <span>${b.title}</span>`) as HTMLButtonElement;
+            row.dataset.beat = b.id;
+            row.setAttribute('aria-expanded', String(open));
+            row.onclick = () => {
+              this.storyOpen = open ? null : b.id;
+              sfx.tap();
+              paint();
+            };
+            sec.append(row);
+            if (open) {
+              const scene = storyScene(b.id);
+              sec.append(el('div', 'story-lines story-replay', storyLinesHtml(b.id) + (scene.footer ? `<p class="story-footer">${scene.footer}</p>` : '')));
+            }
+          }
+          return sec;
+        });
+        if (log.next) secs.push(el('p', 'story-next', `📖 ${log.next}`));
+        list.replaceChildren(...secs);
+      }
+      const shopTab = el('button', `tree-tab${page === 'shop' ? ' on' : ''}`, `<span>Shop</span><small>💎 ${w.gems}</small>`) as HTMLButtonElement;
+      shopTab.setAttribute('role', 'tab');
+      shopTab.setAttribute('aria-selected', String(page === 'shop'));
+      shopTab.dataset.page = 'shop';
+      shopTab.onclick = () => {
+        this.bookPage = 'shop';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'shop') {
+        const rows = shopItems(s).map((it) => {
+          const row = el('section', `award shop-item${it.available && it.affordable ? ' ready' : ''}`);
+          row.dataset.item = it.id;
+          const cur = it.currency === 'gems' ? '💎' : '🎟';
+          row.innerHTML = `<span class="award-icon" aria-hidden="true">${it.icon}</span><div class="award-body"><b>${it.name}</b><small>${it.available ? it.line : it.why}</small></div>`;
+          const btn = el('button', 'buy award-claim shop-buy', `${it.price} ${cur}`) as HTMLButtonElement;
+          btn.disabled = !it.available || !it.affordable;
+          btn.setAttribute('aria-label', t('aria.buy', { name: it.name, price: it.price, currency: it.currency }));
+          btn.onclick = () => {
+            const msg = buyShopItem(this.deps.state(), it.id);
+            if (!msg) return;
+            sfx.coin();
+            this.toast(t('toast.shop', { icon: it.icon, name: it.name, msg }), 2500);
+            this.deps.onChange();
+            paint();
+          };
+          row.append(btn);
+          return row;
+        });
+        rows.push(el('p', 'story-next', '💳 Gem packs: coming soon. Gems are never sold as random rewards.'));
+        list.replaceChildren(...rows);
+      }
+      const awardTab = el('button', `tree-tab${page === 'awards' ? ' on' : ''}`, `<span>Awards</span><small>${aw.have}/${aw.of}</small>${aw.ready > 0 ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+      awardTab.setAttribute('role', 'tab');
+      awardTab.setAttribute('aria-selected', String(page === 'awards'));
+      awardTab.dataset.page = 'awards';
+      awardTab.onclick = () => {
+        this.bookPage = 'awards';
+        sfx.tap();
+        paint();
+        list.scrollTop = 0;
+      };
+      if (page === 'awards') {
+        list.replaceChildren(
+          ...aw.cards.map((c) => {
+            const row = el('section', `award${c.claimable ? ' ready' : ''}${c.complete ? ' complete' : ''}`);
+            row.dataset.award = c.id;
+            const medals = c.medals.map((m, i) => `<i class="medal ${m}" title="${ECON.achievements.medals[i]}">${ECON.achievements.medalIcons[i]}</i>`).join('');
+            row.innerHTML =
+              `<span class="award-icon" aria-hidden="true">${c.icon}</span><div class="award-body"><b>${c.name}</b>` +
+              `<span class="award-medals" aria-label="${t('aria.medals', { n: c.medals.filter((m) => m === 'claimed').length, max: c.medals.length })}">${medals}</span>` +
+              `<small>${c.line}</small><span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span></div>`;
+            if (c.claimable) {
+              const btn = el('button', 'buy award-claim', c.claimText) as HTMLButtonElement;
+              btn.onclick = () => {
+                const r = claimAward(this.deps.state(), c.id);
+                if (!r) return;
+                sfx.coin();
+                this.toast(t('toast.medal', { icon: ECON.achievements.medalIcons[r.tier] ?? '', name: ECON.achievements.list[c.id].name, cash: formatCash(r.cash), gems: r.gems ? t('toast.medal.gems', { n: r.gems }) : '' }), 2500);
+                this.deps.onChange();
+                paint();
+              };
+              row.append(btn);
+            }
+            return row;
+          }),
+        );
+      }
+      tabs.replaceChildren(
+        ...v.pages.map((p) => {
+          const isNew = freshPages.has(p.id) && p.id !== this.bookPage;
+          const t = el('button', `tree-tab${p.id === this.bookPage ? ' on' : ''}`, `<span>${p.name}</span><small>${p.have}/${p.of}</small>${isNew ? '<i class="dot on"></i>' : ''}`) as HTMLButtonElement;
+          t.setAttribute('role', 'tab');
+          t.setAttribute('aria-selected', String(p.id === this.bookPage));
+          t.dataset.page = p.id;
+          t.onclick = () => {
+            this.bookPage = p.id;
+            freshPages.delete(p.id);
+            sfx.tap();
+            paint();
+            list.scrollTop = 0;
+          };
+          return t;
+        }),
+        awardTab,
+        ...(log.have > 0 ? [storyTab] : []),
+        shopTab,
+      );
+      if (page === 'awards' || page === 'story' || page === 'shop') return;
+      list.replaceChildren(
+        ...v.sets.map((set) => {
+          const sec = el('section', `book-set${set.complete ? ' complete' : ''}`);
+          sec.dataset.set = `${set.kind}:${set.id}`;
+          const head = el(
+            'div',
+            'book-set-head',
+            `<b>${set.name}</b><span class="book-count">${set.have}/${set.of}</span><small class="book-bonus">${set.complete ? '✓ ' : ''}${set.bonus}</small>` +
+              (set.showcase ? `<small class="book-showcase">${set.showcase}</small>` : ''),
+          );
+          const grid = el('div', 'book-grid');
+          for (const c of set.cards) {
+            const card = el('div', `book-card${c.collected ? ` got ${c.rarity ?? 'common'}` : ' missing'}${c.kept ? ' kept' : ''}`);
+            card.dataset.model = c.model;
+            const img = el('img');
+            img.src = carThumb(c);
+            img.width = THUMB_W;
+            img.height = THUMB_H;
+            img.alt = '';
+            const name = c.collected ? c.model : '???';
+            const badge = c.collected && c.rarity !== 'common' ? `<i class="book-rarity ${c.rarity}">${c.rarityLabel}</i>` : '';
+            const stars = c.collected ? `<span class="book-stars" aria-label="${t('aria.stars', { n: c.stars })}">${'★'.repeat(c.stars)}<s>${'★'.repeat(3 - c.stars)}</s></span>` : '';
+            const bar = c.collected ? `<span class="book-bar"><i style="width:${Math.round(c.progress * 100)}%"></i></span>` : '';
+            card.innerHTML = `${fresh.has(c.model) ? '<i class="book-new">NEW</i>' : ''}${badge}`;
+            card.prepend(img);
+            card.insertAdjacentHTML('beforeend', `<b>${name}</b>${stars}<small>${c.line}</small>${bar}`);
+            card.setAttribute('aria-label', c.collected ? t('aria.card', { model: c.model, rarity: c.rarityLabel, line: c.kept ? t('aria.showcase') : c.line }) : t('aria.notFound'));
+            grid.append(card);
+          }
+          sec.append(head, grid);
+          return sec;
+        }),
+      );
+    };
+    paint();
+    const ok = el('button', 'buy book-done', 'Done') as HTMLButtonElement;
+    ok.dataset.back = '1';
+    ok.onclick = close;
+    box.append(header, tabs, list, ok);
+    back.append(box);
+    this.root.append(back);
+    ok.focus({ preventScroll: true });
+  }
+
   /** Settings sheet: sound, music, motion, number format, reset, credits. */
   openSettings() {
     if (this.modalOpen) return;
@@ -1735,8 +2266,8 @@ export class Ui {
     const box = el('div', 'modal settings');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-label', 'Settings');
-    const h = el('h2', 'display', 'Settings');
+    box.setAttribute('aria-label', t('settings.title'));
+    const h = el('h2', 'display', t('settings.title'));
     box.append(h);
     const close = () => {
       if (!back.isConnected) return;
@@ -1753,7 +2284,7 @@ export class Ui {
       const paint = () => {
         btn.setAttribute('aria-checked', String(get()));
         btn.classList.toggle('on', get());
-        btn.textContent = get() ? 'On' : 'Off';
+        btn.textContent = get() ? t('settings.on') : t('settings.off');
       };
       btn.setAttribute('aria-label', label);
       btn.onclick = () => {
@@ -1767,15 +2298,40 @@ export class Ui {
       row.append(text, btn);
       return row;
     };
+    const slider = (label: string, key: 'musicVolume' | 'sfxVolume', apply: (v: number) => void, preview?: () => void) => {
+      const row = el('div', 'set-row vol-row');
+      row.append(el('div', 'set-label', label));
+      const input = el('input', 'vol-slider') as HTMLInputElement;
+      input.type = 'range';
+      input.min = '0';
+      input.max = '100';
+      input.step = '5';
+      input.value = String(Math.round(s.settings[key] * 100));
+      input.dataset.vol = key;
+      input.setAttribute('aria-label', label);
+      input.oninput = () => {
+        const v = Number(input.value) / 100;
+        s.settings[key] = v;
+        apply(v);
+        this.deps.onChange();
+      };
+      input.onchange = () => preview?.();
+      row.append(input);
+      return row;
+    };
     box.append(
-      toggle('Sound effects', '', () => s.settings.sound, (v) => {
+      toggle(t('settings.sound'), '', () => s.settings.sound, (v) => {
         s.settings.sound = v;
         sfx.enabled = v;
       }),
-      toggle('Music', 'Arrives in a later update', () => s.settings.music, (v) => (s.settings.music = v)),
-      toggle('Reduce motion', 'No screen shake or flashes', () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
-      toggle('Skip haggling', 'Sell at the asking price, no slider', () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
-      toggle('Vibration', haptics.supported ? 'Buzz on taps, sales and crushes' : 'Not supported on this device', () => s.settings.vibration, (v) => {
+      slider(t('settings.sfxVolume'), 'sfxVolume', (v) => sfx.setVolume(v), () => sfx.tap()),
+      toggle(t('settings.music'), t('settings.music.note'), () => s.settings.music, (v) => {
+        s.settings.music = v;
+      }),
+      slider(t('settings.musicVolume'), 'musicVolume', (v) => sfx.setMusicVolume(v)),
+      toggle(t('settings.reduceMotion'), t('settings.reduceMotion.note'), () => s.settings.reduceMotion, (v) => (s.settings.reduceMotion = v)),
+      toggle(t('settings.skipHaggle'), t('settings.skipHaggle.note'), () => s.settings.skipHaggle, (v) => (s.settings.skipHaggle = v)),
+      toggle(t('settings.vibration'), haptics.supported ? t('settings.vibration.note') : t('settings.vibration.none'), () => s.settings.vibration, (v) => {
         s.settings.vibration = v;
         haptics.enabled = v;
         haptics.play('tap');
@@ -1783,7 +2339,7 @@ export class Ui {
     );
     // Number format: two-way switch.
     const fmtRow = el('div', 'set-row');
-    fmtRow.append(el('div', 'set-label', 'Numbers'));
+    fmtRow.append(el('div', 'set-label', t('settings.numbers')));
     const seg = el('div', 'seg');
     const opts: [NumberFormat, string][] = [
       ['short', '1.5M'],
@@ -1810,14 +2366,14 @@ export class Ui {
     // City lights (P1.3d3c): only in a city with a night-time look.
     if (cityInfo(currentCity(s)).hasNight) {
       const litRow = el('div', 'set-row lights-row');
-      const litText = el('div', 'set-label', 'City lights');
-      litText.append(el('small', '', 'Auto: neon nights 7 pm–6 am'));
+      const litText = el('div', 'set-label', t('settings.lights'));
+      litText.append(el('small', '', t('settings.lights.note')));
       litRow.append(litText);
       const litSeg = el('div', 'seg');
       const litOpts: [CityLights, string][] = [
-        ['auto', 'Auto'],
-        ['day', 'Day'],
-        ['night', 'Night'],
+        ['auto', t('settings.lights.auto')],
+        ['day', t('settings.lights.day')],
+        ['night', t('settings.lights.night')],
       ];
       const litBtns = litOpts.map(([v, label]) => {
         const b = el('button', 'seg-btn', label) as HTMLButtonElement;
@@ -1836,23 +2392,24 @@ export class Ui {
       box.append(litRow);
     }
 
-    const reset = el('button', 'danger', 'Reset progress') as HTMLButtonElement;
+    const reset = el('button', 'danger', t('settings.reset')) as HTMLButtonElement;
     reset.onclick = () => {
       close();
       this.modal({
-        title: 'Start over?',
-        body: '<p>This deletes your yard, cash, crew and everything else on this device. It cannot be undone.</p>',
-        button: 'Keep playing',
-        secondary: 'Delete everything',
+        title: t('settings.reset.title'),
+        body: `<p>${t('settings.reset.body')}</p>`,
+        button: t('settings.reset.keep'),
+        secondary: t('settings.reset.delete'),
         onSecondary: () => this.deps.resetProgress(),
       });
     };
     const credits = el(
       'div',
       'credits',
-      `<b>Junkyard to Supercar Empire</b> v${version}<br>Design, code, art and sound: Claude, for the owner<br>Engine: Phaser 3 (MIT) · Fonts: Lilita One, Nunito (SIL OFL)<br>All car brands are fictional.`,
+      `<b>${t('settings.credits.title')}</b> v${version}<br>${t('settings.credits.line1')}<br>${t('settings.credits.line2')}<br>${t('settings.credits.line3')}`,
     );
-    const done = el('button', 'buy', 'Done') as HTMLButtonElement;
+    const done = el('button', 'buy', t('settings.done')) as HTMLButtonElement;
+    done.dataset.back = '1';
     done.onclick = () => {
       sfx.tap();
       close();
@@ -1867,8 +2424,8 @@ export class Ui {
   }
 
   /** Stamp an auction card (P1.2c): `won` when you (or your Agent) bought the lot, `lost` when another bidder did. */
-  auctionStamp(index: number, cls: 'won' | 'lost', auto = false) {
-    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : 'SOLD!';
+  auctionStamp(index: number, cls: 'won' | 'lost' | 'rival', auto = false) {
+    const text = cls === 'won' ? (auto ? 'AGENT WON!' : 'YOURS!') : cls === 'rival' ? 'VINCE!' : 'SOLD!';
     this.stamps[index] = { text, cls, until: performance.now() + ECON.carlot.stampSeconds * 1000 };
     this.render();
   }
@@ -1878,7 +2435,17 @@ export class Ui {
     return this.shownBiz === 'carlot' && this.tab === 'auction';
   }
 
-  offlineModal(seconds: number, earned: number, parts: number, onCollect: () => void, garage = 0, carlot = 0, paint = 0) {
+  offlineModal(
+    seconds: number,
+    earned: number,
+    parts: number,
+    onCollect: () => void,
+    garage = 0,
+    carlot = 0,
+    paint = 0,
+    /** Offered only when a rewarded ad is ready: the player watches it and collects more. */
+    onWatchAd?: () => void,
+  ) {
     const scrap = parts > 0 ? `<p class="offline-parts">♻ The Scrapper topped up the parts bin: +${parts} ⚙</p>` : '';
     const shop =
       (garage > 0 ? `<p class="offline-garage">🔧 The Foreman fixed cars in the garage: ${formatCash(garage)}</p>` : '') +
@@ -1887,12 +2454,20 @@ export class Ui {
     const away = awayText(this.deps.state(), seconds, offlineCap(this.deps.state()));
     const capLine = away.capped ? `<p class="offline-cap">${away.capped}</p>` : '';
     const perk = away.perk ? `<p class="offline-perk">${perkChipEl(away.perk).outerHTML} Night Shift: your crew works longer while you're away</p>` : '';
+    // What waits to be claimed (P1.5d); main.ts rolls a new day before opening the popup.
+    const waiting = waitingLines(this.deps.state())
+      .map((l) => `<p class="offline-waiting">${l}</p>`)
+      .join('');
     this.modal({
-      title: 'Welcome back!',
-      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}`,
+      title: t('ui.welcome.title'),
+      body: `<p>${away.worked}</p>${capLine}${scrap}${shop}${perk}${waiting}`,
       big: formatCash(earned),
-      button: 'Collect',
+      button: t('ui.welcome.collect'),
       onClose: onCollect,
+      third: onWatchAd ? t('ui.welcome.watchAd', { mult: ECON.ads.offlineMultiplier }) : undefined,
+      onThird: onWatchAd,
+      backMain: !!onWatchAd,
+      cls: 'welcome',
     });
   }
 }
@@ -1904,4 +2479,16 @@ function perkChipEl(c: PerkChip): HTMLElement {
   e.setAttribute('aria-label', c.title);
   e.dataset.perk = c.node;
   return e;
+}
+
+/** A scene's lines with portraits (story modal and story log). */
+function storyLinesHtml(id: StoryBeatId): string {
+  return storyScene(id)
+    .lines.map((l) => {
+      const who = speaker(l.who);
+      const url = portraitUrl(l.who);
+      const img = url ? `<img class="portrait" src="${url}" alt="" width="48" height="48">` : '<span class="portrait"></span>';
+      return `<div class="story-line ${l.who}">${img}<div class="bubble"><b>${who.name}</b>${l.text}</div></div>`;
+    })
+    .join('');
 }

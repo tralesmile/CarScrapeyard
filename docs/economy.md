@@ -268,7 +268,7 @@ Garage: repair bays 2 / 3. Shown as stars on the map so buying slots and bays ha
 
 | Item | Value |
 | --- | --- |
-| Legacy Points (total) | `floor(sqrt(all-time earnings / $5M))`; 10 points at $500M, 20 at $2B |
+| Legacy Points (total) | `floor((all-time earnings / $28M) ^ 0.8)` since run 27 (was `floor(sqrt(all-time / $5M))`); 10 points at ~$498M, 20 at ~$1.19B, 50 at ~$3.7B |
 | Sale offered | new points >= 10; glows when new points >= 50% of owned points |
 | Income bonus | `1 + 0.02 x points`, applied where values are made: yard car value, Scrapper scrap cash, contract rewards, barn sale value, garage fees, paint fees and lot tune stickers, lot auction **and** list prices (so lot profit scales by the same factor), and every idle/offline rate |
 | Kept on a sale | points, settings, tutorial, collection, stats, clock, RNG |
@@ -310,7 +310,7 @@ cut to x1.3. Every branch opens the paint shop no later than without the tree; t
 | City | Scale | Opens | Notes |
 | --- | --- | --- | --- |
 | Rust Valley | x1 | the start | the tuned base game |
-| Motor City | x5 | can be picked from the 2nd empire sale | every value and every price x5 |
+| Motor City | x3 (x5 until run 27) | can be picked from the 2nd empire sale | every value and every price x3 |
 
 `ECON.cities.list`. A city's `scale` multiplies **every value** (`incomeMultiplier = legacyMultiplier x scale`, used at
 all the call sites that used the Legacy multiplier) **and every price**: upgrade, slot, bay, spot and booth costs (a
@@ -326,3 +326,146 @@ waiting; $2.28B); in **Motor City** paint opens at 1h07m too, the sale is offere
 Finding: without a new city the 2nd and 3rd empires get *slower* (each sale needs 20P + 100 more points-squared), so the
 city is what keeps prestige moving. Tests: Motor City's lifetime is x scale ±15% of Rust Valley's, paint opens within
 15 min of it, and its sale comes before the first Rust Valley run's and after 1.5 h.
+
+## Point curve follow-up (P1.3d4, run 27)
+
+Problem: on the square-root curve each sale needs 10 more points, and the earnings for them grow with the points
+already owned ((P+10)^2 - P^2), while income grows only 2% per point. The 2nd empire (still in Rust Valley) was offered
+its sale at 4h47m, an hour later than the first (3h28m): the first prestige felt like a step back.
+
+Fix: a softer curve, `points = floor((all-time / pointScale) ^ pointExponent)` with exponent 0.8 and pointScale $28M
+(the first sale still comes at ~$500M), and Motor City cut from x5 to x3 so its points per hour stay about the same
+(x5 at 0.5 gave 5^0.5 = 2.24x points; x3 at 0.8 gives 3^0.8 = 2.41x). No save migration: any save that owned points
+had >= $500M all-time, where the new curve is worth at least as many points (unit-tested).
+
+Sim, active bot selling at each offer (Rust Valley, then Motor City from the 2nd sale), sale offered at:
+
+| Curve | 1st | 2nd | 3rd | 4th | 5th | 6th |
+| --- | --- | --- | --- | --- | --- | --- |
+| sqrt, MC x5 (before) | 3h28m | 4h47m | 2h34m | 2h37m | 2h33m | |
+| ^0.667, MC x5 | 3h28m | 3h50m | 1h48m | 1h44m | 1h36m | |
+| ^0.75, MC x3 | 3h28m | 3h33m | 2h00m | 1h53m | 1h43m | 1h37m |
+| **^0.8, MC x3 (chosen)** | 3h27m | 3h23m | 1h56m | 1h44m | 1h35m | 1h27m |
+| sqrt, +3%/+4%/+5% per point | 3h28m | 4h25m / 4h10m / 3h52m | | | | |
+
+A bigger income bonus per point barely moves the 2nd empire (+5% per point still 3h52m) and makes Motor City runs
+much shorter, so the curve was the right lever. Test: every empire is offered its sale no later than the one before
+(+1 min slack), the 2nd under 3.5 h, the 6th still over an hour. Long-term, points grow faster than on the square
+root ($100B all-time: ~695 points on ^0.8 vs 141 on sqrt), so later cities should use bigger scales or a bigger
+point divisor; revisit when city 3 is designed.
+
+## Collection book (P1.4a, run 27)
+
+All numbers in `ECON.collection`. Bonuses are permanent (the book is kept on a sale) and multiply a yard car's value
+when it arrives (`collectionValueMult`), and the yard's idle income through the average over the family's four models.
+
+| Item | Value |
+| --- | --- |
+| Entries | 48: 32 yard models (`MODEL_NAMES`, 4 per family) + 16 barn classics (`CLASSIC_NAMES`) |
+| Family set (8) | all 4 models of a family sold once: +5% that family's yard value |
+| Brand set (4) | the brand's model in every family (8): +5% that brand's yard value |
+| Barn Classics (1) | all 16 classics restored and sold: +25% barn sale value |
+| Mastery | stars at 10 / 50 / 200 sales of a model, +1% that model's value per star (max +3%) |
+
+Max yard bonus on one model: +5% family +5% brand +3% mastery = +13%. Sim (active bot, first empire): sale offered
+3h27m (unchanged), 2nd empire 3h15m (was 3h23m without the book), garage opens 14m16s avg over 12 seeds. The lot-tune
+A/B (P1.2f) moved from x1.08 to x1.17 on seed 12345; over seeds 12345/1/2/3 it is 1.10-1.19 with the book vs
+1.09-1.11 without, so the test now averages three seeds (x1.13, cap x1.15).
+
+## Daily tasks and calendar (P1.5a, run 29)
+
+All numbers in `ECON.daily`. A reward of N cars = `roundNice(expectedCarValue x N x incomeMultiplier)` at claim time.
+
+| Item | Value |
+| --- | --- |
+| Unlock | 80 sales (or any later empire) |
+| Reset | 04:00 UTC, `gameDay(max(now, lastSeen))` |
+| Tasks (target, reward) | sell 40 (12 cars), haggle 6 (10), buyers 8 (10), crush 12 (8 + 15 ⚙), jobs 3 (14), garage 25 (14), lot 8 (16), paint 10 (16) |
+| All three claimed | +20 cars |
+| Calendar days 1-7 | 5, 8 (+10 ⚙), 10, 12 (+20 ⚙), 15, 20 (+30 ⚙) cars, then an Epic gift car |
+
+A full day (tasks, bonus, calendar) pays roughly 60-75 average cars: a few minutes of active yard income once the crew
+is hired, so it is a nudge to come back, not an economy of its own. The bots do not claim dailies, so `npm run sim`
+is unchanged.
+
+## Showcase (P1.4c, run 29)
+
+Keep a revealed barn classic instead of selling it: no cash; `ECON.collection.showcaseBonus` (+0.5%) per classic on
+every payout (`showcaseMultiplier`, part of `incomeMultiplier`), one per model, kept on a sale; 16 max = +8%.
+
+| Bonus per classic | First empire, sale offered (seed 12345 / 7), sell vs keep | Kept by the offer |
+| --- | --- | --- |
+| +1% (draft) | 3h27m vs 3h25m / 3h29m vs 3h29m | 11 / 12 (x1.11-1.12) |
+| **+0.5%** | 3h27m vs 3h28m / 3h29m vs 3h30m | 10 / 11 (x1.05) |
+
+At +1% keeping was never slower even in the first empire, so it was not a choice. At +0.5% it costs ~1 minute now
+($34.7M of barn sales over 16 restorations) for +5% in every later empire. Balance test: keeping moves the first
+sale by 0.98-1.05x.
+
+
+## Achievements (P1.5c, run 30)
+
+All numbers in `ECON.achievements`. 14 awards x 4 medals; a medal pays `carsWorth(rewardCars[tier])` at claim time
+(the same "N average yard cars" as the dailies, so it scales with Legacy and the city).
+
+| Award | Bronze / Silver / Gold / Diamond |
+| --- | --- |
+| Sell yard cars | 25 / 250 / 2,500 / 25,000 |
+| Earn in total (all empires) | $100K / $10M / $1B / $100B |
+| Crush cars | 10 / 100 / 1,000 / 5,000 |
+| Perfect haggles | 5 / 50 / 250 / 1,000 |
+| Serve buyers | 10 / 100 / 1,000 / 5,000 |
+| Finish orders | 5 / 50 / 250 / 1,000 |
+| Find Legendary cars | 1 / 10 / 50 / 200 |
+| Restore barn classics | 1 / 5 / 20 / 50 |
+| Garage repairs | 50 / 500 / 5,000 / 25,000 |
+| Sell lot cars | 10 / 100 / 1,000 / 5,000 |
+| Paint shop orders | 25 / 250 / 2,500 / 10,000 |
+| Cars in the book | 8 / 16 / 32 / 48 |
+| Sell your empire | 1 / 3 / 10 / 25 |
+| Daily rewards claimed | 3 / 7 / 30 / 100 |
+
+Reward per medal (cars): A/B with an active bot that claims every medal at once vs one that never claims, first empire,
+sale offered at (seed 12345 / 7):
+
+| rewardCars | Without | Claiming | Medals by the offer | Share of earnings | First 30 min |
+| --- | --- | --- | --- | --- | --- |
+| 5/10/20/40 (draft) | 3h27m / 3h29m | 3h21m / 3h20m | 26 | 0.43% | 12 medals, 4.7% |
+| **3/6/12/24** | 3h27m / 3h29m | 3h25m / 3h25m | 26 | 0.24% | 12-13 medals, 3.4-4.8% |
+| 2/4/8/16 | 3h27m / 3h29m | 3h23m / 3h29m | 26 | 0.17% | 11-12 medals, 2.4% |
+
+The early medals land when income is small, so they compound: the draft moved the first sale 3-4%. 3/6/12/24 keeps
+it at 1-2% while a new player still sees a dozen medals in the first half hour. Balance test: claiming moves the first
+sale by 0.97-1.0x, under 2% of earnings in total and under 6% in the first 30 minutes.
+
+## Story and Vince (P1.6a, run 31)
+
+No economy change. Vince Valvano only relabels events that already happen: lots that leave the auction board unsold
+(the first one, then every 3rd by lot id) and yard customers who run out of patience (every 3rd). Nothing is taken
+from the player and no RNG draw is added (`noteLotLost`/`noteBuyerLost` count with plain counters), so the seeded
+sims and the pacing targets are untouched; `npm run sim` was not needed. If Vince becomes a real rival (owner
+question), A/B it like the showcase: a bot run with and without, time to the first Sell Empire.
+Chapter 2 (P1.6b, run 32) adds scenes and the map HQ only; still no economy change and no sim run needed.
+
+## Wallet (P1.7a, run 33)
+
+Gems and Auction Tokens never change cash income, so `npm run sim` pacing is unchanged. Income per source is in
+`ECON.wallet`: medals 0/1/3/8 gems (a full set of 14 awards = 168 gems), all-dailies bonus 3 gems + 2 tokens, task 1
+token (so a full day = 5 tokens and 3 gems), a calendar week = 22 gems + 7 tokens (10 of the gems on day 7).
+Price points for the shop (P1.7b) must come from these numbers: a daily player earns about 3 gems and 5 tokens a day.
+
+## Shop (P1.7b, run 34)
+
+Prices in `ECON.shop`, set against ~3 gems and ~5 tokens a day: Barn rush 1 gem (barn stages are 20-90 s, so it is a
+courtesy), Parts crate 2 gems for 60 parts (about ten common wrecks), Cash bag 4 gems for 12 average yard cars (about
+3 cars per gem; a Diamond medal pays 8 gems plus 24 cars, so the bag is not a better deal than play), Token lot 4
+tokens for a Good (4-star) car with `paid: 0` (its profit counts as earnings; at most one lot a day for a daily player,
+negligible beside idle income). No new income stream, so `npm run sim` pacing is unchanged.
+
+## Income boost (P2.2b, run 62)
+
+`ECON.ads.boost`: one rewarded ad = x2 on every sale payout (yard cars incl. crew sales, lot sales, garage and paint jobs; not
+barn sales, crush cash or rewards) for 600 s of play time, then a 300 s cooldown before the next offer; unlocked at 20 cars sold.
+Best case an ad-watching player earns x2 for 10 of every 15 minutes (about x1.67 on average, only while actively playing; it does
+not run offline). Bots never watch ads, so `npm run sim` pacing and the targets above are unchanged. If ad revenue data later
+shows the boost shortens sessions or skips content too fast, lower `seconds` or raise `cooldownSeconds`.

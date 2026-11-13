@@ -487,3 +487,419 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   taller than 568 px and the modal had no scroll, so Done sat off-screen; Playwright's "element is outside of the
   viewport" after 30 s was the only sign. Every modal that can grow should have `max-height` + `overflow-y: auto`, and
   the e2e that adds a row should assert the sheet's bottom is on screen (it does now for Settings).
+
+## 2026-11-09 (run 27)
+
+- **Vitest hides `console.log` from passing tests unless you pass `--reporter=verbose`.** My first balance experiment
+  printed nothing, and I waited 20 minutes for a run that had finished in 23 s. `npm run sim` already passes the flag;
+  any ad-hoc `npx vitest run file` that reports numbers needs it too. Check a background job's log within a minute.
+- **For an economy experiment, copy the bot into a throwaway test and stop each run at the event you measure.** A
+  `stopAtOffer` break turned a 5-empire prestige chain into ~20 s per curve, so 9 variants (exponent, Motor City scale,
+  income per point) were compared in a few minutes. The table of variants went into economy.md, so the next tuning
+  starts from the measured options, not from guesses.
+- **Measure a lever before trusting it.** Raising the per-point income bonus seemed the obvious fix for a slow second
+  empire, but +5% per point (2.5x the bonus) still left it at 3h52m; the cost curve was the lever. The two-line
+  algebra ((P+10)^2 - P^2 grows with P) predicted that, and the sim confirmed it in one run.
+- **A single-seed ratio test can be knocked over by an unrelated change.** The book's +5% yard bonuses moved the
+  lot-tune A/B from x1.08 to x1.17 on one seed but x1.10-1.19 across four; it was seed noise amplified by compounding,
+  not a broken mechanic. For A/B ratio caps, average 3 seeds and print each ratio.
+- **`withDefaults` only keeps keys the default object has.** A `Record<string, ...>` map defaulting to `{}` would be
+  wiped on every load. Pre-fill the map in `newGame` with every valid key (the 48 book entries), which also drops
+  unknown keys from old or tampered saves for free; the save test covers both.
+- **Keep the RNG order when adding a value modifier.** Computing the car's value first and applying the book bonus
+  after picking the model kept every seeded test and sim identical without the book, which made the A/B checks clean.
+
+- **Run `tsc` again after writing a new test file.** `npx tsc --noEmit` passed before `collection.test.ts` existed;
+  the check then failed on `noUncheckedIndexedAccess` (`MODEL_NAMES.sedan[0]` is `string | undefined`). Tests are
+  type-checked by the build too: index into config arrays with `!` in tests.
+- **Never run the e2e in a foreground command: it takes ~17 minutes and the tool's 10-minute limit kills it** (the
+  kill looks like an e2e failure, "Target page ... has been closed"). Start it in the background with `EXIT` appended
+  to the log and poll the log.
+- **Banners queue, so an e2e that waits for "a banner" can read an earlier one.** The Van set check first saw a Muscle
+  set banner from the e2e's own earlier sales; wait for the specific text you expect.
+- **Check that a test file name is free before writing it.** I wrote `tests/collection.test.ts` with the Write tool and
+  replaced the run-9 collection-count tests without noticing; `git status` showing `M` instead of `??` caught it before
+  the commit. `ls tests/` first, and read `git status` for every file you think is new.
+
+## 2026-11-09 (run 28)
+
+- **"Fits the screen" checks must use a worst-case state, not whatever the flow happens to have.** The run-20 top bar
+  check ran right after a Sell Empire reset (no parts counter, no map, small cash) and passed, while a real late game
+  overflowed every phone up to 414 px: flex items shrank silently (`min-width: 0` on the cash) and the Legacy chip slid
+  over the cash. A 30-line Playwright script against `vite --port 5299` that filled the bar (big cash and rate, chip,
+  parts, every button) and printed each item's right edge at 320/360/375/414 px found it in one run. The e2e now builds
+  that worst case and asserts no two leaf items overlap, which also catches shrinking (plain "right <= hud.right" did not).
+- **`flex: none` on fixed-size controls in a crowded flex row.** Without it the buttons shrank below 38 px and the
+  measured edges looked fine; overflow only showed once shrinking was off. Measure with shrinking off first.
+- **Count string lengths in an e2e prefix check instead of guessing.** `src.slice(0, 22)` included the comma after
+  `base64`, so a working thumbnail failed the run after 2 minutes. Use `startsWith` or slice exactly the literal's length.
+- **A sub-second UI element needs an in-page observer, not `waitForSelector` after the click.** The 0.9 s road wipe was
+  missed once on a loaded machine (my dev server and the e2e shared the CPU). A MutationObserver installed before the
+  click records it whatever the timing. Also stop ad-hoc dev servers before starting `npm run check`.
+- **Read the NEW state before marking it.** The book marks entries seen on open, so the view model for the badges and
+  tab dots is captured first (`unseenEntries`, page `isNew`) and kept for the whole visit.
+
+## 2026-11-09 (run 29)
+
+- **The starting-point check is only valid on an idle machine.** The baseline `npm run check` failed in the e2e (the
+  barn reveal modal took > 5 s) because I ran vitest with 30 workers and two bot sims while it ran. Re-run on an idle
+  machine: green. While the background e2e runs, do only docs and reading; queue CPU work until it reports EXIT.
+- **A/B a new choice for dominance before shipping it.** The showcase draft (+1% income per kept classic) was never
+  slower than selling, even in the first empire, so it was no choice at all. Halving it made keeping cost ~1 minute now
+  for +5% later. For every "this or that" option, a bot run per branch and the question "is one side never worse?"
+  takes ~10 s with `stopAtOffer`.
+- **A third modal action is cheaper than a new modal.** `modal()` grew an optional `third`/`onThird` button; the close
+  helper now takes which button was used instead of a boolean, so later three-way choices reuse it.
+- **Never edit live game state behind the scenes' backs in the e2e.** Slicing `state.cars` to make room for the gift
+  car left a Phaser image on a destroyed texture ("Cannot read properties of null (reading 'glTexture')"), reported
+  only at the very end by the page-error check. Make room the way a player would (here: press Crush, accept the
+  confirm), so the scene gets its events. Numbers like `arrivalTimer` or cooldowns are safe to poke; arrays of things
+  the scene draws are not.
+- **Fix a known flake pattern everywhere, not only where it bit.** Run 28 moved one road-wipe check to a
+  MutationObserver; the Motor City copy of the same check (`waitForSelector` with 1 s) failed this run. When a lesson
+  names a pattern, grep the e2e for every copy of it in the same run.
+- **New daily-style systems: hash the day instead of drawing from the game RNG.** Rolling tasks from `state.rng` would
+  have shifted every later car and broken the seeded sims; `rollKinds(available, day)` keeps them identical.
+- **`git pull --rebase` drops the "merge origin/main into dev" commit.** The rebase linearised my commits onto
+  origin/dev and the merge of the owner's PR merge commit vanished, so dev was "behind main" again. After rebasing,
+  check `git log origin/dev..origin/main`; if it is not empty, merge origin/main again and push without rebasing.
+
+## 2026-11-09 (run 30)
+
+- **This machine has 2 cores: the background e2e owns them.** `nproc` said 2 and the load was 2.7 while the baseline
+  e2e ran, so I wrote code, tests and e2e steps without running anything heavier than one vitest file
+  (`--maxWorkers=1`, under a second) until it reported EXIT. Check `nproc` at the start of a run before deciding what
+  can run in parallel.
+- **Early rewards compound: A/B any new payout against the first Sell Empire, not only its share of earnings.** The
+  medal draft paid only 0.43% of a run's earnings, yet moved the first sale 3-4% sooner because a dozen medals land in
+  the first half hour when income is small. Measure "time to the offer, with vs without" (`stopAtOffer`, ~5 s).
+- **vitest hides `console.log` of passing tests in the default reporter.** My tuning loop printed nothing until I added
+  `--reporter=verbose` (what `npm run sim` uses). Use it whenever a test prints a timeline.
+- **A second `.buy` button inside a modal breaks `.modal .buy` selectors.** The Awards page puts claim buttons (class
+  `buy`) above the book's Done button, so the e2e's `.book .modal .buy` would have clicked a claim. Give the closing
+  button its own class (`book-done`) and grep the e2e for the old selector when adding buttons to an existing modal.
+- **Followed counters need one last look before a reset.** Achievements follow garage/lot/paint/barn counters by their
+  growth after each tick; a sale made by an action between ticks would have dropped that growth, so `sellEmpire` calls
+  `trackAchievements` first (unit-tested with a counter bumped after the last tick).
+- **Adding lines to a shared popup: re-check it on the smallest phone.** The welcome-back popup had no scroll and the
+  e2e screenshot on an iPhone 13 already filled the screen once the waiting lines were in; on 320x568 Collect would
+  have been off screen. Any modal that grows with game state gets `max-height: 100%` + scroll (and the backdrop's
+  `grid-template-rows: minmax(0, 1fr)`) and an SE-size e2e assertion.
+
+## 2026-11-09 (run 31)
+
+- **A new modal that pops on its own breaks every e2e flow that crosses its trigger.** Vince's scene at 20 sales would
+  have covered the crusher, the map and three fresh browser contexts (each sets `carsSold = 120`). Before writing the
+  feature I grepped the e2e for every `carsSold =` and `newContext`, tested the scene once where it fires naturally,
+  then marked the whole chapter seen in each other context. Do this for any self-opening UI (scene, offer, popup).
+- **The banner is a permanent element: test `.banner.show`, not `.banner`.** "The sale banner waits until the scene
+  is closed" failed because `#banner` always exists. Check how an element is hidden (class, `display`, removed) before
+  asserting it is absent.
+- **Look at every screenshot you touch, not only the new ones.** e2e-19d showed two toasts printed over each other
+  (Vince's and a medal's, both at the same `top`). Toasts now stack in a flex column (`.toasts`), at most three. The
+  next screenshot (e2e-21s) showed a toast covering a modal's title, so the stack now sits under any open modal.
+- **The sandbox clock can jump: measure e2e progress with timestamps, not with how long I think I waited.** I killed
+  a healthy e2e believing it had hung for 6 minutes; `date` showed far less time had passed. Prefix the log lines with
+  `date +%H:%M:%S` and judge a stall only by the timestamps.
+- **Flavour on existing events beats a new mechanic when the owner hasn't decided.** Vince relabels lots and customers
+  that are lost anyway (counters only, no RNG draw), so no sim or balance change was needed, and the "real rival or
+  flavour?" question went to NEEDS_FROM_YOU instead of being guessed.
+- **Plan detail lives in the Claude Docs plan:** `read` the project, then a `search` with `pattern` on the tab's root
+  node (`kind: "search"`, not `query`) returns only the matching blocks: one call instead of paging the whole doc.
+
+## 2026-11-09 (run 32)
+
+- **A baseline check proves nothing about the start if I edit `src/` while it builds and runs unit tests.** I started
+  `npm run check` in the background and began editing story.ts during its build/vitest phase; the e2e served the
+  earlier build, but vitest may have read half-edited files. Next time: edit only docs and tests-to-be (in the
+  scratchpad) until the log shows the vitest summary, then edit `src/` freely while the e2e runs on the built `dist`.
+- **Replays inside an existing modal: expand inline, don't open a second modal.** `openStory` refuses while
+  `modalOpen` (the book is a modal), so the story log shows the scene's lines under its row (`storyLinesHtml`, shared
+  with the modal) instead of closing and reopening the book. Reuse the markup helper, not the modal.
+- **When a chapter's beats depend on a city, gate each beat by its chapter's city in one place.** `beatReady` now
+  looks up `CHAPTERS[chapterOf(id)].city` before the switch, so chapter 1 can never fire in Motor City and vice versa;
+  the old "chapter 1 plays in Rust Valley only" test had to change because Motor City now has its own scene due.
+- **Self-opening UI checklist applied (run 31 lesson):** before writing chapter 2 I grepped the e2e for every
+  `legacy.city = 'motorCity'` and Motor City flow; two contexts needed the new beats marked or tested.
+- **A grid `.modal-back` with `place-items: center` grows its column to the content's min-content.** A fifth book tab
+  (nowrap labels and counts) pushed the whole book past a 320 px screen; the existing "book fits an iPhone SE" e2e
+  caught it (`inView: false`). Every scrolling modal backdrop needs `grid-template-columns: minmax(0, 1fr)` as well as
+  the rows; also give nowrap tab text `overflow: hidden`.
+
+## 2026-11-09 (run 33)
+
+- **A new reward currency touches five layers: do them in one pass, in this order.** config table -> pure module
+  (`wallet.ts`) -> state/newGame/sanitize/sellEmpire keep -> reward objects (`DailyReward`, `claimAward`) -> UI text.
+  Adding fields to a shared interface made `tsc` list every call site that builds one by hand (the all-done merge in
+  `ui.ts`), so run `npx tsc --noEmit` right after changing the interface, before touching the UI.
+- **Test income with the real claim functions, not by poking state.** The first wallet medal test failed because I
+  assumed `carsSold = 1000` unlocks awards; reading the existing achievements test showed which counter drives which
+  award. Copy the setup of the nearest existing test.
+- **Editing `src/` while the baseline e2e runs is safe, but vitest on 2 cores is not free:** one file with
+  `--maxWorkers=1` took ~1 s; the full unit run waits until the background e2e prints EXIT.
+- **Wrap a fixed-width row with `flex-wrap` plus `flex: 1 1 30%` instead of shortening labels.** Shrinking text
+  ("Bran...") hides information; two rows keep every word.
+
+
+## 2026-11-10 (run 34)
+
+- **The repo was already cloned and in scope; `add_repo` was not available as a tool.** Check `git remote -v` in the
+  working directory first before searching for tools; `git fetch` plus `git checkout -B dev origin/dev` was enough.
+- **Check a sink's numbers against the thing it skips before pricing it.** Barn stages last 20-90 s, so a gem price
+  scaled by remaining time would have been silly; a flat 1-gem "courtesy" is honest. Read the config table first.
+- **An e2e step that changes `carsSold` can fire story beats.** I almost raised it to unlock the parts crate; the story
+  test after it expects no scene before 20 sales. Use an item whose lock does not depend on a counter another test
+  watches, or restore the counter in the same evaluate.
+- **Reuse an existing card style (`.award`) for a new list page** instead of new CSS: layout, 320 px fit and the glow
+  for "ready" came free, and only one dimming rule was needed.
+
+## 2026-11-10 (run 35)
+
+- **A full `npm run check` takes longer than one tool call (the e2e alone is ~17 minutes).** I started it in the
+  foreground first and the 10-minute limit killed it half way. Start the baseline with `nohup ... &` right away and
+  write code while it runs; edits to `src/` after the build step do not change what the running e2e tests.
+- **Keep `src/core/` free of imports from `src/audio/`.** I first put the volume clamp in the music score and imported it
+  from `save.ts`; moving it next to the other save repairs kept the layering rule (core knows nothing about audio).
+- **Put the music rules in a pure file and the Web Audio in another.** The layer logic and the note patterns are plain
+  functions, so 9 unit tests cover them without a fake AudioContext; the player only schedules what they return.
+- **Gate analytics behind consent by default** and make the sink pluggable; the browser test uses the memory sink, so
+  no real network code is needed to prove that events fire.
+
+## 2026-11-10 (run 36)
+
+- **Never run unit tests while the e2e is running.** The e2e is timing based (haggle needle, frame waits); my parallel
+  `vitest` (38 workers) starved the browser and failed "lesson haggle pays x1.2". Start the check, then only edit files
+  and write docs until it finishes; run `tsc` (cheap) at most.
+- **Edits made to `tools/e2e-smoke.cjs` while the e2e runs are not picked up** (node loaded it already); start a second
+  check after a test edit.
+- **Put a new feature's e2e at the end, next to the non-debug desktop page:** a service worker only registers outside
+  `?debug`, so that page is the one place to prove offline loading.
+
+## 2026-11-10 (run 37)
+
+- **Inject third-party SDK objects instead of reading globals inside the adapter.** Poki and CrazyGames are tiny
+  duck-typed interfaces here, so six unit tests cover ads, failures and visibility without a browser; main.ts is the
+  only file that touches `window`.
+- **A "first callback wins" guard is needed for callback-style ad APIs** (finished and error can both fire); the test
+  fires both on purpose.
+- **Waiting for the ~17 min baseline:** poll with `sleep 100` calls (a single call is cut at 2 min), and use the wait for
+  docs and e2e edits only.
+
+## 2026-11-10 (run 38)
+
+- **A red baseline can be a flake: re-run once before debugging, but make the next failure explain itself.** The start
+  check failed on a Phaser `glTexture` page error that did not repeat. Page errors in the e2e now carry the last
+  section name and a stack, so a rare one costs one look instead of a 17 min bisect.
+- **Generate bulk string moves with a script that evals the old object** (ten scenes became catalog keys in one pass),
+  then fix the leftovers by hand; keep `tsc` as the safety net (the plural-aware `BaseKey` type differs from
+  `MessageKey`).
+- **Use the e2e wait for refactors that are build-independent:** the browser test runs on `dist`, so source edits after
+  the build step are safe, but never start `vitest` meanwhile.
+
+## 2026-11-10 (run 39)
+
+- **A pure view-model file moves to the catalog fastest with one python replace script that asserts every old string
+  exists** (a missed or edited line fails loudly); `tsc` then checks the keys. Existing unit tests that assert the
+  English text are the proof that nothing visible changed.
+- **When the baseline check is running, `tsc --noEmit` is safe but nothing heavier**; wait for the e2e to finish.
+
+## 2026-11-10 (run 40)
+
+- **Same working pattern as runs 38-39 held: start `npm run check` in the background, move strings with a python
+  replace script that asserts each old text occurs exactly once, run `tsc` only while the e2e runs.** A
+  `sed -i '96a import ...'` after a script edit is fine, but check the import line number first (`grep -n "^import"`).
+- **`vitest` printing only "RUN" for minutes is normal on 2 cores** (the balance tests are long); it is not a hang.
+  Check `tail` of the log before deciding anything.
+
+
+## 2026-11-10 (run 41)
+
+- **Moving strings out of a view that builds text from config (perk labels, ordinals, plurals) is mostly about
+  parameters, not text:** keep config names/descriptions in config, pass them as `{name}`/`{desc}`, and let `_one/_other`
+  keys replace hand-written `=== 1 ? '' : 's'` plurals. English ordinal suffixes became four keys so another language can
+  override the whole form.
+- **A baseline `npm run check` takes ~13 min on this box; run it once, edit while it runs (only `tsc --noEmit`), then run
+  the final check once.** Do not poll with `sleep` over 110 s: the tool call times out at 120 s.
+
+## 2026-11-11 (run 42)
+
+- **`npm ci` plus a foreground `npm run check` overruns the 10 min tool limit; start the check with `nohup ... &` writing to a
+  log in the scratchpad and poll the log tail.** Source edits are safe while the e2e runs on `dist`.
+
+## 2026-11-11 (run 43)
+
+- **A move script that asserts the exact occurrence count of every old string fails before writing anything, so a wrong
+  guess (I expected 2 `'Hired'` lines, there was 1) costs a re-run, not a half-edited file.** Keep that, and print the
+  per-pattern counts for loops over similar lines.
+- **If the scheduled prompt names a tool that is not present (`add_repo`), check whether the repo is already cloned and
+  in scope before giving up:** here it was, so the run could proceed.
+
+## 2026-11-11 (run 44)
+
+- **Check the catalog for key-name collisions before adding keys:** `tsc` caught two duplicate keys (`ui.barn.title`,
+  `ui.barn.keep` already existed for the reveal modal). Grep `en.ts` for the prefix first, and when a `sed` renames a
+  key in `ui.ts`, check with `git diff` that it only touched the new call site.
+- **`npm run check` takes ~10 minutes, longer than one tool call may run:** start it with `nohup ... &`, poll
+  `pgrep` with sleeps, and do not edit source files while the build step may still be running.
+
+## 2026-11-11 (run 45)
+
+- **A key whose English text differs from an existing one is a new key, not a reuse:** `map.aria` ("{city} city map") looked
+  like the map button's label ("{city} map"), and reusing it would have changed what screen readers say. Grep `en.ts` for
+  the exact text before mapping a string to an old key, and add the unit test for the final text.
+- **When a scheduled run starts, kick off the baseline with `nohup` first and do the string moves while its e2e runs:** the
+  build step is done after ~1 min, after which source edits are safe (the e2e runs on `dist`), so the baseline cost no time.
+
+## 2026-11-11 (run 46)
+
+- **Before swapping literals for `t(...)`, grep the enclosing function for a local named `t`:** the daily task card's
+  `update` had `const t = s.daily.tasks[index]`, which would have shadowed the translator (a runtime TypeError that `tsc`
+  may not flag in every case). Rename the local (`task`) in the same edit.
+- **A flake that recurs twice with the same stack is a real race, not noise:** `glTexture` of null came from freeing a
+  texture while an image (a lot thumbnail waiting for the next rebuild) still showed it. Fix it where textures are freed
+  (one helper for every scene), not by re-running the e2e until it passes. When a flake note says "if it recurs, log X",
+  add the logging in the same run it first happens, so the second occurrence is diagnosable.
+
+## 2026-11-11 (run 47)
+
+- **Scene strings are few and mostly template literals: list them with one grep (`floatText|setText`) before writing the move
+  script, then move them in a single pass.** The script asserted one occurrence per old string, so it either applied
+  everything or nothing; `tsc` plus one catalog unit test was enough to trust the result without reading each diff.
+- **The scheduled prompt's `add_repo` step may be a no-op:** the repo was already cloned and in scope (as in run 43), so
+  `git fetch` and `git checkout -B dev origin/dev` was all that was needed.
+
+## 2026-11-11 (run 48)
+
+- **When a data table of strings becomes catalog keys, type it with `BaseKey`, not `MessageKey`:** `t()` takes `BaseKey`
+  (plural suffixes stripped), so a `MessageKey[]` fails to compile with a confusing 350-member union error. Also update
+  the test that read the table directly (`CUSTOMER_LINES.map(t)`).
+- **Poll long checks in sleeps under 2 minutes:** a `sleep 240` in one call was killed by the tool timeout; the
+  `nohup` check itself kept running, so nothing was lost.
+
+## 2026-11-11 (run 49)
+
+- **Grep for stray literals with more than one pattern before declaring a move done:** the first grep (`floatText|setText`)
+  missed `ui.toast`/`ui.showBanner` calls in `main.ts`; a second grep on `ui\.(toast|showBanner)\(` and `title:|body:|button:`
+  found them. Do both passes up front.
+- **Tables of lines become key tables (`BaseKey[]`) resolved with `t()` at the pick function,** so tests can keep checking
+  stability and length by mapping the keys through `t`.
+
+## 2026-11-12 (run 50)
+
+- **Do not edit source while a background `npm run check` is still running:** the build and e2e read the tree as it
+  changes, so the result would not describe either version. Edit only docs during a run, or wait and re-run.
+- **A full `npm run check` now takes about 12 minutes:** start it with `nohup` right away, poll in sleeps under 2 minutes,
+  and do the doc edits while it runs. A foreground call hits the 10-minute tool limit.
+
+## 2026-11-12 (run 51)
+
+- **Poll the baseline check with a `pgrep` line in the same call as the `tail`:** it shows RUNNING/DONE without guessing from
+  the log's last line, and the sleeps stay under 2 minutes. Prepare the next edit as a script with `assert count == 1`
+  while it runs, and apply it only after the baseline finishes.
+- **Data tables in `config.ts` hold English display names:** when moving them to the catalog, keep the config name for
+  balance tools and add a unit test that the catalog text equals it, so the two cannot drift apart.
+
+
+## 2026-11-12 (run 52)
+
+- **When every planned task is done, fuzz the boundaries instead of polishing:** a 70-line seeded corruption test over the
+  save loader found two real crashes in minutes that 40 hand-written save tests had missed. Print the seed in the failure
+  message and walk the state for non-finite numbers to find the culprit; the first guess (a clamped level) was wrong.
+- **Caps must be checked against the formulas that consume them:** a "sane" level cap of 99,999 still overflowed
+  `1.1^level`. Pick caps from where the formula stays finite, and keep them in `config.ts`.
+
+
+## 2026-11-12 (run 53)
+
+- **A full `npm run check` takes about 12 minutes now, longer than one tool call (10 min max):** start it with
+  `nohup ... &`, write docs while it runs, and poll with sleeps under 2 minutes. Edit only tests/docs while it runs, since
+  the e2e uses `dist` but vitest reads sources.
+- **A fuzz extension that finds nothing is still a result:** target subtrees with a high corruption rate instead of
+  widening the same global rate; it proves the repair code covers those branches and costs 3 seconds of test time.
+
+## 2026-11-12 (run 54)
+
+- **When there is no `add_repo` tool and the repo is already cloned on a detached `main`, just check out `dev`:** the
+  scheduled prompt's step 1 can be satisfied by the existing clone; do not waste a turn searching for the tool.
+- **Fuzz helpers that only recurse into objects skip scalar top-level fields:** `lastSeen` and `pendingOffline` came back
+  unchanged until the mutate step replaced scalars directly. Check that a fuzz really mutates what it targets (a quick
+  count of changed fields) before trusting a green result.
+
+
+## 2026-11-12 (run 55)
+
+- **Start `npm run check` with `nohup ... &` in the very first call, not in the foreground:** run 55 lost 10 minutes (a
+  killed foreground call) before restarting it. Write the new test in the scratchpad while it runs and copy it into
+  `tests/` only after it finishes.
+- **A random-action fuzz must only use public actions:** poking `state.cash` directly made the save loader reject a
+  perfectly legal-looking state (cash above lifetime earnings); that was the test's fault. Use `addCash`, and assert the
+  random player really progressed (cars sold) so a green run is not an empty one.
+
+
+## 2026-11-12 (run 56)
+
+- **Assert that a fuzz did real work, not just that it did not throw:** the business fuzz checks that the random players
+  finished over 100 garage/paint jobs and sold 20 lot cars, so a green run cannot be an idle one. Opening every business
+  and giving cash up front (through public setup) is what made the random player reach those actions.
+- **Start the baseline `npm run check` with `nohup` in the first call and keep tests in the scratchpad until it ends:** this
+  worked as planned in run 56 (baseline green in ~12 minutes with no lost call).
+
+## 2026-11-13 (run 57)
+
+- **A soak test must prove the crew worked:** the first draft passed in 0.2 s because a fresh game with no crew does nothing for 48
+  hours. Asserting `carsSold` grew exposed it; hire the crew (`mechanic`, `washer`, `seller`) first. Check manager kind names in
+  `config.ts` (`seller`, not `salesperson`).
+- **`serialize`/`deserialize` take `now`:** read the signature before writing a test against them.
+
+## 2026-11-13 (run 58)
+
+- **I again ran `npm run check` under `timeout 580` in the foreground and lost 10 minutes** (it needs ~17). The rule was already
+  in this file: start it with `nohup bash -c '... ; echo EXIT $?' &` in the very first call and poll with `sleep`.
+- **Removing a modal from the DOM leaves the UI's `modalOpen` flag stuck:** a test tool that deletes `.modal-back` must also reset
+  `ui.modalOpen`, or the next `.map-btn` click silently does nothing (no error, no page error). Debug with a screenshot.
+- **Headless Chromium has no GPU:** frame times (~15 fps at 1x) are only useful relatively. Check `game.scene.getScenes(true)`
+  in a probe to prove the scene really switched (my first version measured the yard four times).
+- **Do not run a perf probe while the e2e runs:** both fight for the CPU and the numbers are meaningless.
+
+## 2026-11-13 (run 59)
+
+- **Do not edit `src/` while the baseline `npm run check` is running:** the build, unit tests and e2e read the files at
+  different moments, so a mid-run edit makes the baseline result meaningless. Wait for the baseline, then edit (or edit docs only).
+- **Grep for leftover literals before planning a string-move task:** a one-line `grep` showed only 3 toasts were left, so the task
+  took minutes instead of a full run.
+
+## 2026-11-13 (run 60)
+
+- **A native shell needs no native imports in game code:** Capacitor injects `window.Capacitor.Plugins`, so a pure adapter
+  that takes the global as an argument is unit-testable with plain objects and the e2e can fake the whole shell with
+  `addInitScript`. Both the page and the shell report app state, so route them through one idempotent function.
+- **Give every sheet a `data-back` dismiss button instead of teaching the back handler about each modal:** a rule
+  ("secondary, or the only button, never a choice") keeps decisions like sell-vs-keep from being made by a stray press.
+- **Cloud runs cannot build an APK (no Android SDK):** generate the projects (`cap add`), test the bridge in the browser, and
+  list device checks as a separate unchecked task for the owner's machine rather than claiming the whole task done.
+
+## 2026-11-13 (run 61)
+
+- **Draft new source files outside `src/` while the baseline check runs:** `tsc`, the build and vitest read `src/` at different
+  moments; drafting in the scratchpad and copying in after the baseline was green kept the baseline meaningful and lost no time.
+- **Reuse a parameter that already exists before touching economy code:** `collectOffline(state, multiplier)` already took a
+  multiplier, so "double offline" needed no core change, no save field and no sim run (bots never watch ads).
+- **Give a modal's extra choice an explicit back rule:** the `third` button made the main button lose `data-back`; `backMain`
+  restores it so the system back button can never trigger an ad or a purchase.
+
+## 2026-11-13 (run 62)
+
+- **A known e2e flake needs one rerun of `npm run e2e` alone, not a full `npm run check`:** the first baseline failed on the
+  "yard shows its current car after the garage" assertion (a flake first seen in run 17); the unit tests had passed, so only the
+  ~10-minute e2e was rerun and it went green. Record each flake in STATUS under its P1.3 flake task instead of rediscovering it.
+- **Put a payout multiplier where the cash lands, not where values are made:** `incomeMultiplier` is applied when cars, fees and
+  auction prices are created, so a timed boost there would miss everything already queued. Boosting the amount at the four
+  payout sites (`boosted(state, amount)`) makes it apply instantly and keeps the sim untouched.
+- **Count a timed effect on game time (`tick`), not the wall clock:** it stays testable and cannot be cheated by changing the phone clock.
+
+## 2026-11-13 (run 63)
+
+- **`npm run check` now takes over 10 minutes, longer than one shell call allows:** start it with `nohup ... > log &` and poll the
+  log with `sleep`; a foreground call is killed at the timeout and the result is lost.
+- **When every code task left is blocked on the owner's accounts, ship the paper work that is not:** store text and policy drafts
+  matched to the real data flows need no account and unblock the owner's later steps; list the placeholders they must fill.

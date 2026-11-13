@@ -45,13 +45,20 @@ async function waitForServer(url, ms = 15000) {
   });
   let browser;
   let failed = false;
+  // The last section printed, so a page error says where in the run it happened (P1.3t).
+  let phase = 'start';
+  const log = console.log;
+  console.log = (...a) => {
+    if (typeof a[0] === 'string' && !a[0].startsWith('  ')) phase = a[0];
+    log(...a);
+  };
   const errors = [];
   try {
     await waitForServer(`http://localhost:${PORT}/`);
     browser = await chromium.launch();
     const ctx = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await ctx.newPage();
-    page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+    page.on('pageerror', (e) => errors.push(`pageerror [after "${phase}"]: ${e.message} @ ${(e.stack || '').split('\n').slice(1, 4).join(' | ').replace(/\s+/g, ' ')}`));
     page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
 
     console.log('first launch');
@@ -250,6 +257,194 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('First Van sold')), null, { timeout: 4000 });
     const toastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('First Van')));
     assert(/Collection: \d\/8/.test(toastText), `first Van sold shows a Collection toast (${toastText})`);
+
+    console.log('collection book');
+    // Three Van models are already in the book; selling the fourth completes the Van set (P1.4a).
+    const vanModels = ['Kaze Caravan', 'Vortex Shuttle', 'Regalia Nomad', 'Stallion Courier'];
+    await page.waitForTimeout(3600); // let the Van toast and any banner pass
+    await page.waitForFunction(() => window.__jye.state.cars.length > 0);
+    const bookBefore = await page.evaluate((models) => {
+      const s = window.__jye.state;
+      const collected = Object.values(s.collection.models).filter((e) => e.sold > 0).length;
+      for (const m of models.slice(0, 3)) if (s.collection.models[m].sold === 0) s.collection.models[m] = { sold: 1, best: 0 };
+      s.collection.models[models[3]] = { sold: 0, best: -1 };
+      s.buyer = null;
+      const c = s.cars.find((x) => x.id === s.focusedId) ?? s.cars[0];
+      s.focusedId = c.id;
+      c.family = 'van';
+      c.model = models[3];
+      c.rarity = 'rare';
+      c.dirt = 0;
+      c.damage = 0;
+      return { collected, entries: Object.keys(s.collection.models).length };
+    }, vanModels);
+    assert(bookBefore.entries === 48 && bookBefore.collected >= 1, `the book has 48 entries and the cars sold so far are in it (${JSON.stringify(bookBefore)})`);
+    await page.waitForSelector('.sell:not(.hidden)');
+    await page.click('.sell');
+    if (await page.$('.haggle:not(.hidden)')) await page.click('.haggle');
+    // Banners queue, and the e2e's earlier sales may have completed another set first: wait for the Van one.
+    await page.waitForFunction(() => /SET COMPLETE.*Van set/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 12000 });
+    const setBanner = await page.textContent('.banner');
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03b-set-complete.png') });
+    assert(/Van set: \+5% Van value/.test(setBanner), `selling the 4th Van model completes the Van set (${setBanner.trim()})`);
+    const courier = await page.evaluate(() => window.__jye.state.collection.models['Stallion Courier']);
+    assert(courier.sold === 1 && courier.best === 1, `the sale is in the book with its rarity (${JSON.stringify(courier)})`);
+    await page.waitForTimeout(3200); // let the banner pass
+
+    console.log('collection book screen (P1.4b)');
+    const early = await page.evaluate(() => window.__jye.state.carsSold);
+    if (early <= 10) assert(!(await page.isVisible('.book-btn')), `the 📒 button waits for the quiet tutorial sales (${early} sold)`);
+    await page.evaluate(() => {
+      const s = window.__jye.state;
+      s.carsSold = Math.max(s.carsSold, 11);
+    });
+    await page.waitForSelector('.book-btn:not(.hidden)', { timeout: 3000 });
+    assert(await page.isVisible('.book-btn .dot.on'), 'the 📒 button shows a red dot for new entries');
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal .book-card');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03c-book.png') });
+    assert(!(await page.$('.book-tabs [data-page="story"]')), 'no Story page in the book before the first scene');
+    const bookUi = await page.evaluate(() => {
+      const van = document.querySelector('.book-set[data-set="family:van"]');
+      const courier = document.querySelector('.book-card[data-model="Stallion Courier"]');
+      const missing = document.querySelector('.book-card.missing');
+      return {
+        head: document.querySelector('.book-head').textContent,
+        sets: document.querySelectorAll('.book-set').length,
+        vanDone: van?.classList.contains('complete'),
+        vanGot: van?.querySelectorAll('.book-card.got').length,
+        courier: courier?.textContent,
+        courierImg: courier?.querySelector('img').src.slice(0, 21),
+        missing: missing?.textContent,
+        unseen: Object.values(window.__jye.state.collection.models).filter((e) => e.sold > 0 && !e.seen).length,
+      };
+    });
+    assert(/\d+\/48 cars · \d+\/13 sets complete/.test(bookUi.head) && bookUi.sets === 8, `the book opens on the car types page (${bookUi.head}, ${bookUi.sets} sets)`);
+    assert(bookUi.vanDone && bookUi.vanGot === 4, 'the completed Van set is highlighted with its four cars');
+    assert(/NEW/.test(bookUi.courier) && /Rare/.test(bookUi.courier) && /1 sold · 10 for/.test(bookUi.courier), `a new entry shows NEW, its best rarity and mastery progress (${bookUi.courier})`);
+    assert(bookUi.courierImg === 'data:image/png;base64', 'cards show a painted car thumbnail');
+    assert(/\?\?\?.*Not found yet/.test(bookUi.missing), `cars not found yet are silhouettes (${bookUi.missing})`);
+    assert(bookUi.unseen === 0, 'opening the book marks every entry as seen');
+    await page.click('.book-tabs [data-page="classics"]');
+    const classicCards = await page.$$eval('.book-set .book-card', (cs) => cs.length);
+    assert(classicCards === 16, `the Classics page lists the 16 barn classics (${classicCards})`);
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+
+    console.log('achievements (P1.5c)');
+    // A first Legendary find reaches the Lucky Find bronze medal: a toast, a dot on 📒, a claim on the Awards page.
+    await page.evaluate(() => {
+      window.__jye.state.stats.legendaryFound = Math.max(1, window.__jye.state.stats.legendaryFound);
+    });
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => /medal/.test(t.textContent)), null, { timeout: 5000 });
+    const medalToastText = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /medal/.test(t)));
+    assert(/Lucky Find: Bronze medal!|new medals!/.test(medalToastText), `a new medal shows a toast (${medalToastText})`);
+    assert(await page.isVisible('.book-btn .dot.on'), 'the 📒 button shows a dot while a medal waits');
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal .award');
+    const awardsUi = await page.evaluate(() => ({
+      tab: document.querySelector('.book-tabs [data-page="awards"]')?.classList.contains('on'),
+      head: document.querySelector('.book-head b').textContent,
+      rows: document.querySelectorAll('.award').length,
+      first: document.querySelector('.award')?.classList.contains('ready'),
+      lucky: document.querySelector('.award[data-award="legendary"]')?.textContent ?? '',
+      claim: document.querySelector('.award[data-award="legendary"] .award-claim')?.textContent ?? '',
+      cash: window.__jye.state.cash,
+    }));
+    assert(awardsUi.tab, 'with a medal to claim and no new cars the book opens on Awards');
+    assert(/^🏅 \d+\/56 medals$/.test(awardsUi.head) && awardsUi.rows === 14, `the Awards page lists 14 awards (${awardsUi.head}, ${awardsUi.rows})`);
+    assert(awardsUi.first && /Lucky Find/.test(awardsUi.lucky) && /Find Legendary cars: \d+ \/ 10/.test(awardsUi.lucky), `ready awards come first with their progress (${awardsUi.lucky})`);
+    assert(/^🥉 Claim \$/.test(awardsUi.claim), `the claim button names the medal and the cash (${awardsUi.claim})`);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03d-awards.png') });
+    await page.click('.award[data-award="legendary"] .award-claim');
+    const afterClaim = await page.evaluate(() => ({
+      claimed: window.__jye.state.achievements.claimed.legendary,
+      cash: window.__jye.state.cash,
+      medal: document.querySelector('.award[data-award="legendary"] .medal')?.className ?? '',
+      button: !!document.querySelector('.award[data-award="legendary"] .award-claim'),
+    }));
+    assert(afterClaim.claimed === 1 && afterClaim.cash > awardsUi.cash && /claimed/.test(afterClaim.medal) && !afterClaim.button, `claiming pays once and marks the medal (${JSON.stringify(afterClaim)})`);
+    // Claim whatever else is waiting, so the dot clears.
+    for (let i = 0; i < 60 && (await page.$('.award-claim')); i++) await page.click('.award-claim');
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+    await page.waitForTimeout(300);
+    assert(!(await page.isVisible('.book-btn .dot.on')), 'the 📒 dot clears once every medal is claimed');
+    const savedAwards = await page.evaluate(() => {
+      window.__jye.saveNow();
+      return window.__jye.state.achievements.claimed.legendary;
+    });
+    assert(savedAwards === 1, 'claimed medals are in the save');
+
+    console.log('shop (P1.7b)');
+    const shopBefore = await page.evaluate(() => {
+      const st = window.__jye.state;
+      const keep = { cash: st.cash, gems: st.wallet.gems, sold: st.carsSold };
+      st.wallet.gems = 4;
+      return keep;
+    });
+    await page.click('.book-btn');
+    await page.waitForSelector('.book .modal');
+    await page.click('.book-tabs [data-page="shop"]');
+    await page.waitForSelector('.shop-item');
+    const shopUi = await page.evaluate(() => ({
+      head: document.querySelector('.book-head b').textContent,
+      items: [...document.querySelectorAll('.shop-item')].map((r) => r.dataset.item),
+      bag: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').textContent,
+      bagOff: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').disabled,
+      crateOff: document.querySelector('.shop-item[data-item="partsCrate"] .shop-buy').disabled,
+      tokenOff: document.querySelector('.shop-item[data-item="tokenLot"] .shop-buy').disabled,
+      tokenWhy: document.querySelector('.shop-item[data-item="tokenLot"] small').textContent,
+      fits: (() => {
+        const r = document.querySelector('.book .modal').getBoundingClientRect();
+        return r.left >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight;
+      })(),
+    }));
+    assert(/Shop/.test(shopUi.head) && shopUi.items.join() === 'barnRush,partsCrate,cashBag,tokenLot', `the Shop page lists four items (${shopUi.items})`);
+    assert(/^4 💎$/.test(shopUi.bag) && !shopUi.bagOff && shopUi.crateOff && shopUi.tokenOff && /Open the Used Car Lot/.test(shopUi.tokenWhy), `prices show, locked items explain why (${shopUi.bag} / ${shopUi.tokenWhy})`);
+    assert(shopUi.fits, 'the shop fits the screen');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-03e-shop.png') });
+    await page.click('.shop-item[data-item="cashBag"] .shop-buy');
+    const shopAfter = await page.evaluate(() => ({ cash: window.__jye.state.cash, gems: window.__jye.state.wallet.gems, off: document.querySelector('.shop-item[data-item="cashBag"] .shop-buy').disabled }));
+    assert(shopAfter.cash > shopBefore.cash && shopAfter.gems === 0 && shopAfter.off, `buying a cash bag pays gems for cash (${JSON.stringify(shopAfter)})`);
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+    await page.evaluate((k) => {
+      const st = window.__jye.state;
+      st.wallet.gems = k.gems;
+    }, shopBefore);
+
+    console.log('story chapter 1 (P1.6)');
+    assert(await page.evaluate(() => window.__jye.state.story.seen.length === 0 && !document.querySelector('.story')), 'no story scene before Vince visits');
+    await page.evaluate(() => (window.__jye.state.carsSold = 20));
+    await page.waitForSelector('.modal-back.story .modal', { timeout: 4000 });
+    const vince = await page.evaluate(() => {
+      const m = document.querySelector('.story .modal');
+      const lines = [...m.querySelectorAll('.story-line')];
+      const r = m.getBoundingClientRect();
+      return {
+        title: m.querySelector('h2').textContent,
+        who: lines.map((l) => l.className.replace('story-line ', '')),
+        imgs: lines.map((l) => (l.querySelector('img.portrait')?.src ?? '').startsWith('data:image/png')),
+        names: lines.map((l) => l.querySelector('b').textContent),
+        btn: m.querySelector('.buy').textContent,
+        fits: r.top >= 0 && r.bottom <= window.innerHeight,
+        seen: window.__jye.state.story.seen.join(','),
+      };
+    });
+    assert(vince.title === 'A Gold Convertible' && vince.who.join(',') === 'vince,vince,joe' && vince.names[0] === 'Vince Valvano' && vince.names[2] === 'Grandpa Joe', `Vince Valvano visits the yard at 20 sales (${vince.title}: ${vince.who.join(', ')})`);
+    assert(vince.imgs.every(Boolean), 'every line has a painted portrait');
+    assert(vince.fits && vince.btn === 'Not a chance!' && vince.seen === 'vinceVisit', 'the scene fits the screen and is marked seen at once');
+    await page.waitForTimeout(1200); // lines fade in one by one
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-07s-story-vince.png') });
+    await page.click('.story .modal .buy');
+    await page.waitForSelector('.modal-back.story', { state: 'detached' });
+    // The rest of chapter 1 is checked in the lot (Outbid!) and in the Sell Empire flow (the chapter's end); mark it
+    // seen here so later steps are not interrupted.
+    await page.evaluate(() => (window.__jye.state.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End']));
 
     console.log('car crusher');
     let hasCrush = await page.evaluate(() => !document.querySelector('.crush').classList.contains('hidden'));
@@ -479,6 +674,131 @@ async function waitForServer(url, ms = 15000) {
     await page.waitForTimeout(500);
     assert(!(await page.evaluate(() => window.__jye.game.scene.getScene('yard').barnCarOut)), 'the reveal closes cleanly');
 
+    console.log('showcase (P1.4c)');
+    // A second restored classic: keep it for the showcase instead of selling.
+    const finishBarn = (model) =>
+      page.evaluate((m) => {
+        const b = window.__jye.state.barn;
+        Object.assign(b, { status: 'finished', stage: 4, timeLeft: 0, model: m, family: 'muscle', value: 0 });
+      }, model);
+    // The book lists the 32 yard models first, then the 16 barn classics: take a classic not found yet.
+    const keepModel = await page.evaluate(() => {
+      const book = window.__jye.state.collection.models;
+      return Object.keys(book).slice(32).find((m) => book[m].sold === 0);
+    });
+    await finishBarn(keepModel);
+    await page.waitForFunction(() => document.querySelector('.cards .barn .buy')?.textContent.includes('Reveal'));
+    await page.click('.cards .barn .buy');
+    await page.waitForSelector('.modal-back.reveal .modal .third', { timeout: 15000 });
+    await page.waitForTimeout(400);
+    const keepUi = await page.evaluate(() => ({
+      third: document.querySelector('.modal .third').textContent,
+      note: document.querySelector('.modal .keep-note')?.textContent ?? '',
+      cash: window.__jye.state.cash,
+      value: window.__jye.state.barn.value,
+      fits: document.querySelector('.modal .secondary').getBoundingClientRect().bottom <= window.innerHeight,
+    }));
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12b-barn-keep.png') });
+    assert(/Keep it \(\+0\.5% income\)/.test(keepUi.third) && /showcase/.test(keepUi.note), `the reveal offers to keep the classic (${keepUi.third})`);
+    assert(keepUi.fits, 'sell, keep and later all fit on screen');
+    await page.click('.modal .third');
+    const kept = await page.evaluate(() => ({
+      cash: window.__jye.state.cash,
+      showcase: [...window.__jye.state.collection.showcase],
+      status: window.__jye.state.barn.status,
+      n: window.__jye.state.barn.restored,
+    }));
+    assert(kept.cash === keepUi.cash && kept.status === 'away' && kept.n === 2, `keeping pays no cash and the barn waits (${JSON.stringify(kept)})`);
+    assert(kept.showcase.length === 1 && kept.showcase[0] === keepModel, `the classic is in the showcase (${kept.showcase})`);
+    await page.waitForFunction(() => /IN THE SHOWCASE/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 8000 });
+    assert(true, 'an "IN THE SHOWCASE!" banner celebrates it');
+    // The same model again: only selling is offered.
+    await page.waitForTimeout(600);
+    await finishBarn(keepModel);
+    await page.waitForFunction(() => document.querySelector('.cards .barn .buy')?.textContent.includes('Reveal'));
+    await page.click('.cards .barn .buy');
+    await page.waitForSelector('.modal-back.reveal .modal .buy', { timeout: 15000 });
+    const repeat = await page.evaluate(() => ({ third: !!document.querySelector('.modal .third'), note: document.querySelector('.modal .keep-note')?.textContent ?? '' }));
+    assert(!repeat.third && /already/.test(repeat.note), `a repeat classic can only be sold (${repeat.note})`);
+    await page.click('.modal .buy');
+    await page.waitForTimeout(500);
+    await page.click('.book-btn');
+    await page.click('.book-tabs [data-page="classics"]');
+    const shelf = await page.evaluate((m) => ({
+      line: document.querySelector('.book-showcase')?.textContent ?? '',
+      card: document.querySelector(`.book-card.kept[data-model="${m}"]`)?.textContent ?? '',
+    }), keepModel);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12c-book-showcase.png') });
+    assert(/Showcase 1\/16 · \+0\.5% all income/.test(shelf.line) && /In your showcase/.test(shelf.card), `the book shows the showcase (${shelf.line} | ${shelf.card})`);
+    await page.click('.book .book-done');
+    await page.waitForSelector('.book .modal', { state: 'detached' });
+
+    console.log('daily tasks and calendar (P1.5)');
+    assert(!(await page.evaluate(() => window.__jye.state.daily.tasks.length)), 'no daily tasks before the unlock');
+    await page.evaluate(() => (window.__jye.state.carsSold = Math.max(window.__jye.state.carsSold, 80)));
+    await page.waitForFunction(() => window.__jye.state.daily.tasks.length === 3, null, { timeout: 3000 });
+    await page.waitForFunction(() => /DAILY TASKS/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 10000 });
+    assert(true, 'a "DAILY TASKS!" banner announces them');
+    assert(await page.isVisible('.tab:nth-child(4) .dot.on'), 'the Jobs tab shows a dot for the day\'s reward');
+    await page.click('.tab:nth-child(4)');
+    await page.waitForSelector('.cards .card.calendar');
+    const cal = await page.evaluate(() => ({
+      cells: [...document.querySelectorAll('.cal-cell')].map((c) => c.className.replace('cal-cell ', '')),
+      btn: document.querySelector('.card.calendar .buy').textContent,
+      tasks: [...document.querySelectorAll('.cards .card.daily.task .title')].map((t) => t.textContent),
+      contracts: document.querySelectorAll('.cards .contract').length,
+    }));
+    assert(cal.cells.length === 7 && cal.cells[0] === 'today' && /Claim \$/.test(cal.btn), `the calendar offers day 1 (${cal.cells.join(',')} | ${cal.btn})`);
+    assert(cal.tasks.length === 3 && cal.tasks.every((t) => /\d+\/\d+$/.test(t)) && cal.contracts === 3, `three daily tasks below the orders (${cal.tasks.join(' | ')})`);
+    await page.$eval('.cards .card.calendar', (c) => c.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-12d-daily.png') });
+    const calCash0 = await page.evaluate(() => window.__jye.state.cash);
+    await page.click('.cards .card.calendar .buy');
+    const cal2 = await page.evaluate(() => ({ cash: window.__jye.state.cash, claims: window.__jye.state.daily.claims, btn: document.querySelector('.card.calendar .buy').textContent }));
+    assert(cal2.claims === 1 && cal2.cash > calCash0, 'claiming the calendar pays once');
+    await page.waitForFunction(() => /Next in \d/.test(document.querySelector('.card.calendar .buy').textContent));
+    assert(await page.$eval('.card.calendar .buy', (b) => b.disabled), 'the calendar waits for tomorrow');
+    // Finish every task: the last claim adds the all-done bonus.
+    await page.evaluate(() => {
+      for (const t of window.__jye.state.daily.tasks) t.progress = t.target;
+    });
+    for (let i = 1; i <= 3; i++) {
+      await page.waitForSelector('.cards .card.daily.task.ready .buy:not(:disabled)');
+      await page.click('.cards .card.daily.task.ready .buy');
+    }
+    const allDone = await page.evaluate(() => ({ d: window.__jye.state.daily }));
+    assert(allDone.d.tasks.every((t) => t.claimed) && allDone.d.bonusClaimed, 'claiming all three tasks pays the all-done bonus');
+    await page.waitForFunction(() => /ALL DAILIES DONE/.test(document.querySelector('.banner')?.textContent ?? ''), null, { timeout: 12000 });
+    assert(true, 'an "ALL DAILIES DONE!" banner');
+    // P1.7a: the day-1 calendar reward, three tasks and the bonus paid gems and tokens, and the book shows them.
+    const wal = await page.evaluate(() => window.__jye.state.wallet);
+    assert(wal.gems >= 4 && wal.tokens >= 5, `daily rewards paid gems and tokens (${JSON.stringify(wal)})`);
+    assert(/\+\d+ 💎/.test(await page.$eval('.banner', (b) => b.textContent)), 'the banner names the gems');
+    // A new day (moved forward by the save's day) rolls fresh tasks; day 7's gift car arrives in the yard.
+    await page.evaluate(() => {
+      const d = window.__jye.state.daily;
+      d.day -= 1;
+      d.claimedDay -= 1;
+      d.claims = 6;
+    });
+    await page.waitForFunction(() => window.__jye.state.daily.tasks.every((t) => !t.claimed), null, { timeout: 3000 });
+    await page.waitForFunction(() => /Claim gift car/.test(document.querySelector('.card.calendar .buy')?.textContent ?? ''));
+    await page.click('.cards .card.calendar .buy');
+    // Make room the game's way: crush the wreck on the bay, then the gift takes the next arrival.
+    await page.click('.tab:nth-child(1)');
+    if (await page.evaluate(() => window.__jye.state.cars.length >= window.__jye.state.slots)) {
+      await page.evaluate(() => (window.__jye.state.crusherCooldown = 0));
+      await page.waitForSelector('.crush:not(.hidden):not(.tune):not(:disabled)', { timeout: 15000 });
+      await page.click('.crush:not(.hidden):not(.tune)');
+      // An Epic or Legendary wreck asks first: crush it anyway.
+      if (await page.isVisible('.modal .secondary')) await page.click('.modal .secondary');
+    }
+    await page.evaluate(() => (window.__jye.state.arrivalTimer = 100));
+    await page.waitForFunction(() => window.__jye.state.daily.giftCars === 0, null, { timeout: 8000 });
+    const gift = await page.evaluate(() => window.__jye.state.cars.some((c) => c.rarity === 'epic'));
+    assert(gift, 'the day-7 gift car arrives in the yard as an Epic');
+
     console.log('upgrades, crew, slots');
     await page.evaluate(() => {
       const s = window.__jye.state;
@@ -527,7 +847,25 @@ async function waitForServer(url, ms = 15000) {
       return st ? { press: st.press.visible, worker: st.scrapper.visible, y: st.press.y } : null;
     });
     assert(station && station.press && station.worker, 'the Scrapper and its press stand beside the barn once hired');
-    await page.waitForFunction((n) => window.__jye.state.stats.carsCrushed > n, crushedBefore, { timeout: 20000 });
+    // The Scrapper needs a fresh Common wreck nobody has started on and no crusher cooldown; the automation may have
+    // cleaned every yard car already, so keep the cooldown at 0 while waiting for the next arrival (flake P1.3u, run 46).
+    try {
+      await page.waitForFunction(
+        (n) => {
+          const s = window.__jye.state;
+          s.crusherCooldown = 0;
+          return s.stats.carsCrushed > n;
+        },
+        crushedBefore,
+        { timeout: 30000 },
+      );
+    } catch (err) {
+      const info = await page.evaluate(() => {
+        const s = window.__jye.state;
+        return { parts: s.parts, rest: s.scrapperRest, cd: s.crusherCooldown, cars: s.cars.map((c) => `${c.rarity}:${c.dirt.toFixed(1)}:${c.damage.toFixed(1)}`) };
+      });
+      throw new Error(`Scrapper never crushed a wreck ${JSON.stringify(info)}: ${err.message}`);
+    }
     await page.waitForTimeout(200);
     // Check the 620 ms slam before the screenshot: a 3x screenshot can take longer than the tween.
     const plateMoved = await page.evaluate(() => {
@@ -552,9 +890,21 @@ async function waitForServer(url, ms = 15000) {
     await page.click('.map-row[data-biz="garage"] button');
     await page.waitForFunction(() => window.__jye.state.businesses.opened.garage);
     assert((await page.textContent('.map-row[data-biz="garage"] button')) === 'Go', 'opening the garage costs cash and offers "Go"');
+    // P1.1d: the drive between businesses is a road wipe showing where we're going. It lives under a second, so a
+    // MutationObserver records it (a busy machine let waitForSelector miss it once, run 28).
+    await page.evaluate(() => {
+      window.__wipeText = null;
+      const mo = new MutationObserver(() => {
+        const w = document.querySelector('.drive-wipe');
+        if (w && window.__wipeText === null) {
+          window.__wipeText = w.textContent;
+          mo.disconnect();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    });
     await page.click('.map-row[data-biz="garage"] button');
-    // P1.1d: the drive between businesses is a road wipe showing where we're going.
-    const wipe = await page.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+    const wipe = await page.waitForFunction(() => window.__wipeText, null, { timeout: 3000 }).then((h) => h.jsonValue()).catch(() => null);
     assert(wipe && wipe.includes('Repair Garage'), `"Go" drives to the garage behind a road wipe (${wipe})`);
     await page.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
     await page.waitForSelector('.modal.city-map', { state: 'detached' });
@@ -564,6 +914,17 @@ async function waitForServer(url, ms = 15000) {
     assert(tabs.join(',') === 'Garage,Crew', `the panel shows the garage's tabs (${tabs.join(', ')})`);
     const yardCtl = await page.evaluate(() => ['.sell', '.crush', '.buyer', '.haggle'].filter((q) => !document.querySelector(q).classList.contains('hidden')));
     assert(yardCtl.length === 0, `the yard controls are hidden in the garage (${yardCtl.join(', ') || 'none shown'})`);
+    // P1.5d: a daily task that finishes while the garage is on screen points back to the Jobs board.
+    const doneKind = await page.evaluate(() => {
+      const t = window.__jye.state.daily.tasks.find((x) => x.progress < x.target && !x.claimed);
+      if (t) t.progress = t.target;
+      return t ? t.kind : null;
+    });
+    if (doneKind) {
+      await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => /Daily task done/.test(t.textContent)), null, { timeout: 3000 });
+      const dailyToast = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /Daily task done/.test(t)));
+      assert(/Claim it on the scrapyard's Jobs board/.test(dailyToast), `a daily task done in the garage shows a toast (${dailyToast})`);
+    } else console.log('  (skip) no open daily task to finish in the garage');
     await page.waitForFunction(() => window.__jye.state.garage.jobs.length > 0, null, { timeout: 8000 });
     // P1.1f: the customer says what's wrong in a speech bubble; the fault bubble pops up after it.
     // Catch the speech bubble and hold it (it lasts 1.8 s; the checks and the screenshot take longer).
@@ -817,12 +1178,14 @@ async function waitForServer(url, ms = 15000) {
     await page.evaluate(() => (window.__jye.state.carlot.board[2].timeLeft = 0.05));
     await page.waitForFunction(() => {
       const st = document.querySelectorAll('.cards .card.auction-lot')[2].querySelector('.stamp');
-      const ok = !st.classList.contains('hidden') && st.textContent === 'SOLD!';
+      const ok = !st.classList.contains('hidden') && st.textContent === 'VINCE!' && st.classList.contains('rival');
       // Hold the stamp for the screenshot.
       if (ok) for (const x of window.__jye.ui.stamps) if (x) x.until += 60_000;
       return ok;
     }, null, { timeout: 2000 });
-    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder with a SOLD! stamp');
+    assert(await page.evaluate(() => window.__jye.state.carlot.board[2] === null), 'a lot that runs out goes to another bidder: the first one to Vince, with a VINCE! stamp (P1.6)');
+    assert(await page.evaluate(() => window.__jye.state.story.lotsLost === 1 && window.__jye.state.story.rivalWins === 1), "the story counts Vince's first win");
+    assert(await page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /Vince Valvano grabbed a lot/.test(t.textContent))), 'a toast says Vince grabbed the lot');
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(SHOTS, 'e2e-19d-carlot-auction-sold.png') });
     await page.evaluate(() => {
@@ -1207,6 +1570,9 @@ async function waitForServer(url, ms = 15000) {
       const s = window.__jye.state;
       s.lastSeen = Date.now() - 3600 * 1000;
       s.parts = 0; // the Scrapper refills the bin while away
+      // Something waits to be claimed (P1.5d): today's calendar reward and a medal.
+      s.daily.claimedDay = s.daily.day - 1;
+      s.stats.legendaryFound = Math.max(s.stats.legendaryFound, 10);
     });
     await page.evaluate(() => {
       // Write the save directly without touching lastSeen.
@@ -1234,7 +1600,27 @@ async function waitForServer(url, ms = 15000) {
     assert(/lot crew bought, polished and sold cars: \$/.test(lotLine), `the welcome-back popup shows the lot's earnings (${lotLine.trim()})`);
     const paintLine = (await page.textContent('.modal .offline-paint').catch(() => '')) || '';
     assert(/Painter finished paint and tuning orders: \$/.test(paintLine), `the welcome-back popup shows the paint shop's earnings (${paintLine.trim()})`);
+    const waitingLines = await page.$$eval('.modal .offline-waiting', (ps) => ps.map((p) => p.textContent));
+    assert(
+      waitingLines.some((l) => /📅 Daily: today's reward/.test(l)) && waitingLines.some((l) => /🏅 \d+ medals? to claim/.test(l)),
+      `the welcome-back popup says what waits to be claimed (${waitingLines.join(' | ')})`,
+    );
     await page.screenshot({ path: path.join(SHOTS, 'e2e-04-offline.png') });
+    // The popup grew (P1.5d): on an iPhone SE it must still fit, scrolling inside, with Collect reachable.
+    const fullView = page.viewportSize();
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.waitForTimeout(300);
+    const seFit = await page.evaluate(() => {
+      const m = document.querySelector('.modal-back.welcome .modal');
+      m.scrollTop = m.scrollHeight;
+      const r = m.getBoundingClientRect();
+      const b = m.querySelector('.buy').getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), btnBottom: Math.round(b.bottom), h: innerHeight };
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'e2e-04b-offline-se.png') });
+    assert(seFit.top >= 0 && seFit.bottom <= seFit.h && seFit.btnBottom <= seFit.bottom + 1, `the welcome-back popup fits an iPhone SE (${JSON.stringify(seFit)})`);
+    await page.setViewportSize(fullView);
+    await page.waitForTimeout(300);
     const cashBefore = await page.evaluate(() => window.__jye.state.cash);
     await page.click('.modal .buy');
     const cashAfter = await page.evaluate(() => window.__jye.state.cash);
@@ -1265,6 +1651,69 @@ async function waitForServer(url, ms = 15000) {
     assert(await page.evaluate((n) => window.__vib.length === n, vibCount), 'no haptics while vibration is off');
     await page.click('.toggle[aria-label="Vibration"]');
     assert(await page.evaluate((n) => window.__jye.state.settings.vibration && window.__vib.length > n, vibCount), 'vibration switches back on with a test buzz');
+    // P1.11: analytics stay silent without consent, then report a change to the memory sink.
+    await page.evaluate(() => {
+      const j = window.__jye;
+      j.sink = new j.MemorySink();
+      j.analytics.setSink(j.sink);
+      j.analytics.consent = false;
+      j.state.tutorial.introSeen = false;
+    });
+    await page.waitForTimeout(1300);
+    await page.evaluate(() => { window.__jye.state.tutorial.introSeen = true; });
+    await page.waitForTimeout(1300);
+    assert(await page.evaluate(() => window.__jye.sink.events.length === 0), 'analytics send nothing without consent');
+    await page.evaluate(() => {
+      window.__jye.analytics.consent = true;
+      window.__jye.state.tutorial.introSeen = false;
+    });
+    await page.waitForTimeout(1300);
+    await page.evaluate(() => { window.__jye.state.tutorial.introSeen = true; });
+    await page.waitForFunction(() => window.__jye.sink.events.some((e) => e.name === 'tutorial_done'), null, { timeout: 5000 });
+    assert(true, 'analytics report tutorial_done once consent is on');
+    await page.evaluate(() => { window.__jye.analytics.consent = false; window.__jye.analytics.setSink(null); });
+    // P1.8: music is a real switch with two volume sliders that are saved.
+    assert((await page.textContent('.toggle[aria-label="Music"]')) === 'On', 'music is on by default');
+    const vols = await page.evaluate(() => ({ m: window.__jye.state.settings.musicVolume, f: window.__jye.state.settings.sfxVolume }));
+    assert(vols.m === 0.6 && vols.f === 1, `volume defaults ${JSON.stringify(vols)}`);
+    await page.$eval('.vol-slider[data-vol="musicVolume"]', (i) => {
+      i.value = '25';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.$eval('.vol-slider[data-vol="sfxVolume"]', (i) => {
+      i.value = '40';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const vols2 = await page.evaluate(() => ({ m: window.__jye.state.settings.musicVolume, f: window.__jye.state.settings.sfxVolume }));
+    assert(vols2.m === 0.25 && vols2.f === 0.4, `sliders save their values ${JSON.stringify(vols2)}`);
+    const sliderFit = await page.$eval('.vol-row', (r) => {
+      const b = r.getBoundingClientRect();
+      const m = document.querySelector('.modal.settings').getBoundingClientRect();
+      return b.left >= m.left - 1 && b.right <= m.right + 1 && b.width > 150;
+    });
+    assert(sliderFit, 'the volume rows fit inside the Settings sheet');
+    await page.click('.toggle[aria-label="Music"]');
+    assert(await page.evaluate(() => window.__jye.state.settings.music === false), 'music switches off');
+    await page.click('.toggle[aria-label="Music"]');
+    assert(await page.evaluate(() => window.__jye.state.settings.music === true), 'music switches back on');
+    await page.$eval('.vol-slider[data-vol="musicVolume"]', (i) => {
+      i.value = '60';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.$eval('.vol-slider[data-vol="sfxVolume"]', (i) => {
+      i.value = '100';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // The first tap has unlocked audio, so the score is playing with the three scrapyard layers.
+    await page.waitForFunction(() => window.__jye.music && window.__jye.music.isPlaying, null, { timeout: 5000 }).catch(() => {});
+    const mus = await page.evaluate(() => (window.__jye.music ? { playing: window.__jye.music.isPlaying, layers: window.__jye.music.audible.join(',') } : null));
+    assert(mus && mus.playing && mus.layers.startsWith('bass,beat,pluck'), `music plays the scrapyard layers (${JSON.stringify(mus)})`);
+    const garageWas = await page.evaluate(() => window.__jye.state.businesses.opened.garage);
+    await page.evaluate(() => { window.__jye.state.businesses.opened.garage = true; });
+    await page.waitForFunction(() => window.__jye.music.audible.includes('ratchet'), null, { timeout: 5000 });
+    assert(true, 'opening the garage adds its music layer');
+    await page.evaluate((v) => { window.__jye.state.businesses.opened.garage = v; }, garageWas);
+    if (!garageWas) await page.waitForFunction(() => !window.__jye.music.audible.includes('ratchet'), null, { timeout: 5000 });
     await page.click('.toggle[aria-label="Skip haggling"]');
     await page.click('.modal.settings .buy');
     assert(!(await page.$('.modal.settings')), 'Done closes the settings');
@@ -1336,12 +1785,31 @@ async function waitForServer(url, ms = 15000) {
       // A rich player: 144 x $5M earned is worth 12 Legacy Points.
       await sp.evaluate(() => {
         const s = window.__jye.state;
-        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true });
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, dailySeen: true });
         s.carsSold = 120;
         s.cash = 0; // nothing to buy on the map, so its dot is only the Sell Empire offer
-        s.lifetimeEarnings = 144 * 5e6;
+        s.lifetimeEarnings = 28e6 * Math.pow(12.5, 1.25); // worth 12 Legacy Points (ECON.legacy: $28M, ^0.8)
         s.legacy.runSeconds = 3 * 3600 + 25 * 60;
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint'];
       });
+      // Chapter 1 ends when the empire can be sold (P1.6): Vince leaves for Motor City, then the map opens.
+      await sp.waitForSelector('.modal-back.story .modal', { timeout: 4000 });
+      const end = await sp.evaluate(() => {
+        const m = document.querySelector('.story .modal');
+        const r = m.getBoundingClientRect();
+        const b = m.querySelector('.buy').getBoundingClientRect();
+        return { text: m.textContent, fits: r.top >= 0 && b.bottom <= window.innerHeight, lines: m.querySelectorAll('.story-line').length, banner: !!document.querySelector('.banner.show') };
+      });
+      assert(/Rust Valley Is Yours/.test(end.text) && /Motor City/.test(end.text) && /Chapter 1 complete/.test(end.text) && end.lines === 3, 'chapter 1 ends with Vince leaving for Motor City');
+      assert(end.fits, 'the three-line scene and its button fit an iPhone SE');
+      assert(!end.banner, 'the sale banner waits until the scene is closed');
+      await sp.waitForTimeout(1200);
+      await sp.screenshot({ path: path.join(SHOTS, 'e2e-21s-story-chapter1-end.png') });
+      await sp.click('.story .modal .buy');
+      await sp.waitForSelector('.modal.city-map', { timeout: 3000 });
+      assert(await sp.isVisible('.map-row.legacy'), '"On to the map" opens the map with the Sell Empire row');
+      await sp.click('.modal.city-map > .buy');
+      await sp.waitForSelector('.modal.city-map', { state: 'detached' });
       await sp.waitForFunction(() => document.querySelector('.banner')?.textContent.includes('EMPIRE FOR SALE'), null, { timeout: 15000 });
       assert(true, 'an "EMPIRE FOR SALE!" banner announces the offer');
       assert(await sp.isVisible('.map-btn .dot.on'), 'the map button shows a dot while the sale is new');
@@ -1483,7 +1951,7 @@ async function waitForServer(url, ms = 15000) {
       await sp.evaluate(() => {
         const s = window.__jye.state;
         s.legacy.points = 22; // 2 (Quick Hands) + 2 (Silver Tongue) + 18 (the whole Racer branch); all-time earnings must back it
-        s.legacy.allTime = 22 * 22 * 5e6;
+        s.legacy.allTime = 28e6 * Math.pow(22, 1.25);
         s.legacy.tree.racer = 4;
         s.legacy.tree.dealer = 1;
         s.carsSold = 5;
@@ -1540,13 +2008,14 @@ async function waitForServer(url, ms = 15000) {
       // A second empire ready to sell: 12 points from the first sale, enough earned for 10 more.
       await mp.evaluate(() => {
         const s = window.__jye.state;
-        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true });
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End'];
         s.carsSold = 120;
         s.cash = 0;
         s.legacy.sold = 1;
         s.legacy.points = 12;
-        s.legacy.allTime = 144 * 5e6;
-        s.lifetimeEarnings = (484 - 144) * 5e6;
+        s.legacy.allTime = 28e6 * Math.pow(12, 1.25);
+        s.lifetimeEarnings = 28e6 * Math.pow(22.5, 1.25) - s.legacy.allTime;
         s.legacy.runSeconds = 2 * 3600;
       });
       await mp.waitForSelector('.map-btn:not(.hidden)');
@@ -1555,7 +2024,7 @@ async function waitForServer(url, ms = 15000) {
       await mp.click('.map-row.legacy .sell-empire');
       await mp.waitForSelector('.sell-empire-preview .city-pick');
       const pick = await mp.$$eval('.city-opt', (bs) => bs.map((b) => `${b.dataset.city}:${b.getAttribute('aria-checked')}:${b.textContent}`));
-      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x5/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
+      assert(pick.length === 2 && /^rustValley:false:.*Stay/.test(pick[0]) && /^motorCity:true:.*Motor City.*x3/.test(pick[1]), `the 2nd sale offers Rust Valley or Motor City, Motor City picked (${pick.join(' | ')})`);
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22a-city-pick.png') });
       const mFits = await mp.$eval('.sell-empire-preview .modal', (e) => {
         const r = e.getBoundingClientRect();
@@ -1592,18 +2061,32 @@ async function waitForServer(url, ms = 15000) {
       });
       assert(mYard.ground[2] > mYard.ground[0], `the Motor City yard is asphalt, not dirt (ground rgb ${mYard.ground.join(',')})`);
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b2-motor-city-yard.png') });
-      // Prices are x5: the Wash Bay's first level costs $750 instead of $150.
+      // Prices are x3: the Wash Bay's first level costs $450 instead of $150.
       await mp.click('.tab:nth-child(1)');
       const washBtn = await mp.textContent('.cards .card:first-child .buy');
-      assert(/\$750/.test(washBtn), `Motor City prices are x5 (Wash Bay ${washBtn})`);
+      assert(/\$450/.test(washBtn), `Motor City prices are x3 (Wash Bay ${washBtn})`);
       await mp.evaluate(() => { window.__jye.state.carsSold = 30; });
+      // P1.6b: chapter 2 opens with Vince greeting you in Motor City (after 5 sales there).
+      await mp.waitForSelector('.modal-back.story .modal [data-beat="vinceCity"]', { timeout: 4000 });
+      const c2 = await mp.evaluate(() => {
+        const m = document.querySelector('.story .modal');
+        const r = m.getBoundingClientRect();
+        return { text: m.textContent, lines: m.querySelectorAll('.story-line').length, fits: r.top >= 0 && r.bottom <= window.innerHeight };
+      });
+      assert(/Welcome to Motor City/.test(c2.text) && /Valvano Motors HQ/.test(c2.text) && c2.lines === 3 && c2.fits, `chapter 2 opens with Vince in Motor City (${c2.lines} lines, fits ${c2.fits})`);
+      await mp.waitForTimeout(1200);
+      await mp.screenshot({ path: path.join(SHOTS, 'e2e-22b3-story-motor-city.png') });
+      await mp.click('.story .modal .buy');
+      await mp.waitForSelector('.modal-back.story', { state: 'detached' });
+      // The rest of chapter 2 is unit-tested; mark it seen so no scene covers the map, garage and night checks below.
+      await mp.evaluate(() => window.__jye.state.story.seen.push('vinceMidtown', 'vinceMall', 'vinceNeon'));
       await mp.waitForSelector('.map-btn:not(.hidden)');
       await mp.waitForTimeout(2600); // let the CITY MAP banner clear
       await mp.click('.map-btn');
       await mp.waitForSelector('.modal.city-map h2');
       const mTitle = await mp.textContent('.modal.city-map h2');
       const goal = await mp.textContent('.map-row[data-biz="garage"]');
-      assert(mTitle === 'Motor City' && /\$1(\.0+)?M/.test(goal), `the map is titled Motor City and the garage goal is x5 (${mTitle}; ${goal.trim()})`);
+      assert(mTitle === 'Motor City' && /\$600(\.0+)?K/.test(goal), `the map is titled Motor City and the garage goal is x3 (${mTitle}; ${goal.trim()})`);
       await mp.waitForTimeout(700); // the map slides in
       await mp.screenshot({ path: path.join(SHOTS, 'e2e-22c-motor-city-map.png') });
       // P1.3d2: Motor City has its own map (highway, rooftops, no grass) and its own business names.
@@ -1622,6 +2105,15 @@ async function waitForServer(url, ms = 15000) {
       assert(mMap.city === 'motorCity' && mMap.aria === 'Motor City city map' && mMap.highway && mMap.roofs >= 8, `Motor City draws its own map (${JSON.stringify(mMap)})`);
       assert(/^Salvage Yard/.test(mMap.rows[0]) && /^Midtown Garage/.test(mMap.rows[1] || ''), `the map list uses Motor City's names (${mMap.rows.join(' | ')})`);
       assert(mMap.w <= mMap.vw, `the Motor City map fits the phone (${mMap.w} <= ${mMap.vw})`);
+      // P1.6b: Vince's gold HQ tower by the harbour and his row in the list.
+      const hq = await mp.evaluate(() => {
+        const g = document.querySelector('.modal.city-map .rival-hq');
+        const row = document.querySelector('.map-row.rival');
+        return { g: !!g, label: g && g.getAttribute('aria-label'), row: row && row.textContent.trim() };
+      });
+      assert(hq.g && hq.label === 'Valvano Motors HQ' && /^.*Valvano Motors.*Vince's HQ/.test(hq.row || ''), `Vince's HQ is on the Motor City map (${JSON.stringify(hq)})`);
+      // The big cash below makes this empire sellable, which would end chapter 2 over the next checks (unit-tested).
+      await mp.evaluate(() => window.__jye.state.story.seen.push('chapter2End'));
       await mp.click('.modal.city-map > .buy');
       await mp.waitForSelector('.modal.city-map', { state: 'detached', timeout: 3000 });
       const mBtn = await mp.evaluate(() => {
@@ -1640,8 +2132,20 @@ async function waitForServer(url, ms = 15000) {
       await mp.waitForSelector('.map-row[data-biz="garage"] button:not([disabled])');
       await mp.click('.map-row[data-biz="garage"] button');
       await mp.waitForFunction(() => window.__jye.state.businesses.opened.garage);
+      // The 0.9 s wipe is recorded by a MutationObserver installed before the click (run 29: waitForSelector missed it).
+      await mp.evaluate(() => {
+        window.__wipeText = null;
+        const mo = new MutationObserver(() => {
+          const w = document.querySelector('.drive-wipe');
+          if (w && window.__wipeText === null) {
+            window.__wipeText = w.textContent;
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      });
       await mp.click('.map-row[data-biz="garage"] button');
-      const mWipe = await mp.waitForSelector('.drive-wipe', { timeout: 1000 }).then((h) => h.textContent()).catch(() => null);
+      const mWipe = await mp.waitForFunction(() => window.__wipeText, null, { timeout: 3000 }).then((h) => h.jsonValue()).catch(() => null);
       assert(mWipe && mWipe.includes('Midtown Garage'), `"Go" drives to the Midtown Garage (${mWipe})`);
       await mp.waitForFunction(() => window.__jye.game.scene.isActive('garage'), null, { timeout: 5000 });
       await mp.waitForSelector('.drive-wipe', { state: 'detached', timeout: 3000 });
@@ -1747,6 +2251,102 @@ async function waitForServer(url, ms = 15000) {
       await mc.close();
     }
 
+    console.log('narrow top bar and book (run 28)');
+    {
+      const nc = await browser.newContext({ ...devices['iPhone SE'] });
+      const np = await nc.newPage();
+      np.on('pageerror', (e) => errors.push('narrow pageerror: ' + e.message));
+      await np.goto(URL);
+      await np.waitForSelector('.modal .buy');
+      await np.click('.modal .buy');
+      await np.waitForFunction(() => window.__jye.state.cars.length > 0);
+      // A late-game top bar: big cash and rate, the Legacy chip, parts, 📒, the city map and Settings.
+      await np.evaluate(() => {
+        const s = window.__jye.state;
+        Object.assign(s.tutorial, { firstSale: true, firstUpgrade: true, crusherSeen: true, contractsSeen: true, barnSeen: true, mapSeen: true, legacyOffered: true, dailySeen: true });
+        s.story.seen = ['vinceVisit', 'joeGarage', 'vinceAuction', 'vincePaint', 'chapter1End', 'vinceCity', 'vinceMidtown', 'vinceMall', 'vinceNeon', 'chapter2End'];
+        s.carsSold = 400;
+        s.cash = 123456789;
+        s.parts = 1234;
+        s.legacy.points = 40;
+        s.legacy.sold = 2;
+        s.legacy.city = 'motorCity';
+        const ms = Object.keys(s.collection.models);
+        ms.forEach((m, i) => {
+          if (i % 3 !== 2) s.collection.models[m] = { sold: [1, 12, 60, 230][i % 4], best: i % 4, seen: i % 5 !== 0 };
+        });
+        window.__jye.ui.deps.incomePerSecond = () => 123456;
+      });
+      await np.waitForTimeout(1500);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24a-narrow-hud.png') });
+      const bar = await np.evaluate(() => {
+        const h = document.querySelector('.hud').getBoundingClientRect();
+        const items = [...document.querySelectorAll('.hud .money > *, .hud .chips > *, .hud > .icon-btn')]
+          .filter((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0)
+          .map((e) => ({ c: e.className.split(' ').slice(0, 2).join('.'), r: e.getBoundingClientRect() }));
+        const inside = items.every((i) => i.r.left >= h.left - 0.5 && i.r.right <= h.right + 0.5 && i.r.top >= h.top - 0.5 && i.r.bottom <= h.bottom + 0.5);
+        const overlaps = [];
+        for (let a = 0; a < items.length; a++)
+          for (let b = a + 1; b < items.length; b++) {
+            const p = items[a].r;
+            const q = items[b].r;
+            if (p.left < q.right - 0.5 && q.left < p.right - 0.5 && p.top < q.bottom - 0.5 && q.top < p.bottom - 0.5) overlaps.push(`${items[a].c}/${items[b].c}`);
+          }
+        return { n: items.length, inside, overlaps, cash: document.querySelector('.hud .cash').textContent, rate: document.querySelector('.hud .rate').textContent };
+      });
+      assert(bar.n === 7 && bar.inside && bar.overlaps.length === 0, `a full top bar fits a 320 px phone without overlaps (${JSON.stringify(bar)})`);
+      await np.click('.book-btn');
+      await np.waitForSelector('.book .modal .book-card');
+      await np.waitForTimeout(500);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24b-book-320.png') });
+      const fit = await np.evaluate(() => {
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        const done = document.querySelector('.book .book-done').getBoundingClientRect();
+        const cards = [...document.querySelectorAll('.book-set')[0].querySelectorAll('.book-card')].map((c) => c.getBoundingClientRect());
+        const cols = new Set(cards.map((c) => Math.round(c.left))).size;
+        const list = document.querySelector('.book-sets');
+        return { inView: m.top >= 0 && m.bottom <= innerHeight && m.right <= innerWidth, doneOn: done.bottom <= innerHeight, cols, scrolls: list.scrollHeight > list.clientHeight, cardsFit: cards.every((c) => c.right <= m.right) };
+      });
+      assert(fit.inView && fit.doneOn && fit.cols === 2 && fit.scrolls && fit.cardsFit, `the book fits an iPhone SE: two cards a row, the list scrolls, Done on screen (${JSON.stringify(fit)})`);
+      await np.click('.book-tabs [data-page="brands"]');
+      await np.waitForTimeout(300);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24c-book-brands.png') });
+      const brandSets = await np.$$eval('.book-set', (ss) => ss.map((x) => x.dataset.set));
+      assert(brandSets.join() === 'brand:Vortex,brand:Stallion,brand:Kaze,brand:Regalia', `the Brands page lists the four brand sets (${brandSets.join()})`);
+      // P1.6c: the Story page lists both chapters; a scene opens inline to be read again.
+      await np.click('.book-tabs [data-page="story"]');
+      await np.waitForSelector('.book .story-chapter');
+      const tabsFit = await np.evaluate(() => {
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        const ts = [...document.querySelectorAll('.book-tabs .tree-tab')].map((t) => t.getBoundingClientRect());
+        const cut = [...document.querySelectorAll('.book-tabs .tree-tab span')].filter((x) => x.scrollWidth > x.clientWidth).length;
+        return { n: ts.length, fit: ts.every((t) => t.left >= m.left && t.right <= m.right + 0.5), cut };
+      });
+      assert(tabsFit.n === 6 && tabsFit.fit, `six book tabs fit a 320 px phone (${JSON.stringify(tabsFit)})`);
+      assert(tabsFit.cut === 0, `no book tab label is cut short on a 320 px phone (${JSON.stringify(tabsFit)})`);
+      const log = await np.evaluate(() => ({
+        head: document.querySelector('.book-head').textContent,
+        chapters: [...document.querySelectorAll('.story-chapter')].map((c) => c.dataset.chapter).join(),
+        rows: document.querySelectorAll('.story-row[data-beat]').length,
+        locked: document.querySelectorAll('.story-row.locked').length,
+      }));
+      assert(/10 of 10 scenes/.test(log.head) && log.chapters === '1,2' && log.rows === 10 && log.locked === 0, `the story log lists both chapters (${JSON.stringify(log)})`);
+      await np.click('.story-row[data-beat="chapter2End"]');
+      await np.waitForSelector('.story-replay .story-line');
+      await np.evaluate(() => document.querySelector('.story-replay').scrollIntoView({ block: 'center' }));
+      await np.waitForTimeout(500);
+      const replay = await np.evaluate(() => {
+        const r = document.querySelector('.story-replay');
+        const m = document.querySelector('.book .modal').getBoundingClientRect();
+        return { text: r.textContent, lines: r.querySelectorAll('.story-line').length, fit: r.getBoundingClientRect().right <= m.right, open: document.querySelector('.story-row[data-beat="chapter2End"]').getAttribute('aria-expanded') };
+      });
+      assert(/Motor City Is Yours|You win/.test(replay.text) && /Chapter 2 complete/.test(replay.text) && replay.lines === 3 && replay.fit && replay.open === 'true', `a seen scene opens again in the story log (${replay.lines} lines)`);
+      await np.screenshot({ path: path.join(SHOTS, 'e2e-24d-story-log.png') });
+      await np.click('.story-row[data-beat="chapter2End"]');
+      assert((await np.$$('.story-replay')).length === 0, 'tapping the scene again closes it');
+      await nc.close();
+    }
+
     console.log('car art gallery');
     const gal = await ctx.newPage();
     gal.on('pageerror', (e) => errors.push('gallery pageerror: ' + e.message));
@@ -1787,12 +2387,125 @@ async function waitForServer(url, ms = 15000) {
     await gal.screenshot({ path: path.join(SHOTS, 'e2e-14-car-gallery.png') });
     await gal.close();
 
+    console.log('portal adapter (Poki stub)');
+    const pk = await browser.newPage({ viewport: { width: 390, height: 780 } });
+    pk.on('pageerror', (e) => errors.push('portal pageerror: ' + e.message));
+    await pk.addInitScript(() => {
+      window.__poki = [];
+      window.PokiSDK = {
+        init: async () => { window.__poki.push('init'); },
+        gameLoadingFinished: () => window.__poki.push('loaded'),
+        gameplayStart: () => window.__poki.push('start'),
+        gameplayStop: () => window.__poki.push('stop'),
+        rewardedBreak: async () => true,
+      };
+    });
+    await pk.goto(URL + '&portal=poki');
+    await pk.waitForSelector('#game canvas', { timeout: 15000 });
+    await pk.waitForTimeout(500);
+    const pokiCalls = await pk.evaluate(() => window.__poki);
+    assert(pokiCalls.includes('init') && pokiCalls.includes('loaded') && pokiCalls.includes('start'), 'Poki SDK gets init, loading finished and gameplay start (' + pokiCalls.join(',') + ')');
+    await pk.close();
+
+    console.log('native shell (Capacitor stub, P2.1)');
+    const nv = await browser.newPage({ viewport: { width: 390, height: 780 } });
+    nv.on('pageerror', (e) => errors.push('native pageerror: ' + e.message));
+    await nv.addInitScript(() => {
+      window.__cap = { listeners: {}, haptics: [], exits: 0, ads: 0 };
+      window.Capacitor = {
+        isNativePlatform: () => true,
+        getPlatform: () => 'android',
+        Plugins: {
+          App: {
+            addListener: (ev, cb) => { window.__cap.listeners[ev] = cb; },
+            exitApp: () => { window.__cap.exits++; },
+          },
+          AdMob: {
+            ads: 0, listeners: {},
+            initialize: async () => {},
+            prepareRewardVideoAd: async () => {},
+            addListener(ev, cb) { this.listeners[ev] = cb; },
+            showRewardVideoAd: async function () { window.__cap.ads++; setTimeout(() => { this.listeners.onRewardedVideoAdReward?.(); this.listeners.onRewardedVideoAdDismissed?.(); }, 50); },
+          },
+          Haptics: {
+            impact: (o) => { window.__cap.haptics.push('impact:' + o.style); },
+            notification: (o) => { window.__cap.haptics.push('notification:' + o.type); },
+          },
+        },
+      };
+    });
+    await nv.goto(URL);
+    await nv.waitForSelector('#game canvas', { timeout: 15000 });
+    await nv.waitForSelector('.modal-back .modal', { timeout: 8000 });
+    assert(await nv.evaluate(() => typeof window.__cap.listeners.backButton === 'function' && typeof window.__cap.listeners.appStateChange === 'function'), 'the native shell gets back-button and app-state listeners');
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    await nv.waitForSelector('.modal-back', { state: 'detached', timeout: 3000 });
+    assert(await nv.evaluate(() => window.__cap.exits === 0 && window.__jye.state.tutorial.introSeen), 'back dismisses the intro modal and does not exit the app');
+    await nv.click('.settings-btn');
+    await nv.waitForSelector('.modal-back .modal', { timeout: 3000 });
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    await nv.waitForSelector('.modal-back', { state: 'detached', timeout: 3000 });
+    assert(await nv.evaluate(() => window.__cap.exits === 0), 'back closes the Settings sheet');
+    await nv.evaluate(() => window.__cap.listeners.backButton({ canGoBack: false }));
+    assert(await nv.evaluate(() => window.__cap.exits === 1), 'back with nothing open exits the app');
+    await nv.evaluate(() => window.__cap.listeners.appStateChange({ isActive: false }));
+    await nv.evaluate(() => window.__cap.listeners.appStateChange({ isActive: true }));
+    await nv.evaluate(() => window.__jye.state.settings.vibration = true);
+    await nv.evaluate(() => { window.__jye.haptics.play('heavy'); window.__jye.haptics.play('success'); });
+    assert(await nv.evaluate(() => window.__cap.haptics.length > 0 && window.__cap.haptics.every((h) => /^(impact|notification):/.test(h))), 'native haptics play through the plugin (' + (await nv.evaluate(() => window.__cap.haptics.join(','))) + ')');
+    // Rewarded ad on the welcome-back popup (P2.2): watch one to collect double.
+    await nv.evaluate(() => { window.__jye.state.pendingOffline = 1000; window.__jye.state.cash = 0; window.__jye.offerOffline(3600); });
+    await nv.waitForSelector('.modal-back.welcome .modal .third', { timeout: 3000 });
+    const adLabel = await nv.textContent('.modal-back.welcome .third');
+    assert(/Watch an ad: collect x2/.test(adLabel), 'the welcome-back popup offers the rewarded ad (' + adLabel.trim() + ')');
+    await nv.click('.modal-back.welcome .third');
+    await nv.waitForFunction(() => window.__jye.state.pendingOffline === 0, null, { timeout: 5000 });
+    assert((await nv.evaluate(() => window.__cap.ads)) === 1 && (await nv.evaluate(() => window.__jye.state.cash)) === 2000, 'watching the ad pays double (cash ' + (await nv.evaluate(() => window.__jye.state.cash)) + ')');
+    await nv.evaluate(() => { window.__jye.state.pendingOffline = 1000; window.__jye.state.cash = 0; window.__jye.offerOffline(3600); });
+    await nv.waitForSelector('.modal-back.welcome .modal .buy', { timeout: 3000 });
+    await nv.click('.modal-back.welcome .buy');
+    assert((await nv.evaluate(() => window.__jye.state.cash)) === 1000, 'plain Collect still pays x1 with the ad offered');
+    // 2x income boost (P2.2b): a HUD chip offers it after 20 sales; one ad starts 10 minutes of x2.
+    assert(await nv.evaluate(() => document.querySelector('.boost-chip')?.classList.contains('hidden') ?? false), 'no boost chip before 20 sales');
+    await nv.evaluate(() => { window.__jye.state.carsSold = 25; });
+    await nv.waitForSelector('.boost-chip:not(.hidden)', { timeout: 4000 });
+    assert(/x2/.test(await nv.textContent('.boost-chip')), 'the boost chip offers x2 for an ad');
+    const adsBefore = await nv.evaluate(() => window.__cap.ads);
+    await nv.evaluate(() => document.querySelector('.boost-chip').click()); // a story scene may cover the chip at 20 sales
+    await nv.waitForFunction(() => window.__jye.state.boost.remaining > 0, null, { timeout: 5000 });
+    assert((await nv.evaluate(() => window.__cap.ads)) === adsBefore + 1, 'the boost chip shows one rewarded ad');
+    await nv.waitForSelector('.boost-chip.running', { timeout: 3000 });
+    assert(/\d+:\d\d|\d+m|\d+s/.test(await nv.textContent('.boost-chip')), 'the chip shows the time left while x2 runs (' + (await nv.textContent('.boost-chip')).trim() + ')');
+    await nv.screenshot({ path: path.join(SHOTS, 'e2e-15-boost.png') });
+    await nv.close();
+
     console.log('desktop layout');
     const d = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     d.on('pageerror', (e) => errors.push('desktop pageerror: ' + e.message));
     await d.goto(`http://localhost:${PORT}/`);
     await d.waitForTimeout(1200);
     await d.screenshot({ path: path.join(SHOTS, 'e2e-05-desktop.png') });
+
+    console.log('PWA: manifest, icons, offline play');
+    const man = await d.evaluate(async () => {
+      const href = document.querySelector('link[rel=manifest]')?.href;
+      const m = href ? await (await fetch(href)).json() : null;
+      const icons = m ? await Promise.all(m.icons.map(async (i) => (await fetch(new URL(i.src, href))).status)) : [];
+      return { name: m?.name, display: m?.display, icons };
+    });
+    assert(man.name && man.display === 'standalone' && man.icons.length === 3 && man.icons.every((c) => c === 200), `web manifest links three icons (${man.name})`);
+    const swReady = await d.evaluate(async () => {
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 8000))]);
+      return !!reg?.active;
+    });
+    assert(swReady, 'the service worker is active');
+    await d.reload();
+    await d.waitForTimeout(800);
+    await d.context().setOffline(true);
+    await d.reload();
+    await d.waitForSelector('#game canvas', { timeout: 15000 });
+    assert(true, 'the game loads again with the network off');
+    await d.context().setOffline(false);
 
     assert(errors.length === 0, 'no page or console errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
     console.log('\nE2E PASSED');

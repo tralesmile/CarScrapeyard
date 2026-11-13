@@ -2,6 +2,8 @@
 // fix it, then the customer pays and drives off. The scrapyard keeps ticking (the core tick runs everything), so this
 // scene forwards every event to the bridge just like the yard does.
 
+import { removeTexturesSafely } from './textureSafe';
+import { t } from '../i18n';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -321,7 +323,7 @@ export class GarageScene extends Phaser.Scene {
   }
 
   private releaseTextures(id: number) {
-    for (const k of [`gcar-${id}`, `grust-${id}`, `gthumb-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [`gcar-${id}`, `grust-${id}`, `gthumb-${id}`]);
   }
 
   private placeBigCar() {
@@ -602,7 +604,7 @@ export class GarageScene extends Phaser.Scene {
 
   private drawBubble(job: GarageJob) {
     const f = ECON.garage.faults[job.fault];
-    this.bubbleText.setText(`${f.icon} ${f.name}`).setY(-this.px(6));
+    this.bubbleText.setText(`${f.icon} ${t(`garage.fault.${job.fault}`)}`).setY(-this.px(6));
     const g = this.bubble.list[0] as Phaser.GameObjects.Graphics;
     const w = Math.max(this.bubbleText.width + this.px(24), this.px(120));
     this.bubbleW = w;
@@ -648,7 +650,7 @@ export class GarageScene extends Phaser.Scene {
             const icon = this.add.text(this.px(w / 2 - 13), -this.px(h / 2 - 12), ECON.garage.faults[job.fault].icon, { fontSize: `${this.px(12)}px` }).setOrigin(0.5);
             items.push(img, icon);
           } else {
-            items.push(this.add.text(0, 0, 'Free bay', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
+            items.push(this.add.text(0, 0, t('scene.garage.freeBay'), { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
           }
           const container = this.add.container(x, y, items).setDepth(4);
           container.setSize(this.px(w), this.px(h));
@@ -716,7 +718,7 @@ export class GarageScene extends Phaser.Scene {
       this.barG.clear();
       if (job.fault === 'tyre') this.fitTyre(job);
       this.driveOff(job.id, job.fault === 'tyre' && !this.calm ? 380 : 0);
-      const note = parts > 0 ? `Yard parts −${parts} ⚙` : `Parts bill −${Math.round(ECON.garage.partsBill * 100)}%`;
+      const note = parts > 0 ? t('scene.garage.yardParts', { n: parts }) : t('scene.garage.partsBill', { pct: Math.round(ECON.garage.partsBill * 100) });
       this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, note, parts > 0 ? '#f5b700' : '#c9d1d9', 18);
     } else this.time.delayedCall(800, () => this.releaseTextures(job.id));
     this.coinBurst(from.x, from.y, amount);

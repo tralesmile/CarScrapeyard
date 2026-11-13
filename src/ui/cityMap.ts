@@ -7,7 +7,9 @@ import { cityInfo, currentCity } from '../core/cities';
 import { perkChip } from './legacyView';
 import { BUSINESS_IDS, MAX_TIER, unlockGoal, businessInfo, businessName, businessStatus, businessTier, nextTierGoal, openCost, unlockProgress, type BusinessStatus } from '../core/businesses';
 import { formatCash } from '../core/format';
+import { chapterDone, rivalHqShown } from '../core/story';
 import type { GameState } from '../core/state';
+import { t } from '../i18n';
 
 export const MAP_W = 360;
 export const MAP_H = 300;
@@ -109,7 +111,7 @@ function streetLamp(x: number, y: number): string {
 }
 
 /** Motor City: concrete blocks, a highway along the top, a harbour corner, rooftops in the gaps (P1.3d2). */
-function motorCityGround(): string {
+function motorCityGround(hq: boolean): string {
   const parts: string[] = [];
   parts.push(`<rect width="${MAP_W}" height="${MAP_H}" rx="18" fill="${M.base}"/>`);
   // City blocks under the plots: a pale sidewalk ring around each quarter.
@@ -161,8 +163,9 @@ function motorCityGround(): string {
     [2, 178, 14, 34],
     [2, 220, 14, 26],
     [344, 178, 14, 28],
-    [344, 212, 14, 40],
+    ...(hq ? [] : [[344, 212, 14, 40]]),
   ].forEach(([x, y, w, h], i) => parts.push(rooftop(x!, y!, w!, h!, i)));
+  if (hq) parts.push(rivalHq(344, 210, 14, 44));
   // Street lamps along the avenue and planters at the corners.
   for (const x of [40, 110, 230, 300]) parts.push(streetLamp(x, 138), streetLamp(x + 20, 170));
   for (const [x, y] of [
@@ -175,8 +178,33 @@ function motorCityGround(): string {
   return parts.join('');
 }
 
-function cityGround(city: CityId): string {
-  return city === 'motorCity' ? motorCityGround() : ground();
+/** Valvano Motors HQ (P1.6b): Vince's gold tower by the harbour, seen from above, with a big V on the roof. */
+function rivalHq(x: number, y: number, w: number, h: number): string {
+  const cx = x + w / 2;
+  return (
+    `<g class="rival-hq" role="img" aria-label="${esc(t('map.rival.name'))} HQ">` +
+    `<rect x="${x - 1.5}" y="${y - 1.5}" width="${w + 3}" height="${h + 3}" rx="3" fill="#f5c542" opacity=".35"/>` +
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#d4a017" stroke="#7a5a00" stroke-width="1.2"/>` +
+    `<rect x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="1.5" fill="none" stroke="#fff3b0" stroke-width="1"/>` +
+    `<circle cx="${cx}" cy="${y + 10}" r="5" fill="#7c3aed" stroke="#fff3b0" stroke-width="1"/>` +
+    `<text x="${cx}" y="${y + 13.2}" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="8.5" fill="#fff">V</text>` +
+    `<rect x="${x + 3}" y="${y + 20}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `<rect x="${x + 3}" y="${y + 26}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `<rect x="${x + 3}" y="${y + 32}" width="${w - 6}" height="2" fill="#fff3b0" opacity=".8"/>` +
+    `</g>`
+  );
+}
+
+function cityGround(city: CityId, hq: boolean): string {
+  return city === 'motorCity' ? motorCityGround(hq) : ground();
+}
+
+/** The map list's line about Vince's HQ in Motor City (P1.6b), or null before he has greeted you there. */
+export function rivalRow(state: GameState): { name: string; line: string } | null {
+  if (!rivalHqShown(state)) return null;
+  if (chapterDone(state, 2)) return { name: t('map.rival.name'), line: t('map.rival.sold') };
+  const w = state.story.rivalWins;
+  return { name: t('map.rival.name'), line: w > 0 ? t('map.rival.wins', { count: w }) : t('map.rival.intro') };
 }
 
 function mapCar(x: number, y: number, body: string, roof: string): string {
@@ -338,7 +366,7 @@ function badge(p: { x: number; y: number; w: number; h: number }, status: Busine
   return (
     `<g class="sale"><rect x="${cx - 2}" y="${cy - 4}" width="4" height="24" fill="${C.rustDark}"/>` +
     `<rect x="${cx - 30}" y="${cy - 20}" width="60" height="20" rx="5" fill="${sale ? C.rust : C.cream}" stroke="${C.rustDark}" stroke-width="2"/>` +
-    `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="11" fill="${sale ? C.cream : C.rustDark}">${sale ? 'FOR SALE' : 'SOON'}</text></g>`
+    `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="11" fill="${sale ? C.cream : C.rustDark}">${sale ? t('map.sign.sale') : t('map.sign.soon')}</text></g>`
   );
 }
 
@@ -364,7 +392,7 @@ function youAreHere(p: { x: number; y: number; w: number; h: number }): string {
 /** The whole map as an SVG string. Plots carry `data-biz` so the UI can make them tappable. */
 export function cityMapSvg(state: GameState): string {
   const city = currentCity(state);
-  const parts: string[] = [cityGround(city)];
+  const parts: string[] = [cityGround(city, rivalHqShown(state))];
   for (const id of BUSINESS_IDS) {
     const p = PLOTS[id];
     const status = businessStatus(state, id);
@@ -381,7 +409,7 @@ export function cityMapSvg(state: GameState): string {
         `${state.businesses.active === id ? youAreHere(p) : ''}</g>`,
     );
   }
-  return `<svg class="city-svg" data-city="${city}" viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(cityInfo(city).name)} city map">${parts.join('')}</svg>`;
+  return `<svg class="city-svg" data-city="${city}" viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(t('map.aria', { city: cityInfo(city).name }))}">${parts.join('')}</svg>`;
 }
 
 export interface MapRow {
@@ -409,16 +437,16 @@ export function mapRows(state: GameState): MapRow[] {
     let line = '';
     let action: string | null = null;
     if (status === 'open') {
-      line = active ? 'You are here' : 'Open';
-      action = active ? null : 'Go';
+      line = active ? t('map.row.here') : t('map.row.open');
+      action = active ? null : t('map.row.go');
     } else if (status === 'locked') {
-      line = `Earn ${formatCash(unlockGoal(state, id))} in total to unlock`;
+      line = t('map.row.locked', { goal: formatCash(unlockGoal(state, id)) });
     } else if (status === 'soon') {
-      line = 'Unlocked! Opening in the next update';
+      line = t('map.row.soon');
     } else {
       const fr = perkChip(state, 'franchise');
-      line = fr ? `Ready to open · ${fr.label}` : 'Ready to open';
-      action = `Open ${formatCash(openCost(state, id))}`;
+      line = fr ? t('map.row.readyPerk', { perk: fr.label }) : t('map.row.ready');
+      action = t('map.row.buy', { cost: formatCash(openCost(state, id)) });
     }
     return { id, icon: info.icon, name: businessName(state, id), status, active, line, progress: unlockProgress(state, id), action, tier: businessTier(state, id), nextTier: nextTierGoal(state, id) };
   });

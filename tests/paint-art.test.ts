@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON, PAINTS } from '../src/core/config';
+import { t } from '../src/i18n';
 import { buyBooth, generatePaintJob, paintTap } from '../src/core/paint';
 import { newGame } from '../src/core/state';
 import { SHAPES } from '../src/game/carArt';
@@ -159,13 +160,13 @@ describe('customer speech bubble (P1.2g)', () => {
       }
 
   it('says what the order is about, stable per order, the full works for three services', () => {
-    expect(PAINT_LINES.respray).toContain(paintLine({ id: 4, services: ['respray'] }));
-    expect(PAINT_LINES.tune).toContain(paintLine({ id: 4, services: ['tune', 'rims'] }));
-    expect(PAINT_LINES.combo).toContain(paintLine({ id: 9, services: ['wrap', 'rims', 'tune'] }));
+    expect(PAINT_LINES.respray.map((x) => t(x))).toContain(paintLine({ id: 4, services: ['respray'] }));
+    expect(PAINT_LINES.tune.map((x) => t(x))).toContain(paintLine({ id: 4, services: ['tune', 'rims'] }));
+    expect(PAINT_LINES.combo.map((x) => t(x))).toContain(paintLine({ id: 9, services: ['wrap', 'rims', 'tune'] }));
     expect(paintLine({ id: 12, services: ['rims'] })).toBe(paintLine({ id: 12, services: ['rims'] }));
     const seen = new Set([0, 1, 2, 3, 4, 5].map((id) => paintLine({ id, services: ['wrap'] })));
     expect(seen.size).toBe(PAINT_LINES.wrap.length);
-    for (const lines of Object.values(PAINT_LINES)) for (const l of lines) expect(l.length).toBeLessThanOrEqual(26);
+    for (const lines of Object.values(PAINT_LINES)) for (const l of lines) expect(t(l).length).toBeLessThanOrEqual(26);
   });
 });
 

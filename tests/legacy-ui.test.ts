@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
-import { sellEmpire } from '../src/core/legacy';
+import { earningsForTotalPoints, sellEmpire } from '../src/core/legacy';
 import { deserialize, serialize, withDefaults } from '../src/core/save';
 import { formatCash } from '../src/core/format';
 import { newGame, type GameState } from '../src/core/state';
@@ -9,7 +9,8 @@ import { mapRows } from '../src/ui/cityMap';
 import { buyNode, offlineCap, respecTree } from '../src/core/legacyTree';
 
 const T0 = 1_800_000_000_000;
-const S = ECON.legacy.pointScale;
+/** All-time earnings worth `n` Legacy Points. */
+const E = (n: number) => earningsForTotalPoints(n);
 
 function rich(earned: number): GameState {
   const s = newGame(T0, 3);
@@ -32,7 +33,7 @@ describe('Sell Empire UI text (P1.3b)', () => {
   });
 
   it('the row appears exactly at the minimum points and shows the gain', () => {
-    const need = ECON.legacy.minPoints ** 2 * S;
+    const need = E(ECON.legacy.minPoints);
     expect(sellEmpireRow(rich(need - 1))).toBeNull();
     const row = sellEmpireRow(rich(need))!;
     expect(row).not.toBeNull();
@@ -41,14 +42,14 @@ describe('Sell Empire UI text (P1.3b)', () => {
   });
 
   it('offline cash still waiting counts toward the row', () => {
-    const s = rich(ECON.legacy.minPoints ** 2 * S - 10);
+    const s = rich(E(ECON.legacy.minPoints) - 10);
     expect(sellEmpireRow(s)).toBeNull();
     s.pendingOffline = 10;
     expect(sellEmpireRow(s)).not.toBeNull();
   });
 
   it('the preview lists the gain, the multipliers, the run and what is kept', () => {
-    const s = rich(144 * S);
+    const s = rich(E(12));
     s.legacy.runSeconds = 3 * 3600 + 25 * 60;
     const p = sellEmpirePreview(s);
     expect(p.points).toBe(12);
@@ -61,30 +62,30 @@ describe('Sell Empire UI text (P1.3b)', () => {
   });
 
   it('after a sale: the badge shows the multiplier, the row hides and a teaser says how far the next sale is', () => {
-    const s = rich(144 * S);
+    const s = rich(E(12));
     const sold = sellEmpire(s, T0 + 1000)!;
     expect(sold.points).toBe(12);
     expect(legacyBadge(s)).toBe('🏛 x1.24');
     expect(sellEmpireRow(s)).toBeNull();
-    // 12 points owned: 22 total needs 484 x S all-time; 144 x S already banked.
-    expect(nextSaleLine(s)).toBe(`Sell Empire again after ${formatCash((484 - 144) * S)} more earnings`);
+    // 12 points owned: 22 total needs E(22) all-time; E(12) already banked.
+    expect(nextSaleLine(s)).toBe(`Sell Empire again after ${formatCash(E(22) - E(12))} more earnings`);
     // The glow needs at least half the owned points: 10 new points >= 6.
-    s.lifetimeEarnings = (484 - 144) * S;
+    s.lifetimeEarnings = E(22) - E(12);
     expect(sellEmpireRow(s)!.glow).toBe(true);
   });
 
   it('the row stops glowing when the new points are small next to the owned ones', () => {
     const s = rich(0);
     s.legacy.points = 30;
-    s.legacy.allTime = 900 * S;
-    s.lifetimeEarnings = 40 * 40 * S - 900 * S; // 40 total -> 10 new < 15
+    s.legacy.allTime = E(30);
+    s.lifetimeEarnings = E(40) - E(30); // 40 total -> 10 new < 15
     const row = sellEmpireRow(s)!;
     expect(row).not.toBeNull();
     expect(row.glow).toBe(false);
   });
 
   it('a sale survives save and load, with the offer seen flag kept', () => {
-    const s = rich(144 * S);
+    const s = rich(E(12));
     s.tutorial.legacyOffered = true;
     sellEmpire(s, T0 + 1000);
     const back = deserialize(serialize(s, T0 + 2000), T0 + 3000)!.state;
@@ -111,7 +112,7 @@ describe('Legacy tree screen (P1.3c)', () => {
   function owner(points: number): GameState {
     const s = newGame(T0, 3);
     s.legacy.points = points;
-    s.legacy.allTime = points * points * S;
+    s.legacy.allTime = E(points);
     s.legacy.sold = 1;
     return s;
   }

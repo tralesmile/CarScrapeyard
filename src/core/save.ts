@@ -4,7 +4,13 @@
 // - A checksum detects corrupted or hand-edited saves; we fall back to the other slot.
 // - Missing fields are filled from a fresh game, so adding fields never breaks old saves.
 
-import { ECON } from './config';
+import { sanitizeBook, sanitizeShowcase } from './collection';
+import { sanitizeDaily } from './daily';
+import { sanitizeAchievements } from './achievements';
+import { sanitizeWallet } from './wallet';
+import { sanitizeBoost } from './boost';
+import { sanitizeStory } from './story';
+import { ECON, MAX_SAVED_LEVEL } from './config';
 import { sanitizeBusinesses } from './businesses';
 import { sanitizeGarage } from './garage';
 import { sanitizeCarLot } from './carlot';
@@ -12,6 +18,12 @@ import { sanitizeLotShopLinks, sanitizePaint } from './paint';
 import { sanitizeLegacy } from './legacy';
 import { CITY_LIGHTS, cityPrice } from './cities';
 import { newBusinesses, newGame, SAVE_VERSION, type Buyer, type GameState } from './state';
+
+/** Volume sliders: clamp anything odd (old saves, NaN) to a usable 0..1 value. */
+export function cleanVolume(v: unknown, fallback: number): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
+  return Math.min(1, Math.max(0, Math.round(v * 20) / 20));
+}
 
 export interface KeyValueStore {
   get(key: string): string | null;
@@ -111,7 +123,7 @@ function sane(state: GameState): boolean {
   if (state.cash > state.lifetimeEarnings + gift + 1) return false;
   if (state.parts < 0) return false;
   if (state.slots < 1 || state.slots > 10) return false;
-  return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l < 100_000);
+  return Object.values(state.levels).every((l) => Number.isInteger(l) && l >= 1 && l <= MAX_SAVED_LEVEL);
 }
 
 export function serialize(state: GameState, now: number): string {
@@ -130,19 +142,32 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     const raw = JSON.parse(env.data) as Record<string, unknown>;
     const migrated = migrate(raw, env.v);
     const state = withDefaults(migrated, newGame(now));
+    // Counters that pick what arrives next: a negative or fractional value would leave no unlocked car family.
+    state.carsSold = Math.max(0, Math.floor(state.carsSold));
+    state.nextCarId = Math.max(1, Math.floor(state.nextCarId));
+    state.rng = state.rng >>> 0;
     state.cars = state.cars.filter(isValidCar);
     state.contracts = state.contracts.filter(isValidContract).map((c) => ({ ...c, rerolled: c.rerolled === true }));
     state.buyer = validBuyer(state.buyer);
     for (const f of Object.keys(state.collection.sold) as (keyof typeof state.collection.sold)[]) {
       state.collection.sold[f] = Math.max(0, Math.floor(state.collection.sold[f]));
     }
+    sanitizeBook(state.collection.models);
+    state.collection.showcase = sanitizeShowcase(state.collection.showcase);
+    sanitizeDaily(state.daily);
+    sanitizeWallet(state);
+    sanitizeBoost(state);
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);
     sanitizePaint(state.paint);
     sanitizeLotShopLinks(state);
     sanitizeLegacy(state.legacy);
+    sanitizeAchievements(state);
+    sanitizeStory(state.story);
     if (state.settings.numberFormat !== 'scientific') state.settings.numberFormat = 'short';
+    state.settings.musicVolume = cleanVolume(state.settings.musicVolume, 0.6);
+    state.settings.sfxVolume = cleanVolume(state.settings.sfxVolume, 1);
     if (!CITY_LIGHTS.includes(state.settings.cityLights)) state.settings.cityLights = 'auto';
     if (!BARN_STATUS.includes(state.barn.status) || !(state.barn.family in ECON.families)) state.barn = newGame(now).barn;
     if (!sane(state)) return null;

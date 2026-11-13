@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SHAPES } from '../src/game/carArt';
 import { ECON } from '../src/core/config';
+import { t } from '../src/i18n';
 import { announceHere } from '../src/ui/announce';
 import {
   CAR_LABEL_H,
@@ -113,7 +114,7 @@ describe('garage feel (P1.1f)', () => {
 
   it('every fault has short customer lines and a job keeps its line', () => {
     for (const f of Object.keys(ECON.garage.faults) as (keyof typeof CUSTOMER_LINES)[]) {
-      const lines = CUSTOMER_LINES[f];
+      const lines = CUSTOMER_LINES[f].map((k) => t(k));
       expect(lines.length).toBeGreaterThan(0);
       for (const l of lines) expect(l.length).toBeLessThanOrEqual(24);
       const seen = new Set(Array.from({ length: 9 }, (_, id) => customerLine({ id, fault: f })));

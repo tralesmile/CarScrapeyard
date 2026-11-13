@@ -1,3 +1,4 @@
+import { masteryToast, setCompleteBanner } from './ui/collectionView';
 import '@fontsource/lilita-one/400.css';
 import '@fontsource/nunito/600.css';
 import '@fontsource/nunito/700.css';
@@ -11,25 +12,67 @@ import { ECON } from './core/config';
 import { SaveManager } from './core/save';
 import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
+import { startBoost } from './core/boost';
 import { newGame, type GameState } from './core/state';
 import { sellEmpire } from './core/legacy';
-import { isCityNight } from './core/cities';
+import { currentCity, isCityNight } from './core/cities';
 import type { Bridge } from './game/bridge';
 import { YardScene } from './game/YardScene';
 import { GarageScene } from './game/GarageScene';
 import { CarLotScene } from './game/CarLotScene';
 import { PaintScene } from './game/PaintScene';
+import { refreshDaily } from './core/daily';
+import { music } from './audio/music';
+import { analytics, MemorySink, Tracker } from './platform/analytics';
 import { createWebPlatform } from './platform/platform';
+import { createAdMobAds, TEST_REWARDED_ID, withAdMob } from './platform/admob';
+import { bindAppState, bindBackButton, detectNative, nativeVibrate, type CapacitorGlobal } from './platform/native';
+import {
+  bindGameplayToVisibility,
+  createCrazyGamesSdk,
+  createPokiSdk,
+  detectPortal,
+  withPortal,
+  type CrazyGamesGlobal,
+  type PokiGlobal,
+} from './platform/portal';
+import { t } from './i18n';
 import { Ui } from './ui/ui';
 import { announceHere } from './ui/announce';
+import { rivalToast, rivalToastDue } from './ui/storyView';
 
-const platform = createWebPlatform();
+// Portal builds (Poki, CrazyGames) add their SDK to the page; the web build has neither.
+const portalGlobals = window as unknown as { PokiSDK?: PokiGlobal; CrazyGames?: CrazyGamesGlobal };
+const portalName = detectPortal(window.location.search, portalGlobals);
+const portalSdk =
+  portalName === 'poki' && portalGlobals.PokiSDK
+    ? createPokiSdk(portalGlobals.PokiSDK)
+    : portalName === 'crazygames' && portalGlobals.CrazyGames
+      ? createCrazyGamesSdk(portalGlobals.CrazyGames)
+      : null;
+const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
+const nativeName = detectNative(capacitor);
+const basePlatform = portalSdk ? withPortal(createWebPlatform(), portalSdk) : { ...createWebPlatform(), name: nativeName ?? ('web' as const) };
+// Rewarded ads inside the native shell (P2.2). Test ad units until the owner's AdMob account exists.
+const admob =
+  nativeName && capacitor?.Plugins?.AdMob
+    ? createAdMobAds(capacitor.Plugins.AdMob, { adId: TEST_REWARDED_ID[nativeName], testing: true })
+    : null;
+const platform = admob ? withAdMob(basePlatform, admob) : basePlatform;
+void admob?.init();
+if (portalSdk) {
+  bindGameplayToVisibility(portalSdk, document);
+  portalSdk.loadingFinished();
+}
 const saves = new SaveManager(platform.storage);
 
 const loaded = saves.load(platform.now());
 const state: GameState = loaded ?? newGame(platform.now());
 sfx.enabled = state.settings.sound;
+sfx.setVolume(state.settings.sfxVolume);
+sfx.setMusicVolume(state.settings.musicVolume);
 haptics.enabled = state.settings.vibration;
+if (nativeName && capacitor?.Plugins?.Haptics) haptics.setBackend(nativeVibrate(capacitor.Plugins.Haptics));
 setNumberFormat(state.settings.numberFormat);
 
 // ---- income rate (rolling 30 s window of real sales) ------------------------
@@ -54,7 +97,7 @@ function saveNow() {
   dirty = false;
   if (!ok && !saveWarned) {
     saveWarned = true;
-    ui.toast('Your device storage is full: progress may not be saved.');
+    ui.toast(t('toast.storageFull'));
   }
 }
 
@@ -63,48 +106,61 @@ function onEvents(events: GameEvent[]) {
     if (e.type === 'sold' || e.type === 'garageFixed') sales.push({ t: performance.now(), amount: e.amount });
     if (e.type === 'lotSold') sales.push({ t: performance.now(), amount: Math.max(0, e.profit) });
     if (e.type === 'familyUnlocked') {
-      ui.showBanner('NEW CARS!', `${ECON.families[e.family].name}s now roll into the yard`);
+      ui.showBanner(t('event.newCars.title'), t('event.newCars.body', { family: ECON.families[e.family].name }));
       sfx.fanfare();
     }
     // First car of a family sold (P0.14i). The starter families are counted quietly during the first sales,
     // so the tutorial hints and the haggle lesson are not crowded.
     if (e.type === 'firstOfFamily' && (ECON.families[e.family].unlockCarsSold > 0 || state.carsSold > ECON.collection.quietSales)) {
       const total = Object.keys(ECON.families).length;
-      ui.toast(`📒 First ${ECON.families[e.family].name} sold! Collection: ${e.families}/${total} car types`, 3500);
+      ui.toast(t('event.firstSold', { family: ECON.families[e.family].name, n: e.families, total }), 3500);
       sfx.repaired();
     }
-    if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner('LEGENDARY!', `A Legendary ${e.car.model} rolled in`);
+    // Collection book (P1.4a): completed sets get a banner, mastery stars a toast.
+    if (e.type === 'setComplete') {
+      const b = setCompleteBanner(e.set, e.id);
+      ui.showBanner(b.title, b.line);
+      sfx.fanfare();
+    }
+    if (e.type === 'mastery') ui.toast(masteryToast(e.model, e.stars), 2500);
+    if (e.type === 'legendary' && announceHere(e.type, state.businesses.active)) ui.showBanner(t('event.legendary.title'), t('event.legendary.body', { model: e.car.model }));
     if (e.type === 'barnStageDone' && e.stage < ECON.barn.stages.length) {
-      ui.toast(`Barn find: ${ECON.barn.stages[e.stage - 1]!.name} done!`, 2500);
+      ui.toast(t('event.barnStage', { stage: ECON.barn.stages[e.stage - 1]!.name }), 2500);
       sfx.repaired();
     }
     if (e.type === 'barnFinished') {
-      ui.showBanner('RESTORED!', 'Reveal your classic in the Yard tab');
+      ui.showBanner(t('event.restored.title'), t('event.restored.body'));
       sfx.fanfare();
     }
-    if (e.type === 'barnFound' && state.barn.restored > 0) ui.toast('Grandpa Joe found another covered classic!', 3000);
+    if (e.type === 'barnFound' && state.barn.restored > 0) ui.toast(t('event.barnAgain'), 3000);
     if (e.type === 'contractDone') {
-      ui.showBanner('ORDER DONE!', 'Claim it on the Jobs board');
+      ui.showBanner(t('event.order.title'), t('event.order.body'));
       sfx.repaired();
     }
     if (e.type === 'buyerArrived' && announceHere(e.type, state.businesses.active)) sfx.bell();
+    if (e.type === 'buyerLeft' && e.rival && state.businesses.active === 'scrapyard' && rivalToastDue(state.story.rivalWins)) ui.toast(rivalToast('buyer', state.story.rivalWins), 2500);
     // Auction feel (P1.2c): stamps on the board; sounds only while the Auction tab is on screen.
     if (e.type === 'lotBought') {
       ui.auctionStamp(e.index, 'won', e.auto);
       if (!e.auto || ui.auctionShown()) sfx.gavel();
     }
     if (e.type === 'lotExpired') {
-      ui.auctionStamp(e.index, 'lost');
+      ui.auctionStamp(e.index, e.rival ? 'rival' : 'lost');
+      if (e.rival && state.businesses.active === 'carlot' && rivalToastDue(state.story.rivalWins)) ui.toast(rivalToast('lot', state.story.rivalWins), 2500);
       if (ui.auctionShown()) sfx.lotLost();
     }
     if (e.type === 'lotSold' && e.bonus > 0 && state.businesses.active === 'carlot') sfx.bonus();
     if (e.type === 'paintDone') {
       sales.push({ t: performance.now(), amount: e.amount });
-      if (e.tip > 0 && state.paint.tips === 1) ui.toast(`⚡ Quick tip! Finish an order fast yourself and the customer tips +${Math.round(ECON.paint.tip * 100)}%`, 4000);
+      if (e.tip > 0 && state.paint.tips === 1) ui.toast(t('event.quickTip', { pct: Math.round(ECON.paint.tip * 100) }), 4000);
     }
     if (e.type === 'paintLotCarDone' && state.businesses.active !== 'paint') {
       const car = state.carlot.cars.find((c) => c.id === e.carId);
-      if (car) ui.toast(`🏷️ ${car.model} is back on the lot: +${formatCash(e.value)} on the sticker`, 3000);
+      if (car) ui.toast(t('event.lotBack', { model: car.model, cash: formatCash(e.value) }), 3000);
+    }
+    if (e.type === 'giftCar') {
+      ui.showBanner(t('event.gift.title'), t('event.gift.body', { model: e.car.model, rarity: ECON.rarity[e.car.rarity].label }));
+      dirty = true;
     }
     if (e.type.startsWith('garage') || e.type.startsWith('lot') || e.type.startsWith('paint')) dirty = true;
     if (e.type === 'sold' || e.type === 'buyerArrived' || e.type === 'arrived' || e.type === 'crushed' || e.type.startsWith('contract') || e.type.startsWith('barn')) dirty = true;
@@ -121,6 +177,7 @@ const ui = new Ui(document.getElementById('ui')!, {
     dirty = true;
   },
   incomePerSecond,
+  now: () => platform.now(),
   barnReveal: (shown) => {
     const sc = yardScene();
     if (!sc || state.businesses.active !== 'scrapyard') {
@@ -140,6 +197,15 @@ const ui = new Ui(document.getElementById('ui')!, {
     }
     saveNow();
     return sold;
+  },
+  boostAdReady: () => platform.rewardedAdAvailable(),
+  watchBoostAd: () => {
+    void platform.showRewardedAd('income_boost').then((earned) => {
+      if (earned && startBoost(state)) {
+        ui.toast(t('toast.boost'), 3500);
+        saveNow();
+      }
+    });
   },
   restart: () => {
     saveNow();
@@ -234,7 +300,15 @@ function resize() {
 new ResizeObserver(resize).observe(app);
 
 // ---- render + save loops -------------------------------------------------
-setInterval(() => ui.render(), 100);
+setInterval(() => {
+  // A new game day (P1.5a): fresh tasks and the next calendar reward.
+  if (refreshDaily(state, platform.now())) {
+    dirty = true;
+    if (state.tutorial.dailySeen) ui.toast(t('toast.newDay'), 3500);
+    ui.rebuildCards();
+  }
+  ui.render();
+}, 100);
 setInterval(() => {
   touch(state, platform.now());
   if (dirty) saveNow();
@@ -243,6 +317,11 @@ setInterval(() => {
 // ---- offline earnings -----------------------------------------------------
 function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint = 0) {
   if (state.pendingOffline <= 0) return;
+  // A new day may have started while away: roll it first, so the popup can say what waits (P1.5d).
+  if (refreshDaily(state, platform.now())) {
+    dirty = true;
+    ui.rebuildCards();
+  }
   ui.offlineModal(
     seconds,
     state.pendingOffline,
@@ -254,12 +333,34 @@ function offerOffline(seconds: number, parts = 0, garage = 0, carlot = 0, paint 
     garage,
     carlot,
     paint,
+    platform.rewardedAdAvailable()
+      ? () => {
+          void platform.showRewardedAd('offline_double').then((earned) => {
+            collectOffline(state, earned ? ECON.ads.offlineMultiplier : 1);
+            saveNow();
+          });
+        }
+      : undefined,
   );
 }
 
+// Music follows the settings, the business on screen and the city (P1.8). Audio only starts after the first tap.
+function syncMusic(): void {
+  music.sync({ enabled: state.settings.music, opened: state.businesses.opened, active: state.businesses.active, city: currentCity(state) });
+}
+setInterval(syncMusic, 500);
+
+// Analytics (P1.11): no network sink yet. With ?debug=1 events go to a memory log (consent granted) for the browser test.
+const tracker = new Tracker(analytics, state);
+setInterval(() => tracker.look(state), 1000);
+analytics.track('session_start', { returning: !!loaded });
+
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
+let appHidden = false;
+function setAppHidden(hidden: boolean) {
+  if (hidden === appHidden) return; // the page and the native shell both report; act once per change
+  appHidden = hidden;
+  if (hidden) {
     hiddenAt = platform.now();
     saveNow();
     sfx.suspend();
@@ -268,7 +369,13 @@ document.addEventListener('visibilitychange', () => {
     const r = queueOffline(state, platform.now());
     if (r.seconds >= ECON.offline.minSecondsForPopup && hiddenAt) offerOffline(r.seconds, r.parts, r.garage, r.carlot, r.paint);
   }
-});
+}
+document.addEventListener('visibilitychange', () => setAppHidden(document.hidden));
+// Native shell (P2.1): app state from Capacitor, and the Android back button closes modals before it exits the app.
+if (nativeName) {
+  bindAppState(capacitor?.Plugins?.App, (active) => setAppHidden(!active));
+  bindBackButton(capacitor?.Plugins?.App, () => ui.handleBack());
+}
 window.addEventListener('pagehide', () => saveNow());
 
 // ---- first launch / returning player --------------------------------------
@@ -278,10 +385,9 @@ if (loaded) {
 }
 if (!state.tutorial.introSeen) {
   ui.modal({
-    title: "Grandpa Joe's Yard",
-    body:
-      '<p class="note">"Kid, this old scrapyard is yours now. Wash the wrecks, fix them up and sell them. Make it the biggest name in cars."<br>— Grandpa Joe</p>',
-    button: "Let's go!",
+    title: t('intro.title'),
+    body: `<p class="note">${t('intro.body')}<br>${t('intro.signoff')}</p>`,
+    button: t('intro.button'),
     onClose: () => {
       state.tutorial.introSeen = true;
       dirty = true;
@@ -289,13 +395,26 @@ if (!state.tutorial.introSeen) {
   });
 }
 if (platform.storageVolatile) {
-  ui.toast('Private browsing: your progress will not be saved after you close this tab.', 6000);
+  ui.toast(t('toast.privateBrowsing'), 6000);
 }
 ui.render();
 
 // Debug hook for automated tests: open the game with ?debug=1.
 const params = new URLSearchParams(location.search);
 if (params.has('debug')) {
-  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui };
+  (window as unknown as Record<string, unknown>).__jye = { state, saveNow, game, ui, music, analytics, MemorySink, haptics, offerOffline };
   if (params.has('gallery')) void import('./game/gallery').then((m) => m.showCarGallery());
+}
+
+// Offline play (P1.10): production web builds only; not in ?debug runs, not in native shells.
+if (
+  import.meta.env.PROD &&
+  'serviceWorker' in navigator &&
+  !location.search.includes('debug') &&
+  !nativeName &&
+  location.protocol.startsWith('http')
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
 }

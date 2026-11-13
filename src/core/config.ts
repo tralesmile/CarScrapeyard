@@ -83,6 +83,20 @@ export const ECON = {
     minSecondsForPopup: 30,
   },
 
+  /** Rewarded ads (P2.2): optional, never required. */
+  ads: {
+    /** Watching one ad on the welcome-back popup multiplies the collected offline earnings by this. */
+    offlineMultiplier: 2,
+    /** 2x income boost (P2.2b): one ad = `seconds` of x`multiplier` on every sale, repair and paint payout. */
+    boost: {
+      multiplier: 2,
+      seconds: 600,
+      /** After a boost ends the next ad is offered this much later (playing time). */
+      cooldownSeconds: 300,
+      unlockCarsSold: 20,
+    },
+  },
+
   rarity: {
     common: { weight: 78, valueMult: 1, label: 'Common' },
     rare: { weight: 17, valueMult: 2.5, label: 'Rare' },
@@ -115,6 +129,24 @@ export const ECON = {
   collection: {
     /** First sales of the starter families during the first N sales get no toast (tutorial time). */
     quietSales: 10,
+    /**
+     * Collection book (P1.4a). Every yard model (`MODEL_NAMES`) and barn classic (`CLASSIC_NAMES`) is an entry. Bonuses
+     * are permanent (the book is kept when the empire is sold) and multiply the value of yard cars when they arrive.
+     */
+    /** Sell every model of a family once: that family's yard cars are worth this much more. */
+    familySetBonus: 0.05,
+    /** Sell one model of a brand in every family: that brand's yard cars are worth this much more. */
+    brandSetBonus: 0.05,
+    /** Restore every barn classic (sold or kept for the showcase): barn sale values x(1 + this). */
+    classicsSetBonus: 0.25,
+    /** Mastery stars per model at these sales counts; each star adds `masteryBonus` to that model's value. */
+    masteryTiers: [10, 50, 200] as const,
+    masteryBonus: 0.01,
+    /**
+     * Showcase (P1.4c): a restored barn classic can be kept instead of sold. Each classic in the showcase (one per
+     * model, kept when the empire is sold) adds this much to every payout, like a small Legacy Point.
+     */
+    showcaseBonus: 0.005,
   },
 
   /** Car crusher: turn an unfinished wreck into Parts (and a little scrap cash). */
@@ -157,6 +189,121 @@ export const ECON = {
     targets: { sellAny: [6, 10], sellFamily: [2, 4], sellRare: [1, 2], crush: [2, 4] },
     /** Extra parts on crush orders, per car. */
     crushPartsPerTarget: 4,
+  },
+
+  /**
+   * Daily tasks and the 7-day login calendar (P1.5a). A day starts at `resetHourUtc` (a fixed UTC hour, so time zone or
+   * daylight saving changes never give a double or a missed day). Rewards are worth a number of average yard cars
+   * (expected car value x the legacy and city multipliers) at the moment they are claimed.
+   */
+  daily: {
+    /** Daily tasks and the calendar appear after this many sales (plan: around minute 15). */
+    unlockCarsSold: 80,
+    resetHourUtc: 4,
+    tasksPerDay: 3,
+    /** Task kinds: the counter they follow and the day's target. A kind is only rolled once it is unlocked. */
+    tasks: {
+      sell: { target: 40, rewardCars: 12, parts: 0 },
+      haggle: { target: 6, rewardCars: 10, parts: 0 },
+      buyer: { target: 8, rewardCars: 10, parts: 0 },
+      crush: { target: 12, rewardCars: 8, parts: 15 },
+      contract: { target: 3, rewardCars: 14, parts: 0 },
+      garage: { target: 25, rewardCars: 14, parts: 0 },
+      lot: { target: 8, rewardCars: 16, parts: 0 },
+      paint: { target: 10, rewardCars: 16, parts: 0 },
+    },
+    /** Claiming all of the day's tasks adds this bonus (in cars). */
+    allDoneBonusCars: 20,
+    /**
+     * Login calendar: one reward per day you play (a missed day does not reset it), then it starts again. The 7th day
+     * brings a gift car of `giftRarity` to the yard.
+     */
+    calendar: [
+      { cars: 5, parts: 0 },
+      { cars: 8, parts: 10 },
+      { cars: 10, parts: 0 },
+      { cars: 12, parts: 20 },
+      { cars: 15, parts: 0 },
+      { cars: 20, parts: 30 },
+      { cars: 0, parts: 0, gift: true },
+    ],
+    giftRarity: 'epic' as Rarity,
+  },
+
+  /**
+   * Wallet (P1.7a): two small currencies on top of cash and parts. Gems are the soft premium currency: they are
+   * earned here (medals, daily rewards) and bought with real money later (P2.3). Auction Tokens are earn-only, never
+   * sold: they are the only price of an auction lot (no paid random rewards, see CLAUDE.md). Neither changes cash
+   * income, so the economy sim is unaffected.
+   */
+  wallet: {
+    /** Gems for claiming a medal tier (Bronze, Silver, Gold, Diamond). */
+    medalGems: [0, 1, 3, 8],
+    /** Tokens for a finished daily task, and for the all-done bonus. */
+    taskTokens: 1,
+    allDoneGems: 3,
+    allDoneTokens: 2,
+    /** Calendar days 1-7. */
+    calendarGems: [1, 1, 2, 2, 3, 3, 10],
+    calendarTokens: [0, 1, 0, 1, 0, 2, 3],
+    /** Hard caps keep a tampered save from showing absurd numbers. */
+    maxGems: 1_000_000,
+    maxTokens: 100_000,
+  },
+
+  /**
+   * Shop (P1.7b): what Gems and Auction Tokens buy. Gems arrive at ~3 a day (economy.md), so prices are small and
+   * every item is a convenience, never a new income stream: the cash bag is worth `cashBagCars` average yard cars.
+   */
+  shop: {
+    /** Finish the running barn stage now. */
+    barnRushGems: 1,
+    /** A crate of spare parts for the crusher bin and the barn. */
+    partsCrate: { gems: 2, parts: 60 },
+    /** Cash worth this many average yard cars (see carsWorth). */
+    cashBag: { gems: 4, cars: 12 },
+    /** A token lot: a car for the Used Car Lot with no cash price. Needs a free spot. */
+    tokenLot: { tokens: 4, condition: 4 as const },
+  },
+
+  /**
+   * Story (P1.6): chapter 1 in Rust Valley. Beats are short scenes with Grandpa Joe and the rival Vince Valvano,
+   * shown in order when their moment comes, at least `gapSeconds` of play apart. Vince is flavour only: he takes
+   * every `rivalEvery`-th lot that leaves the auction board unsold (and the first one) and every `rivalEvery`-th yard
+   * customer who runs out of patience; the economy is unchanged.
+   */
+  story: {
+    vinceVisitSales: 20,
+    /** Chapter 2: Vince greets you in Motor City after this many sales there. */
+    cityArrivalSales: 5,
+    gapSeconds: 20,
+    rivalEvery: 3,
+  },
+
+  /**
+   * Achievements (P1.5c): lifetime goals with four medal tiers each, kept across Sell Empire. Every tier pays cash
+   * worth `rewardCars[tier]` average yard cars at claim time (gems replace part of it with P1.7).
+   */
+  achievements: {
+    medals: ['Bronze', 'Silver', 'Gold', 'Diamond'],
+    medalIcons: ['🥉', '🥈', '🥇', '💎'],
+    rewardCars: [3, 6, 12, 24],
+    list: {
+      sold: { name: 'Wheeler Dealer', icon: '🚗', goal: 'Sell yard cars', tiers: [25, 250, 2500, 25_000] },
+      earned: { name: 'Money Maker', icon: '💰', goal: 'Earn in total', tiers: [100_000, 10_000_000, 1e9, 1e11] },
+      crush: { name: 'Crusher', icon: '🔨', goal: 'Crush cars', tiers: [10, 100, 1000, 5000] },
+      haggle: { name: 'Silver Tongue', icon: '🎯', goal: 'Perfect haggles', tiers: [5, 50, 250, 1000] },
+      buyer: { name: 'People Person', icon: '🤝', goal: 'Serve buyers', tiers: [10, 100, 1000, 5000] },
+      contract: { name: 'Order Up', icon: '📋', goal: 'Finish orders', tiers: [5, 50, 250, 1000] },
+      legendary: { name: 'Lucky Find', icon: '✨', goal: 'Find Legendary cars', tiers: [1, 10, 50, 200] },
+      barn: { name: 'Barn Stormer', icon: '🏚', goal: 'Restore barn classics', tiers: [1, 5, 20, 50] },
+      garage: { name: 'Grease Monkey', icon: '🔧', goal: 'Garage repairs', tiers: [50, 500, 5000, 25_000] },
+      lot: { name: 'Lot Boss', icon: '🏷', goal: 'Sell lot cars', tiers: [10, 100, 1000, 5000] },
+      paint: { name: 'Spray King', icon: '🎨', goal: 'Paint shop orders', tiers: [25, 250, 2500, 10_000] },
+      book: { name: 'Collector', icon: '📒', goal: 'Cars in the book', tiers: [8, 16, 32, 48] },
+      empire: { name: 'Tycoon', icon: '🏛', goal: 'Sell your empire', tiers: [1, 3, 10, 25] },
+      days: { name: 'Regular', icon: '📅', goal: 'Daily rewards claimed', tiers: [3, 7, 30, 100] },
+    },
   },
 
   /** Haggle: timing slider on big manual sales. A needle sweeps the bar; the centre pays most. */
@@ -217,7 +364,7 @@ export const ECON = {
       motorCity: {
         name: 'Motor City',
         icon: '🏙️',
-        scale: 5,
+        scale: 3,
         fromSale: 2,
         tagline: 'The big city: bigger prices, bigger payouts',
         // City names for the businesses (P1.3d2), shown on the map, in the list and on the scenes' signs. Keep each at
@@ -441,7 +588,12 @@ export const ECON = {
   },
   /** Prestige "Sell Empire" (P1.3a). Points = floor(sqrt(all-time earnings / pointScale)). */
   legacy: {
-    pointScale: 5_000_000,
+    /**
+     * Points = floor((all-time earnings / pointScale) ^ pointExponent): 10 points at ~$500M. The exponent was 0.5
+     * (a square root) until run 27; 0.8 keeps the second empire from being slower than the first (P1.3d4).
+     */
+    pointScale: 28_000_000,
+    pointExponent: 0.8,
     /** The sale is offered once it would give at least this many points. */
     minPoints: 10,
     /** Income bonus per Legacy Point (+2%). */
@@ -526,3 +678,7 @@ export const MODEL_NAMES: Record<CarFamily, readonly string[]> = {
   sports: ['Kaze Raiden', 'Regalia Vento', 'Vortex Arrow', 'Stallion Blaze'],
   hyper: ['Vortex Zenith', 'Stallion Phantom', 'Kaze Tempest', 'Regalia Halo'],
 };
+
+/** Highest upgrade level a save may hold. Costs grow exponentially, so nobody gets near it; the cap keeps a corrupt level
+ * from overflowing a price or income formula to Infinity. */
+export const MAX_SAVED_LEVEL = 1000;

@@ -1,6 +1,12 @@
 import type { BusinessId, BuyerKind, CityId, CityLights, CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, GarageFault, GarageUpgradeKind, LegacyBranch, LotBuyerKind, ManagerKind, PaintService, PaintUpgradeKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { NumberFormat } from './format';
+import { newBook, type BookEntry } from './collection';
+import type { Daily } from './daily';
+import { newAchievements, type Achievements } from './achievements';
+import { newWallet, type Wallet } from './wallet';
+import { newBoost, type Boost } from './boost';
+import { newStory, type Story } from './story';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
 export const SAVE_VERSION = 2;
@@ -250,11 +256,16 @@ export interface GameState {
     lotTuneSeen: boolean;
     /** The Sell Empire preview was opened (the map dot and banner stop) (P1.3b). */
     legacyOffered: boolean;
+    /** The "DAILY TASKS!" banner was shown (P1.5b). */
+    dailySeen: boolean;
   };
   settings: {
     sound: boolean;
-    /** Saved now; music arrives with P1.8. */
+    /** Procedural music (P1.8): layers per business, see audio/musicScore.ts. */
     music: boolean;
+    /** Sliders in Settings, 0..1 in steps of 0.05 (P1.8). */
+    musicVolume: number;
+    sfxVolume: number;
     /** No camera shake or flashes, fewer CSS animations. */
     reduceMotion: boolean;
     numberFormat: NumberFormat;
@@ -269,7 +280,13 @@ export interface GameState {
    * Collection book counts (P0.14i, the book itself is P1.4): cars sold per family. Saves from before run 9 start
    * at 0, so a veteran sees each "first of a family" toast once as their collection begins.
    */
-  collection: { sold: Record<CarFamily, number> };
+  collection: {
+    sold: Record<CarFamily, number>;
+    /** Collection book (P1.4a): one entry per yard model and barn classic (see collection.ts). */
+    models: Record<string, BookEntry>;
+    /** Barn classics kept for the showcase instead of sold (P1.4c), one per model, in the order kept. */
+    showcase: string[];
+  };
   stats: {
     legendaryFound: number;
     playSeconds: number;
@@ -281,6 +298,16 @@ export interface GameState {
   };
   /** Prestige (P1.3a): Legacy Points and what's left of the empires sold before this one. Kept on a sale. */
   legacy: Legacy;
+  /** Daily tasks and the login calendar (P1.5a, see daily.ts). Kept on a sale. */
+  daily: Daily;
+  /** Achievements (P1.5c, see achievements.ts): lifetime totals and medals claimed. Kept on a sale. */
+  achievements: Achievements;
+  /** Gems and Auction Tokens (P1.7a, see wallet.ts). Kept on a sale. */
+  wallet: Wallet;
+  /** Rewarded-ad income boost (P2.2b, see boost.ts). */
+  boost: Boost;
+  /** Story chapters (P1.6, see story.ts): scenes shown and Vince's tally. Kept on a sale. */
+  story: Story;
 }
 
 export interface Legacy {
@@ -400,10 +427,15 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     arrivalTimer: ECON.arrivalInterval - 0.2,
     rng: seed >>> 0 || 1,
     nextCarId: 1,
-    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false },
-    settings: { sound: true, music: true, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
-    collection: { sold: emptyFamilyCounts() },
+    tutorial: { introSeen: false, firstSale: false, firstUpgrade: false, crusherSeen: false, contractsSeen: false, barnSeen: false, mapSeen: false, lotTuneSeen: false, legacyOffered: false, dailySeen: false },
+    settings: { sound: true, music: true, musicVolume: 0.6, sfxVolume: 1, reduceMotion: false, numberFormat: 'short', vibration: true, skipHaggle: false, cityLights: 'auto' },
+    collection: { sold: emptyFamilyCounts(), models: newBook(), showcase: [] },
     stats: { legendaryFound: 0, playSeconds: 0, carsCrushed: 0, contractsDone: 0, haggles: 0, perfectHaggles: 0, buyersServed: 0 },
     legacy: newLegacy(),
+    daily: { day: -1, tasks: [], bonusClaimed: false, claims: 0, claimedDay: -1, giftCars: 0 },
+    achievements: newAchievements(),
+    wallet: newWallet(),
+    boost: newBoost(),
+    story: newStory(),
   };
 }

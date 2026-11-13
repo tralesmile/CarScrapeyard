@@ -1,5 +1,315 @@
 # Changelog
 
+## 0.63.0 - 2026-11-13 (run 63)
+
+- **Store text and legal drafts (P2.6a, P2.7a):** `docs/store/` now holds the store listing (title, short and full description,
+  keywords, screenshot list, 30 s preview script), a draft privacy policy and terms, and the data-safety / age-rating answers,
+  all matched to what the build does today (nothing collected, analytics off, optional rewarded ads). No game code changed.
+
+## 0.62.0 - 2026-11-13 (run 62)
+
+- **Rewarded ads, second half (P2.2b): the 2x income boost.** After 20 sales, inside the phone app, a blue "⚡ x2 · ad" chip
+  appears in the top bar whenever a video ad is ready. Watching one doubles every sale, repair and paint payout for 10 minutes
+  (the chip turns green and counts down); the next ad is offered 5 minutes after the boost ends. It never stacks, runs on play
+  time only, and the plain game never needs it. The pacing simulation is unchanged because bots never watch ads. Nothing changes
+  on the web build without an ad provider.
+## 0.61.0 - 2026-11-13 (run 61)
+
+- **Rewarded ads, first half (P2.2):** inside the phone app the welcome-back popup gets a "📺 Watch an ad: collect x2" button
+  next to the normal Collect, whenever a video ad is loaded. Watching it to the end doubles the offline earnings; closing it early
+  (or no ad available) pays the normal amount, and the plain Collect button always works (the Android back button presses it). It
+  uses Google's test ad units until you have an AdMob account. Nothing changes on the web build. The 2x income boost is next.
+## 0.60.0 - 2026-11-13 (run 60)
+
+- **Native app shells (P2.1, first half):** the game now has Android and iOS projects (Capacitor 7, in `android/` and `ios/`,
+  portrait only on phones). Inside the app the Android back button closes the topmost sheet (Settings, Book, map, story, intro)
+  and only exits the app when nothing is open; the barn reveal's sell/keep choice swallows the press instead of choosing for
+  you. Pausing and resuming the app saves and shows the welcome-back popup like switching tabs does. Haptics use the phone's
+  native haptic engine (light tap, heavy thump, success / error buzz) instead of `navigator.vibrate`. The web game is
+  unchanged; the service worker stays off in the app. Nothing to see on the web yet; building the apps needs Android Studio / Xcode
+  (see `docs/mobile.md`).
+## 0.59.0 - 2026-11-13 (run 59)
+
+- **Translation prep finished:** the last three toast texts (storage full, new day, private browsing) now live in the string
+  catalog. Nothing changes for players.
+
+## 0.58.0 - 2026-11-13 (run 58)
+
+- **Performance probe (tooling only):** `npm run perf` opens every business on an emulated phone with the CPU slowed down
+  and prints frame times, texture counts and memory per scene (results in `screenshots/perf.json`). First readings show
+  the yard scene is the heaviest one. Nothing changes for players yet.
+
+## 0.57.0 - 2026-11-13 (run 57)
+
+- **Long-session soak test (tests only):** 48 hours of game time with the crew working and every business open keeps the save
+  file small and every number finite. Nothing changes for players.
+
+## 0.56.0 - 2026-11-12 (run 56)
+
+- **Fuzzing the other businesses (tests only):** random players pressing every Repair Garage, Used Car Lot and Paint &
+  Tuning button, plus damaged data for those three shops, all stay finite and save/load cleanly. Nothing changes for players.
+
+## 0.55.0 - 2026-11-12 (run 55)
+
+- **Fuzzing the late game (tests only):** damaged Legacy tree, medal, gem and story data, plus 60 simulated random players
+  pressing every scrapyard button in a random order (including Sell Empire), all stay finite and save/load cleanly.
+  Nothing changes for players.
+
+## 0.54.0 - 2026-11-12 (run 54)
+
+- **Even more fuzzing (tests only):** damaged collection-book and daily-task data, absurd clocks (NaN, Infinity, far past
+  and future) and a broken last-seen time are now tested too. Everything held, so nothing changes for players.
+
+## 0.53.0 - 2026-11-12 (run 53)
+
+- **More save fuzzing (tests only):** the corruption test now also hammers the garage, car lot and paint shop data at a
+  high rate, and a game after "Sell Empire" (legacy and business data). No new crashes found, so saves are sturdier than
+  feared. Nothing changes for players.
+
+## 0.52.0 - 2026-11-12 (run 52)
+
+- **Safer saves:** a damaged save file can no longer crash the game or turn cash into Infinity. A fuzz test now corrupts
+  random save fields and plays on; the two bugs it found are fixed (negative car counter, absurd upgrade levels / paint
+  fees). Upgrade levels in a save are capped at 1000 (nobody can buy that many). Nothing changes for normal play.
+
+## 0.51.0 - 2026-11-12 (run 51)
+
+- **Translation layer:** the five garage fault names (fault bubble) and the garage tap hint moved to `en.ts`
+  (`garage.fault.*`, `garage.tapHint`). Car model names stay as proper nouns. Nothing changes for players.
+
+## 0.50.0 - 2026-11-12 (run 50)
+
+- **Translation layer:** the last three scene literals ("At the shop", "Free spot", "Free booth") moved to `en.ts`
+  (`scene.lot.atShop`, `scene.lot.freeSpot`, `scene.paint.freeBooth`). Nothing changes for players.
+
+## 0.49.0 - 2026-11-11 (run 49)
+
+- **Translation layer:** the lot buyers' and paint customers' speech lines, the game event banners and toasts
+  (legendary, barn, orders, first sale of a car type, daily gift, quick tip), the first-launch intro and the last
+  literals in `ui.ts` moved to `en.ts` (`lot.say.*`, `paint.say.*`, `event.*`, `intro.*`, `ui.*`). Nothing changes for players.
+
+## 0.48.0 - 2026-11-11 (run 48)
+
+- **Translation layer:** the Repair Garage scene texts ("Free bay", yard-parts and parts-bill notes) and the fifteen
+  customer lines moved to `en.ts` (`scene.garage.*`, `garage.say.*`). Nothing changes for players.
+
+## 0.47.0 - 2026-11-11 (run 47)
+
+- **Translation layer:** the floating texts and labels drawn on the yard, Used Car Lot and Paint & Tuning scenes (barn
+  sign, slot labels, LEGENDARY CLASSIC!, buyer bonus, Scrapper, parts, FOR SALE tag, profit, quick tip, ...) moved to
+  `en.ts` (`scene.*`). Nothing changes for players.
+
+## 0.46.0 - 2026-11-11 (run 46)
+
+- **Translation layer:** the daily calendar card and the three daily task cards (title, day counter, today/tomorrow text,
+  claim buttons, reward and bonus lines, banners) moved to `en.ts` (`daily.cal.*`, `daily.task.*`, `daily.claim`).
+  Nothing changes for players.
+- **Fix (rare crash):** car textures are freed through `removeTexturesSafely`, so no image can draw a removed texture
+  (the WebGL `glTexture` page error seen twice in e2e). e2e: the Scrapper wait is steadier and reports its state on failure.
+
+## 0.45.0 - 2026-11-11 (run 45)
+
+- **Translation layer:** all `aria-label` texts in `ui.ts` (perks, condition stars, map button, tiers, Legacy nodes, shop
+  buttons, medals, mastery stars, book cards), the unlock banners (Car Crusher, Contracts, Daily tasks, Barn find, Empire
+  for sale, City map, Showcase, gift car) and the toasts (tune trip, business open, medals, shop, medal claim) moved to
+  `en.ts` (`aria.*`, `banner.*`, `toast.*`). Nothing changes for players.
+
+## 0.44.0 - 2026-11-11 (run 44)
+
+- **Translation layer:** the contract cards (new order, arrives in, reward, swap, PAID!) and the Barn Find card
+  (locked/next/working/finished/revealed/waiting texts, plural "more sale(s)") moved to `en.ts`; shared `Claim`,
+  `Sell`, `In progress` and `Working…` keys added. Nothing changes for players.
+
+## 0.43.0 - 2026-11-11 (run 43)
+
+- **Translation layer:** the HUD button labels, the tab names, crew cards (Hired / Working / Hire), the lot, repair bay,
+  foreman, forecourt spot and booth cards, the haggle slider texts and "Coming soon" moved to `en.ts` (41 keys);
+  nothing changes for players.
+
+## 0.41.0 - 2026-11-10 (run 41)
+
+- **Translation layer:** the Sell Empire row and preview, Grandpa Joe's lines, city teaser and ordinals, the Legacy tree
+  texts, perk chips and the welcome-back away lines moved to `en.ts` (plurals via `_one/_other`); nothing changes for
+  players.
+
+## 0.40.0 - 2026-11-10 (run 40)
+
+- **Translation layer:** the city map texts (business rows, FOR SALE / SOON signs, Vince's HQ line, map label) and the
+  whole Settings sheet (switches, sliders, City lights, reset confirmation, credits) moved to `en.ts`; nothing changes
+  for players.
+
+## 0.39.0 - 2026-11-10 (run 39)
+
+- **Translation layer:** the collection book texts (set names and bonuses, set-complete banner, mastery toast,
+  showcase line, card lines, page names, header) moved to `en.ts`; nothing changes for players.
+
+## 0.38.0 - 2026-11-10 (run 38)
+
+- **Translation layer:** all story texts (ten scenes, speaker names, chapter titles, Vince's toasts, the log teaser)
+  moved to `en.ts`; nothing changes for players.
+- **Test tooling:** browser-test page errors now say which section of the run they happened in, with a short stack.
+
+## 0.37.0 - 2026-11-10 (run 37)
+
+- **Portal adapters (P1.12):** the game can run on Poki and CrazyGames. Rewarded ads, "loading finished" and
+  gameplay start/stop (paused when the tab is hidden) go through one small adapter; if a portal SDK fails, the game
+  just carries on without ads. Nothing changes for the normal web build.
+- **Translation layer:** the medals page texts (header, progress lines, claim buttons, medal toast) moved to `en.ts`.
+
+## 0.36.0 - 2026-11-10 (run 36)
+
+- **Install and play offline (P1.10):** the web build has a manifest and icons, so phones can "Add to home screen" and
+  it opens full screen. A service worker caches the game after the first visit; with the network off it still loads
+  and runs from the saved game.
+- **Translation layer (P1.9, first slice):** a small `t()` function with plurals and English fallback; the daily-task
+  texts use it. More views move over in later runs.
+
+## 0.35.0 - 2026-11-10 (run 35)
+
+- **Music (P1.8):** the game has a soundtrack, synthesised like the effects (no files). A four-bar groove loops per city
+  (Rust Valley: major, 96 bpm; Motor City: minor, lower and faster at 108 bpm). It starts with three layers (bass,
+  soft kick and hat, a plucked arpeggio) and every business you open brings one more in: the garage a ratcheting
+  tick, the lot a slow pad, the paint shop a lead melody. The business you are looking at is louder; layers fade over
+  about a second. Music starts after the first tap and pauses with the app.
+- **Volume settings:** the Settings sheet has a real Music switch plus Music volume and Effects volume sliders (saved
+  in the game, old saves get 60% / 100%, junk values are repaired).
+- **Analytics adapter (P1.11):** a consent-gated event layer with no network sink yet. Events: first sale and sales
+  milestones, business opened, empire sold, city changed, new car family, tutorial done. Off by default; nothing is
+  sent.
+- Tests: 16 new unit tests (layer logic, score ranges and looping, volume repair, analytics consent and milestones);
+  e2e: sliders save and fit, music plays and gains the garage layer, analytics silent without consent.
+
+## 0.34.0 - 2026-11-10 (run 34)
+
+- **Shop (P1.7b):** a Shop page in the 📒 book (a sixth tab with the gem balance) with the first Gem and Auction Token
+  sinks. 🏚️ Barn rush (1 💎) finishes the running restoration stage; 📦 Parts crate (2 💎) gives 60 ⚙ once the
+  crusher is open; 💰 Cash bag (4 💎) pays cash worth 12 average yard cars; 🎟 Token lot (4 🎟) puts a Good-condition car
+  on your Used Car Lot with no cash price (needs a free spot). Rows that cannot be used say why; a row you can afford
+  glows. Gem packs for real money are a "coming soon" line until P2.3. No cash-income change: gems arrive at about 3 a
+  day, so the shop is a convenience (`npm run sim` pacing unchanged).
+- Tests: 6 shop unit tests (no currency takes nothing, each item, locks, the barn tick); e2e: open the Shop page, prices
+  and lock reasons, buy a cash bag, fits the screen.
+
+## 0.33.0 - 2026-11-09 (run 33)
+
+- **Gems and Auction Tokens (P1.7a):** a small wallet. 💎 Gems (the soft premium currency, bought with real money
+  only after P2.3) come from medals (Silver 1, Gold 3, Diamond 8), the all-dailies bonus (3) and the login calendar
+  (1 to 3 a day, 10 on day 7). 🎟 Auction Tokens (earn-only, never sold) come from finished daily tasks (1 each), the
+  all-done bonus (2) and some calendar days. Neither touches cash income, so pacing is unchanged. Claim buttons, task
+  cards, banners and toasts name them; the 📒 book header shows the balance once you own any. Both are kept when you
+  sell your empire. Nothing spends them yet: the shop and the auction-token lots are P1.7b.
+- **Fix (P1.6q):** on 320-359 px phones the five book tabs wrap into two rows, so "Bran…", "Clas…" and "Awar…" are
+  whole words again.
+- Tests: 9 wallet tests (caps, spending, every income source, kept on a sale, save round trip and junk repair);
+  e2e: daily rewards pay gems and tokens and the banner names them, no book tab label is cut on a 320 px phone.
+
+## 0.32.0 - 2026-11-09 (run 32)
+
+- **Story chapter 2, Motor City (P1.6b):** "The Big City". Vince greets you after your first 5 sales in Motor City and
+  points at his gold tower by the harbour; he grumbles when the Midtown Garage, the Auto Mall and Neon Customs open;
+  and when your Motor City empire can be sold he gives up and puts his tower up for sale (chapter 2 complete, "On to
+  the map"). Valvano Motors HQ now stands on the Motor City map (a gold tower with a purple V) with its own row in the
+  list counting how often Vince has beaten you. Flavour only: no price, odds or pacing change.
+- **Story log (P1.6c):** a new Story page in the 📒 book lists every chapter you have started and its scenes; tap a
+  scene to read it again. Scenes still to come are locked, and the next chapter's city is teased.
+- **Fix: the book could be wider than a small phone** once it had five tabs; the book's column now never grows past
+  the screen and the first tab is called "Cars".
+- Tests: 6 new story tests (chapter 2 order, no need for chapter 1, Rust Valley never plays it, a skipped business,
+  the HQ on the map and its row, save repair, the story log). e2e: Vince's Motor City scene on an iPhone SE
+  (e2e-22b3), the HQ on the Motor City map, five book tabs on a 320 px phone, the story log with a replayed scene
+  (e2e-24d).
+
+## 0.31.0 - 2026-11-09 (run 31)
+
+- **Story chapter 1 and the rival Vince Valvano (P1.6):** Rust Valley now has a story. Five short scenes with painted
+  portraits of Grandpa Joe and Vince Valvano (slick quiff, sunglasses, purple jacket, gold chain): Vince pulls up at 20
+  sales and offers one dollar for the yard; Joe remembers his first garage when you open yours; Vince grabs the first
+  auction lot you let go ("Sold, to the man in the gold jacket!"); he starts to worry when the paint shop opens; and
+  when the empire can be sold he leaves for Motor City, closing chapter 1 and leading into the map and the sale. Lots
+  Vince takes get a purple VINCE! stamp, and now and then he lures a yard customer away (flavour only: prices, odds
+  and pacing are unchanged).
+- **Fix: toasts printed over each other and over modals.** Two toasts at once (e.g. Vince and a new medal) now stack
+  in a column (three at most), and a toast sits under an open modal instead of covering its title.
+- Tests: 9 story tests (`story.test.ts`: order and gap, skipped businesses, Rust Valley only, Vince's lots and
+  customers on the events, kept on a sale, save round-trip, old saves, repair, scene texts and toast pacing). e2e:
+  Vince's scene at 20 sales with portraits (e2e-07s), the VINCE! stamp and toast on the auction board, chapter 1's end
+  on an iPhone SE before the sale banner, opening the map (e2e-21s).
+
+## 0.30.0 - 2026-11-09 (run 30)
+
+- **Achievements (P1.5c):** 14 lifetime awards with four medals each (🥉 Bronze, 🥈 Silver, 🥇 Gold, 💎 Diamond): sell
+  yard cars, earn in total, crush cars, perfect haggles, serve buyers, finish orders, find Legendary cars, restore barn
+  classics, garage repairs, lot sales, paint orders, cars in the book, empires sold and daily rewards claimed. They
+  count across every empire you build. A new medal shows a toast and a dot on 📒; the book has a new Awards tab
+  (claimable awards first, a medal row and a progress bar to the next medal each) where you claim it for cash worth
+  3-24 average yard cars. The book opens on Awards when a medal waits and no car is new.
+- **Dailies outside the scrapyard (P1.5d):** the welcome-back popup now says what waits for you (today's calendar
+  reward, finished daily tasks, the all-done bonus, medals to claim), and a daily task you finish in the garage, the
+  lot or the paint shop shows a toast pointing to the scrapyard's Jobs board.
+- **Fix: a long welcome-back popup on short phones.** With every business, a perk and the new waiting lines the popup
+  could grow past an iPhone SE's screen and push Collect off it; it now scrolls inside (tighter lines under 600 px).
+- Tests: 14 achievement tests (`achievements.test.ts`: definitions, direct and followed numbers through a reset, claim
+  order and rewards, Legacy scaling, kept on a sale including the last moments, save round-trip, old-save backfill,
+  repair, page view and toast texts), 1 daily test (popup lines and the toast) and a balance A/B (claiming every medal
+  moves the first sale by 0.97-1.0x). e2e: medal toast, 📒 dot, Awards page, claim, dot clears, saved (e2e-03d); the
+  welcome-back popup's waiting lines (e2e-04); the daily toast in the garage.
+
+## 0.29.0 - 2026-11-09 (run 29)
+
+- **Showcase (P1.4c):** a restored barn classic no longer has to be sold. The reveal now offers "🏆 Keep it (+0.5%
+  income)" between "Sell it!" and "Later": no cash, but the classic stands in your showcase for good and every payout
+  is 0.5% bigger, even after you sell your empire. You can keep one of each of the 16 classics (+8% at most); a repeat
+  find can only be sold. Kept classics count for the Collection book like a sale. The book's Classics page shows
+  "🏆 Showcase 3/16 · +1.5% all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase
+  under what you keep. Tuned with a keep-vs-sell bot: +1% made keeping free even in the first empire, so it is +0.5%.
+- **Daily tasks and a 7-day login calendar (P1.5a/b):** after 80 sales the Jobs board gets a 📅 Daily reward card and
+  three daily tasks (from: sell cars, haggle, serve customers, crush wrecks, finish jobs, fix garage cars, sell lot cars,
+  finish paint orders; only what you have unlocked). A new day starts at 04:00 UTC everywhere, so travelling or a
+  clock change never gives a double or missed day, and winding the clock back does nothing. Rewards grow with your
+  game (worth a number of average yard cars); finishing all three pays a bonus. The calendar pays once per day you
+  play, a missed day does not reset it, and day 7 sends an Epic gift car to the yard. Kept when you sell your empire.
+- Tests: 7 new unit tests (`showcase.test.ts`: keep pays nothing and records the classic, one per model, not before the
+  reveal, the +8% cap, kept on a sale, save round-trip / old saves / repair, book and preview texts) and a balance A/B
+  (keeping moves the first sale by 0.98-1.05x). e2e: keep a second classic (banner, no cash, book shows it), a repeat
+  classic offers only Sell (e2e-12b/12c). 16 daily tests (`daily.test.ts`: reset hour, unlock and rolls, only open kinds,
+  RNG untouched, picks per day, counter tracking through a reset, claims and bonus, new day, rewards scale, calendar
+  steps / missed day / clock rewind / gift car, kept on a sale, save repair, texts). e2e: the daily flow (e2e-12d).
+
+## 0.28.0 - 2026-11-09 (run 28)
+
+- **Collection book screen (P1.4b):** a 📒 button in the top bar opens the book. Three pages (Car types, Brands, Classics)
+  list every set with its progress and bonus, gold once complete. Every car has a card: a painted side view (a dark
+  silhouette and "???" until you find it), its best rarity badge, three mastery stars and a bar to the next star. Cars
+  found since your last visit wear a red NEW badge, and the 📒 button shows a red dot until you look.
+- **Fix: crowded top bar on phones.** Late in the game (cash, rate, Legacy chip, parts and the buttons) the top bar ran
+  off the right edge of 320-414 px screens and the chip slid over the cash. Up to 430 px the rate now sits under the
+  cash, the sound toggle lives in Settings only and the buttons are a little smaller; under 360 px the Legacy chip and
+  the parts counter stack.
+- Tests: 6 new unit tests (`book-screen.test.ts`: NEW flags and marking seen, when the button shows, old saves and save
+  repair of the flag, each entry's car type, card texts and star progress, shared silhouette thumbnails, page totals).
+  e2e: the 📒 button waits for the quiet sales, shows its dot, opens on the car types page with the complete Van set,
+  a NEW Rare entry, silhouettes and thumbnails, the Classics page has 16 cards, the dot clears; on an iPhone SE a full
+  late-game top bar fits without overlaps and the book fits with two cards a row (e2e-24a..c). The garage road-wipe
+  check records the wipe with a MutationObserver (it missed the 0.9 s wipe once on a busy machine).
+
+## 0.27.0 - 2026-11-09 (run 27)
+
+- **Prestige pacing (P1.3d4):** your second empire no longer takes longer than the first. Legacy Points now follow a
+  softer curve (`floor((all-time earnings / $28M) ^ 0.8)`; the first sale still comes at about $500M), so the sale
+  after a restart comes at ~3h23m for the always-tapping bot instead of 4h47m. Motor City is x3 instead of x5 (prices
+  and payouts), which keeps its Legacy Points per hour about the same; each empire there is offered its sale a little
+  sooner than the last (1h56m down to 1h27m). Existing saves keep all their points.
+- **Collection book, rules (P1.4a):** every yard model (32) and barn classic (16) is an entry in the book. Selling a car
+  records its model, the best rarity you sold it in, and mastery stars at 10, 50 and 200 sales (+1% value for that
+  model each). Complete a set for a permanent bonus: every model of a family (+5% that family's value), one model of a
+  brand in every family (+5% that brand's value), or all 16 barn classics (+25% barn sale value). A "SET COMPLETE!"
+  banner and mastery toasts announce them. The book is kept when you sell your empire. The book screen comes next.
+- Tests: 10 new unit tests (`collection-book.test.ts`: entries and sets, records and stars, family and brand sets, car value
+  and idle income bonus with the same RNG stream, barn classics, kept on a sale, save round trip / old saves / repair,
+  texts; the old square-root saves stay valid on the new curve). Balance: a 6-empire chain asserts each sale comes no
+  later than the one before; the lot-tune check is averaged over 3 seeds. e2e: selling the 4th Van model completes the
+  Van set (banner, book entry with its rarity); Motor City prices checked at x3.
+
 ## 0.26.0 - 2026-11-08 (run 26)
 
 - **Neon nights in Motor City (P1.3d3c):** from 7 pm to 6 am on your device's clock, Motor City turns to night: a navy
@@ -413,3 +723,5 @@ First playable prototype: Grandpa Joe's scrapyard.
 - Offline earnings with a welcome-back popup.
 - Save system with two slots, checksum, versioning and sanity checks.
 - 28 unit tests, a balance simulator and a browser end-to-end test.
+
+- Run 42: lot, barn, crush, Sell Empire and Welcome back texts in `ui.ts` moved to the i18n catalog (P1.9b).

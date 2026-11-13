@@ -13,6 +13,11 @@ class Sfx {
   private noiseBuffer: AudioBuffer | null = null;
   private lastWash = 0;
   enabled = true;
+  /** 0..1 slider for effects (Settings). */
+  private volume = 1;
+  /** Where the music plays: its own volume, independent of the effects switch. */
+  private musicBus: GainNode | null = null;
+  private musicVolume = 0.6;
 
   unlock(): void {
     if (this.ctx) {
@@ -23,12 +28,31 @@ class Sfx {
     if (!Ctx) return;
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.5;
+    this.master.gain.value = 0.5 * this.volume;
     this.master.connect(this.ctx.destination);
+    this.musicBus = this.ctx.createGain();
+    this.musicBus.gain.value = 0.35 * this.musicVolume;
+    this.musicBus.connect(this.ctx.destination);
     const len = this.ctx.sampleRate * 0.5;
     this.noiseBuffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = this.noiseBuffer.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  }
+
+  /** Effects slider, 0..1. */
+  setVolume(v: number): void {
+    this.volume = v;
+    if (this.master) this.master.gain.value = 0.5 * v;
+  }
+  /** Music slider, 0..1. */
+  setMusicVolume(v: number): void {
+    this.musicVolume = v;
+    if (this.musicBus) this.musicBus.gain.value = 0.35 * v;
+  }
+  /** The shared audio context and music output, once the first tap has unlocked audio. */
+  musicOutput(): { ctx: AudioContext; bus: GainNode; noise: AudioBuffer } | null {
+    if (!this.ctx || !this.musicBus || !this.noiseBuffer) return null;
+    return { ctx: this.ctx, bus: this.musicBus, noise: this.noiseBuffer };
   }
 
   /** Pause audio when the app is hidden (phone call, lock screen, tab switch). */

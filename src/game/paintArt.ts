@@ -3,6 +3,7 @@
 // that show each finished service on the customer's car (custom rims, vinyl wrap stripes, a tune flame decal and a
 // chrome exhaust tip) and the Painter. Pure apart from the canvas context; layout and reveal helpers are unit-tested.
 
+import { t, type BaseKey } from '../i18n';
 import type { CarFamily, CityId, PaintService } from '../core/config';
 import { ECON } from '../core/config';
 import type { PaintJob } from '../core/state';
@@ -141,19 +142,19 @@ export function customerFeet(st: BoothStage, cssW: number, personW: number): { x
 }
 
 /** What a paint customer says as they step out (P1.2g), by the first service they ordered; the full works for 3. */
-export const PAINT_LINES: Record<PaintService | 'combo', readonly string[]> = {
-  respray: ['Make it pop!', 'A bolder colour, please!', "I'm bored of this paint!"],
-  rims: ['Make the wheels shine!', 'Bling it up!', 'Shiny rims, please!'],
-  wrap: ['Stripes! Lots of stripes!', 'Wrap it, make it fast!', 'I want racing stripes!'],
-  tune: ['Make it roar!', 'More horsepower!', 'Make it go faster!'],
-  combo: ['The full works, please!', 'Do everything!', 'Make it a show car!'],
+export const PAINT_LINES: Record<PaintService | 'combo', readonly BaseKey[]> = {
+  respray: ['paint.say.respray.0', 'paint.say.respray.1', 'paint.say.respray.2'],
+  rims: ['paint.say.rims.0', 'paint.say.rims.1', 'paint.say.rims.2'],
+  wrap: ['paint.say.wrap.0', 'paint.say.wrap.1', 'paint.say.wrap.2'],
+  tune: ['paint.say.tune.0', 'paint.say.tune.1', 'paint.say.tune.2'],
+  combo: ['paint.say.combo.0', 'paint.say.combo.1', 'paint.say.combo.2'],
 };
 
 /** The customer's line for an order: stable by id, like the garage's. */
 export function paintLine(job: Pick<PaintJob, 'id' | 'services'>): string {
   const key = job.services.length >= 3 ? 'combo' : (job.services[0] ?? 'respray');
   const lines = PAINT_LINES[key];
-  return lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!;
+  return t(lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!);
 }
 
 export interface Rect {

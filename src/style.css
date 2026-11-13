@@ -102,6 +102,25 @@ body {
   white-space: nowrap;
 }
 
+.hud .money {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hud .chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud > .icon-btn,
+.hud .chips > *,
+.hud .money > * {
+  flex: none;
+}
+
 .hud .spacer {
   flex: 1;
 }
@@ -372,6 +391,45 @@ body {
   border-color: rgba(59, 196, 90, 0.6);
 }
 
+/* Daily tasks and calendar (P1.5b). */
+.card.daily.claimed {
+  opacity: 0.6;
+}
+
+.cal-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.cal-cell {
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 12px 'Nunito', sans-serif;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cal-cell.claimed {
+  background: rgba(59, 196, 90, 0.25);
+  color: #8fe3a3;
+}
+
+.cal-cell.today {
+  background: var(--rust);
+  color: #fff;
+  box-shadow: 0 0 0 2px #ffd166;
+}
+
+.cal-cell.next {
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.6) inset;
+  color: #ffd166;
+}
+
 .card .title {
   font-size: 16px;
   display: flex;
@@ -478,17 +536,25 @@ body {
 }
 
 /* ---- Toast ---- */
-.toast {
+.toasts {
   position: absolute;
   left: 50%;
   top: calc(64px + var(--safe-top));
   transform: translateX(-50%);
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none !important;
+}
+.toast {
   padding: 8px 14px;
   border-radius: 12px;
   background: rgba(229, 72, 77, 0.95);
   font-weight: 800;
   font-size: 13px;
-  max-width: 90%;
+  max-width: 100%;
   text-align: center;
   pointer-events: none !important;
 }
@@ -551,6 +617,29 @@ body {
   width: 100%;
   font-size: 20px;
   padding: 12px;
+}
+
+.modal .third {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 2px solid #e0a800;
+  border-radius: 12px;
+  background: #fff6d6;
+  color: #6b4d00;
+  font: 800 16px 'Nunito', sans-serif;
+  cursor: pointer;
+}
+
+.modal .third:active {
+  transform: scale(0.98);
+}
+
+.modal .keep-note {
+  font-size: 13px;
+  color: #7a6a58;
+  margin-top: 6px;
 }
 
 .modal .secondary {
@@ -844,11 +933,13 @@ body {
 }
 
 /* ---- City map (P1.1b) ---- */
-.map-btn {
+.map-btn,
+.book-btn {
   position: relative;
 }
 
-.map-btn .dot {
+.map-btn .dot,
+.book-btn .dot {
   position: absolute;
   top: 3px;
   right: 3px;
@@ -859,7 +950,8 @@ body {
   display: none;
 }
 
-.map-btn .dot.on {
+.map-btn .dot.on,
+.book-btn .dot.on {
   display: block;
 }
 
@@ -1133,6 +1225,27 @@ body {
   cursor: pointer;
 }
 
+.boost-chip {
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #5ad1ff, #1f9bd6);
+  color: #052538;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.boost-chip.running {
+  background: linear-gradient(180deg, #8bf0a0, #3cc25c);
+  color: #08300f;
+  cursor: default;
+}
+
+.boost-chip.hidden {
+  display: none;
+}
+
 .legacy-chip.hidden {
   display: none;
 }
@@ -1154,6 +1267,11 @@ body {
 
 .map-row.legacy-next {
   border-style: dashed;
+}
+
+.map-row.rival {
+  background: linear-gradient(90deg, #f1e8ff, #fff9ee);
+  border-color: #7c3aed;
 }
 
 @keyframes legacy-glow {
@@ -1506,6 +1624,8 @@ body {
 
 .tree-tab small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
   font-weight: 700;
   opacity: 0.8;
@@ -1771,4 +1891,612 @@ body {
 /* City lights row (P1.3d3c): three options fit next to the label on a 320 px phone. */
 .lights-row .seg-btn {
   padding: 6px 9px;
+}
+
+/* ---- Collection book (P1.4b): must fit a 320x568 phone; the set list scrolls inside the modal ---- */
+.modal-back.book {
+  grid-template-rows: minmax(0, 1fr);
+  /* The tab row's text must not widen the column past the screen (five tabs since the Story page, run 32). */
+  grid-template-columns: minmax(0, 1fr);
+  padding: 8px 12px;
+}
+
+.book .modal {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 440px);
+  max-height: 100%;
+  padding: 14px 12px 10px;
+}
+
+.book .modal h2 {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.book-head {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.book-head small {
+  display: block;
+  color: #7a6a58;
+  font-size: 12px;
+}
+
+/* Short phones: the hint line under the totals goes, so a whole row of cards shows. */
+@media (max-height: 600px) {
+  .book-head small {
+    display: none;
+  }
+}
+
+.book-sets {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.book-set {
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  padding: 8px;
+}
+
+.book-set.complete {
+  background: linear-gradient(180deg, #fff4d1, #fffaf0 60%);
+  border-color: #e0a800;
+}
+
+.book-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-bottom: 6px;
+  color: #3d3024;
+}
+
+.book-set-head b {
+  font-size: 15px;
+}
+
+.book-count {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--rust-dark);
+}
+
+.book-bonus {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #7a6a58;
+}
+
+.book-showcase {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a6400;
+}
+
+.book-set.complete .book-bonus {
+  color: #8a6400;
+  font-weight: 800;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+
+/* 320 px phones: two cards per row (the modal is ~272 px inside). */
+@media (max-width: 360px) {
+  .book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.book-card {
+  position: relative;
+  min-width: 0;
+  border-radius: 10px;
+  background: #f6efe3;
+  border: 2px solid #eadbc8;
+  padding: 4px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #3d3024;
+}
+
+.book-card img {
+  width: 100%;
+  max-width: 96px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+}
+
+.book-card b {
+  font-size: 12px;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-card small {
+  font-size: 10.5px;
+  color: #7a6a58;
+  line-height: 1.2;
+}
+
+.book-card.missing {
+  background: #ece6dc;
+  border-style: dashed;
+}
+
+.book-card.missing b {
+  color: #9a8b78;
+}
+
+.book-card.rare {
+  border-color: #aab4bf;
+}
+
+.book-card.epic {
+  border-color: #a855f7;
+}
+
+.book-card.legendary {
+  border-color: var(--gold);
+  background: #fff6d6;
+}
+
+/* Showcase (P1.4c): a kept classic stands on a gold plinth. */
+.book-card.kept {
+  background: linear-gradient(180deg, #fff6d6 70%, #f3d27a);
+  box-shadow: 0 0 0 1px #e0a800 inset;
+}
+
+.book-card.kept small {
+  color: #8a6400;
+  font-weight: 800;
+}
+
+.book-stars {
+  font-size: 12px;
+  color: #e0a800;
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+
+.book-stars s {
+  text-decoration: none;
+  color: #d8cbb8;
+}
+
+.book-bar {
+  display: block;
+  width: 80%;
+  height: 4px;
+  border-radius: 2px;
+  background: #e3d6c3;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.book-bar i {
+  display: block;
+  height: 100%;
+  background: var(--rust);
+}
+
+.book-rarity,
+.book-new {
+  position: absolute;
+  top: 3px;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.book-rarity {
+  right: 3px;
+}
+
+.book-rarity.rare {
+  background: #7d8a97;
+}
+
+.book-rarity.epic {
+  background: #a855f7;
+}
+
+.book-rarity.legendary {
+  background: #d99a00;
+}
+
+.book-new {
+  left: 3px;
+  background: var(--red);
+}
+
+/*
+ * Narrow phones (run 28): late in the game the top bar holds cash, rate, the Legacy chip, parts and three or four
+ * buttons, which overflowed a 320-414 px screen. Up to 430 px the rate sits under the cash, the sound toggle lives in
+ * Settings only, and the buttons and chips are a little smaller.
+ */
+@media (max-width: 430px) {
+  .hud {
+    gap: 5px;
+    padding: 5px 6px 5px 10px;
+  }
+  .hud .money {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .hud .cash {
+    font-size: 22px;
+    line-height: 1.05;
+  }
+  .hud .rate {
+    font-size: 11px;
+    line-height: 1.1;
+  }
+  .hud .rate:empty {
+    display: none;
+  }
+  .hud .sound-btn {
+    display: none;
+  }
+  .hud .icon-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+  .hud .parts {
+    font-size: 13px;
+    padding: 5px 7px;
+  }
+  .legacy-chip {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+}
+
+/* 320-360 px phones: the Legacy chip and the parts counter stack too (cash kept its full width). */
+@media (max-width: 360px) {
+  .hud .chips {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .hud .chips .legacy-chip,
+  .hud .chips .parts {
+    padding: 1px 6px;
+    font-size: 11.5px;
+    border-radius: 7px;
+    line-height: 1.35;
+  }
+  .hud .chips .legacy-chip .dot {
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+  }
+}
+
+/* Achievements page in the book (P1.5c): one row per award with its four medals and a claim button. */
+.award {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #eadbc8;
+  padding: 8px;
+  color: #3d3024;
+}
+
+.award.ready {
+  border-color: var(--rust);
+  background: linear-gradient(180deg, #fff1e3, #fff 70%);
+}
+
+.award.complete {
+  background: linear-gradient(180deg, #fff4d1, #fffaf0 60%);
+  border-color: #e0a800;
+}
+
+.award-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f6efe3;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+}
+
+.award-body {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+}
+
+.award-body b {
+  font-size: 14px;
+}
+
+.award-body small {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #7a6a58;
+  overflow-wrap: anywhere;
+}
+
+.award-body .book-bar {
+  width: 100%;
+}
+
+.award-medals {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.medal {
+  font-style: normal;
+}
+
+.medal.locked {
+  filter: grayscale(1);
+  opacity: 0.3;
+}
+
+.medal.ready {
+  animation: medal-bob 0.9s ease-in-out infinite alternate;
+  display: inline-block;
+}
+
+@keyframes medal-bob {
+  to {
+    transform: translateY(-2px) scale(1.12);
+  }
+}
+
+.modal .award-claim {
+  flex-basis: 100%;
+  width: auto;
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  font-size: 15px;
+}
+
+.reduce-motion .medal.ready {
+  animation: none;
+}
+
+/* Welcome-back popup (P1.5d): what waits to be claimed, a little quieter than the earnings lines. */
+.offline-waiting {
+  margin: 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a5a1c;
+}
+
+/* The welcome-back popup can list many lines (businesses, perks, what waits): on short phones it scrolls so Collect
+   always stays on screen. The grid row must be the screen's height for max-height: 100% to limit (see legacy-tree). */
+.modal-back.welcome {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.welcome .modal {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-height: 600px) {
+  .welcome .modal p {
+    margin: 6px 0;
+    font-size: 14px;
+  }
+}
+
+/* Story scenes (P1.6): portraits with speech bubbles; Grandpa Joe on the left, Vince Valvano on the right. */
+.modal-back.story {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 12px;
+}
+.story .modal {
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 16px 14px 14px;
+}
+.story-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 12px;
+  text-align: left;
+}
+.story-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  animation: story-in 0.35s ease-out both;
+}
+.story-line:nth-child(2) {
+  animation-delay: 0.35s;
+}
+.story-line:nth-child(3) {
+  animation-delay: 0.7s;
+}
+.story-line.vince {
+  flex-direction: row-reverse;
+}
+.story-line .portrait {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #2b2118;
+  background: #e8762b;
+}
+.story-line.vince .portrait {
+  background: #7c3aed;
+}
+.story-line .bubble {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.3;
+  background: #fff;
+  border: 2px solid #e8762b;
+}
+.story-line.vince .bubble {
+  border-color: #7c3aed;
+  background: #f5f0ff;
+}
+.story-line .bubble b {
+  display: block;
+  font-size: 12px;
+  color: #b4531a;
+}
+.story-line.vince .bubble b {
+  color: #6d28d9;
+}
+.story-footer {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b5a48;
+}
+@keyframes story-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.reduce-motion .story-line {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-line {
+    animation: none;
+  }
+}
+@media (max-height: 600px) {
+  .story-line .portrait {
+    width: 40px;
+    height: 40px;
+  }
+  .story-line .bubble {
+    font-size: 13px;
+    padding: 5px 9px;
+  }
+}
+.story-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 2px solid #e3c9a0;
+  border-radius: 10px;
+  background: #fff9ee;
+  color: #3a2c1e;
+  font: 800 14px 'Nunito', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.story-row.open {
+  border-color: #7c3aed;
+  background: #f5f0ff;
+}
+.story-row.locked {
+  cursor: default;
+  color: #9a8a78;
+  border-style: dashed;
+  background: transparent;
+  font-weight: 700;
+}
+.story-replay {
+  margin: 8px 0 4px;
+}
+.story-replay .story-line {
+  animation-duration: 0.25s;
+}
+.story-next {
+  margin: 10px 2px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b5a48;
+  text-align: center;
+}
+.auction-lot .stamp.rival {
+  color: #a78bfa;
+}
+
+/* P1.6q: five book tabs on a 320-359 px phone wrap into two rows, so no label is cut to "Bran…". */
+@media (max-width: 359px) {
+  .book-tabs {
+    flex-wrap: wrap;
+  }
+  .book-tabs .tree-tab {
+    flex: 1 1 30%;
+  }
+}
+
+/* Shop page in the book (P1.7b): rows reuse the award card; a cannot-buy row is dimmed. */
+.shop-item:not(.ready) .award-body {
+  opacity: 0.75;
+}
+
+/* Volume sliders in Settings (P1.8) */
+.vol-row {
+  flex-wrap: wrap;
+}
+.vol-row .set-label {
+  flex: 0 0 auto;
+}
+.vol-slider {
+  flex: 1 1 120px;
+  min-width: 110px;
+  max-width: 190px;
+  height: 32px;
+  accent-color: #e8762b;
+  cursor: pointer;
 }

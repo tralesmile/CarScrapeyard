@@ -2,6 +2,7 @@
 // showing the street (Motor City: a steel-blue wall and lit towers outside, P1.3d3b), a pegboard with tools, hanging lamps, a concrete floor with hazard stripes and the two-post lift
 // the customer's car stands on, its cross beam lettered as the garage sign (P1.1e). Pure apart from the canvas context; layout helpers are unit-tested.
 
+import { t, type BaseKey } from '../i18n';
 import type { BuyerKind, CityId, GarageFault } from '../core/config';
 
 export interface GarageLayout {
@@ -133,19 +134,19 @@ export function carLabelTop(cy: number, carW: number, areaBottom: number): numbe
   return Math.min(cy + carW * 0.16, areaBottom + HINT_BELOW_AREA - HINT_BOB - 1 - CAR_LABEL_H);
 }
 
-/** What the customer says about their car when they step out (P1.1f). Short, so one line fits a phone. */
-export const CUSTOMER_LINES: Record<GarageFault, readonly string[]> = {
-  tyre: ['My tyre went flat!', 'Ran over a nail!', 'It pulls to one side!'],
-  battery: ["It won't start!", 'Battery died again!', 'Needed a jump start!'],
-  brakes: ['The brakes squeal!', 'It takes ages to stop!', 'Grinding noise!'],
-  exhaust: ["It's sooo loud now!", 'Something rattles!', 'Smells like fumes!'],
-  engine: ['Smoke from the bonnet!', 'The engine coughs!', 'Warning light on!'],
+/** Catalog keys of what the customer says about their car when they step out (P1.1f). Short, so one line fits a phone. */
+export const CUSTOMER_LINES: Record<GarageFault, readonly BaseKey[]> = {
+  tyre: ['garage.say.tyre.0', 'garage.say.tyre.1', 'garage.say.tyre.2'],
+  battery: ['garage.say.battery.0', 'garage.say.battery.1', 'garage.say.battery.2'],
+  brakes: ['garage.say.brakes.0', 'garage.say.brakes.1', 'garage.say.brakes.2'],
+  exhaust: ['garage.say.exhaust.0', 'garage.say.exhaust.1', 'garage.say.exhaust.2'],
+  engine: ['garage.say.engine.0', 'garage.say.engine.1', 'garage.say.engine.2'],
 };
 
 /** The customer's line for a job: stable for a job (by id) so a re-shown car repeats the same words. */
 export function customerLine(job: { id: number; fault: GarageFault }): string {
   const lines = CUSTOMER_LINES[job.fault];
-  return lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!;
+  return t(lines[(((job.id * 7) % lines.length) + lines.length) % lines.length] ?? lines[0]!);
 }
 
 /** How long the customer's speech bubble stays up, seconds (the fault bubble waits for it). */

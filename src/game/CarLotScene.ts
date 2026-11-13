@@ -3,6 +3,8 @@
 // take it at the list price. Owned cars show in the spot row above. The other businesses keep ticking (the core tick
 // runs everything), so this scene forwards every event to the bridge like the yard and the garage.
 
+import { removeTexturesSafely } from './textureSafe';
+import { t } from '../i18n';
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { businessName } from '../core/businesses';
@@ -252,7 +254,7 @@ export class CarLotScene extends Phaser.Scene {
 
   private releaseTextures(id: number) {
     const keys = this.textures.getTextureKeys().filter((k) => k.startsWith(`lcar-${id}-`));
-    for (const k of [...keys, `lrust-${id}`]) if (this.textures.exists(k)) this.textures.remove(k);
+    removeTexturesSafely(this, [...keys, `lrust-${id}`]);
   }
 
   private placeBigCar() {
@@ -278,7 +280,7 @@ export class CarLotScene extends Phaser.Scene {
       // The hint says it during the first sales; after that the empty platform says where to go.
       const l = this.bridge.state.carlot;
       const away = l.cars.some((c) => !lotCarHere(c));
-      if (!this.carLeaving) this.label.setText(away ? `Your car is at ${businessName(this.bridge.state, 'paint')} 🎨` : l.cars.length === 0 && l.sold >= 3 ? 'Buy a car in the Auction tab' : '');
+      if (!this.carLeaving) this.label.setText(away ? t('scene.lot.atPaint', { name: businessName(this.bridge.state, 'paint') }) : l.cars.length === 0 && l.sold >= 3 ? t('scene.lot.buyHint') : '');
       return;
     }
     if (car.id !== this.bigId || this.bigCar.texture.key !== this.ensureTextures(car)) {
@@ -333,7 +335,7 @@ export class CarLotScene extends Phaser.Scene {
     if (key !== this.tagKey) {
       const fresh = !this.tagKey.startsWith(`${car.id}|`);
       this.tagKey = key;
-      this.tagText.setText(`FOR SALE\n${price}`);
+      this.tagText.setText(t('scene.lot.forSale', { price }));
       const w = this.tagText.width + this.px(18);
       const h = this.tagText.height + this.px(10);
       const g = this.tag.list[0] as Phaser.GameObjects.Graphics;
@@ -514,14 +516,14 @@ export class CarLotScene extends Phaser.Scene {
           // Away at the paint shop: the thumbnail fades and says so.
           if (away) img.setAlpha(0.35);
           items.push(img, icon);
-          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), 'At the shop', { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
+          if (away) items.push(this.add.text(0, this.px(h / 2 - 12), t('scene.lot.atShop'), { fontFamily: 'Nunito, sans-serif', fontStyle: '800', fontSize: `${this.px(10)}px`, color: '#c7b8e8' }).setOrigin(0.5));
           // A buyer is looking this car over (shown on the platform when it is the big car).
           if (l.buyer && l.buyer.carId === car.id && car.id !== this.bigId) {
             const buyerIcon = ECON.buyers.kinds[l.buyer.kind].icon;
             items.push(this.add.text(-this.px(w / 2 - 13), -this.px(h / 2 - 12), buyerIcon, { fontSize: `${this.px(13)}px` }).setOrigin(0.5));
           }
         } else {
-          items.push(this.add.text(0, 0, 'Free spot', { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
+          items.push(this.add.text(0, 0, t('scene.lot.freeSpot'), { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: `${this.px(11)}px`, color: '#fbf3e4' }).setOrigin(0.5).setAlpha(0.7));
         }
         const container = this.add.container(x, y, items).setDepth(4);
         container.setSize(this.px(w), this.px(h));
@@ -590,7 +592,7 @@ export class CarLotScene extends Phaser.Scene {
       if (e.type === 'lotRefurbished' && e.car.id === this.bigId) {
         sfx.repaired();
         this.glitter.explode(this.calm ? 6 : 18, this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.2);
-        this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.5, 'Like new!', '#f5b700', 22);
+        this.floatText(this.bigCar.x, this.bigCar.y - this.bigCar.displayHeight * 0.5, t('scene.lot.likeNew'), '#f5b700', 22);
       }
       if (e.type === 'lotSold') this.onSold(e.car, e.amount, e.profit, e.buyer, e.bonus);
     }
@@ -604,10 +606,10 @@ export class CarLotScene extends Phaser.Scene {
       this.tag.setVisible(false);
       this.barG.clear();
       this.buyerTakes(car.id, buyer);
-      this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, `Profit ${formatCash(profit)}`, '#f5b700', 18);
+      this.floatText(from.x, from.y - this.bigCar.displayHeight * 0.45, t('scene.lot.profit', { cash: formatCash(profit) }), '#f5b700', 18);
     } else this.time.delayedCall(800, () => this.releaseTextures(car.id));
     if (buyer && bonus > 0) {
-      this.floatText(from.x, from.y - this.px(70), `${ECON.carlot.buyers[buyer].name} paid +${Math.round(bonus * 100)}%`, '#fbf3e4', 16);
+      this.floatText(from.x, from.y - this.px(70), t('scene.lot.buyerPaid', { name: ECON.carlot.buyers[buyer].name, pct: Math.round(bonus * 100) }), '#fbf3e4', 16);
     }
     this.coinBurst(from.x, from.y, amount);
   }

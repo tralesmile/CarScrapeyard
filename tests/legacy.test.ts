@@ -13,6 +13,7 @@ import {
   sanitizeLegacy,
   sellEmpire,
   sellEmpireGlows,
+  earningsForTotalPoints,
 } from '../src/core/legacy';
 import { generateLot, listPrice } from '../src/core/carlot';
 import { generatePaintJob, paintIdleIncome } from '../src/core/paint';
@@ -21,7 +22,8 @@ import { tick } from '../src/core/sim';
 import { newGame, type GameState } from '../src/core/state';
 
 const T0 = 1_800_000_000_000;
-const S = ECON.legacy.pointScale;
+/** All-time earnings worth `n` Legacy Points. */
+const E = (n: number) => earningsForTotalPoints(n);
 
 function rich(earned: number): GameState {
   const s = newGame(T0, 11);
@@ -31,50 +33,61 @@ function rich(earned: number): GameState {
 }
 
 describe('Legacy Points (P1.3a)', () => {
-  it('points are the square root of all-time earnings over the scale, rounded down', () => {
+  it('points are (all-time earnings / scale) ^ exponent, rounded down', () => {
     expect(legacyPointsFor(0)).toBe(0);
     expect(legacyPointsFor(-5)).toBe(0);
     expect(legacyPointsFor(NaN)).toBe(0);
-    expect(legacyPointsFor(S)).toBe(1);
-    expect(legacyPointsFor(4 * S - 1)).toBe(1);
-    expect(legacyPointsFor(100 * S)).toBe(10);
-    expect(legacyPointsFor(400 * S)).toBe(20);
-    // Diminishing returns: twice the earnings is ~1.41x the points.
-    expect(legacyPointsFor(800 * S) / legacyPointsFor(400 * S)).toBeCloseTo(Math.SQRT2, 1);
+    expect(legacyPointsFor(E(1))).toBe(1);
+    expect(legacyPointsFor(E(2) - 1)).toBe(1);
+    expect(legacyPointsFor(E(10))).toBe(10);
+    expect(legacyPointsFor(E(20))).toBe(20);
+    // Diminishing returns: twice the earnings is ~1.74x the points (2 ^ 0.8).
+    expect(ECON.legacy.pointExponent).toBeLessThan(1);
+    expect(legacyPointsFor(2 * E(20)) / legacyPointsFor(E(20))).toBeCloseTo(2 ** ECON.legacy.pointExponent, 1);
+  });
+
+  it('the first sale still comes at about $500M, and saves from the old square-root curve stay valid (P1.3d4)', () => {
+    expect(E(ECON.legacy.minPoints)).toBeGreaterThan(450e6);
+    expect(E(ECON.legacy.minPoints)).toBeLessThan(550e6);
+    // Before run 27 points were floor(sqrt(all-time / $5M)). Any save that owned points then had at least $500M, and
+    // the new curve is worth at least as many points, so sanitizeLegacy never takes points away.
+    for (const earned of [500e6, 720e6, 1e9, 2.4e9, 1e10, 1e11, 1e12]) {
+      expect(legacyPointsFor(earned)).toBeGreaterThanOrEqual(Math.floor(Math.sqrt(earned / 5e6)));
+    }
   });
 
   it('the sale is offered at 10 new points and glows when they are at least half of what you own', () => {
-    const s = rich(99 * S);
+    const s = rich(E(9.95));
     expect(pendingLegacyPoints(s)).toBe(9);
     expect(canSellEmpire(s)).toBe(false);
     expect(sellEmpireGlows(s)).toBe(false);
-    s.lifetimeEarnings = 100 * S;
+    s.lifetimeEarnings = E(10);
     expect(canSellEmpire(s)).toBe(true);
     expect(sellEmpireGlows(s)).toBe(true);
     // A veteran with 40 points: 10 new points can be taken, but only 20+ glow.
     s.legacy.points = 40;
-    s.legacy.allTime = 1600 * S;
-    s.lifetimeEarnings = 2500 * S - 1600 * S; // all-time 2500 S = 50 points -> 10 new
+    s.legacy.allTime = E(40);
+    s.lifetimeEarnings = E(50) - E(40); // all-time worth 50 points -> 10 new
     expect(pendingLegacyPoints(s)).toBe(10);
     expect(canSellEmpire(s)).toBe(true);
     expect(sellEmpireGlows(s)).toBe(false);
-    s.lifetimeEarnings = 3600 * S - 1600 * S; // 60 points -> 20 new
+    s.lifetimeEarnings = E(60) - E(40); // 60 points -> 20 new
     expect(sellEmpireGlows(s)).toBe(true);
   });
 
   it('says how much this run must earn for a number of new points', () => {
     const s = rich(0);
-    expect(earningsForPoints(s, 10)).toBe(100 * S);
-    s.legacy = { ...s.legacy, points: 10, allTime: 100 * S };
-    expect(earningsForPoints(s, 10)).toBe(300 * S);
+    expect(earningsForPoints(s, 10)).toBe(E(10));
+    s.legacy = { ...s.legacy, points: 10, allTime: E(10) };
+    expect(earningsForPoints(s, 10)).toBeCloseTo(E(20) - E(10), 0);
     s.lifetimeEarnings = earningsForPoints(s, 10);
     expect(pendingLegacyPoints(s)).toBe(10);
   });
 
   it('offline cash still waiting counts toward the points', () => {
-    const s = rich(99 * S);
-    s.pendingOffline = S;
-    expect(allTimeEarnings(s)).toBe(100 * S);
+    const s = rich(E(10) - 1000);
+    s.pendingOffline = 1000;
+    expect(allTimeEarnings(s)).toBe(E(10));
     expect(canSellEmpire(s)).toBe(true);
   });
 
@@ -83,7 +96,7 @@ describe('Legacy Points (P1.3a)', () => {
     expect(legacyMultiplier(s)).toBe(1);
     s.legacy.points = 25;
     expect(legacyMultiplier(s)).toBeCloseTo(1.5, 9);
-    s.lifetimeEarnings = 900 * S; // 30 points total -> 5 new
+    s.lifetimeEarnings = E(30); // 30 points total -> 5 new
     expect(nextLegacyMultiplier(s)).toBeCloseTo(1.6, 9);
   });
 });
@@ -97,8 +110,8 @@ describe('selling the empire', () => {
     s.tutorial.introSeen = true;
     s.tutorial.mapSeen = true;
     tick(s, 120);
-    s.lifetimeEarnings = 150 * S;
-    s.cash = 30 * S;
+    s.lifetimeEarnings = E(12.25);
+    s.cash = E(5.48);
     s.levels.quality = 40;
     s.slots = 4;
     s.parts = 50;
@@ -114,7 +127,7 @@ describe('selling the empire', () => {
   }
 
   it('refuses before 10 points and changes nothing', () => {
-    const s = rich(50 * S);
+    const s = rich(E(7.07));
     const before = JSON.stringify(s);
     expect(sellEmpire(s, T0)).toBeNull();
     expect(JSON.stringify(s)).toBe(before);
@@ -124,7 +137,7 @@ describe('selling the empire', () => {
     const s = veteran();
     const rng = s.rng;
     const sold = sellEmpire(s, T0 + 1000);
-    expect(sold).toEqual({ points: 12, earned: 150 * S + 1234, seconds: 4 * 3600, city: 'rustValley' });
+    expect(sold).toEqual({ points: 12, earned: E(12.25) + 1234, seconds: 4 * 3600, city: 'rustValley' });
     // Reset
     expect(s.cash).toBe(0);
     expect(s.lifetimeEarnings).toBe(0);
@@ -148,7 +161,7 @@ describe('selling the empire', () => {
     expect(s.rng).toBe(rng);
     // The clock never moves backwards, even when "now" is older than the last save.
     expect(s.lastSeen).toBe(T0 + 5_000);
-    expect(s.legacy).toEqual({ points: 12, allTime: 150 * S + 1234, sold: 1, lastRunSeconds: 4 * 3600, bestRunSeconds: 4 * 3600, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
+    expect(s.legacy).toEqual({ points: 12, allTime: E(12.25) + 1234, sold: 1, lastRunSeconds: 4 * 3600, bestRunSeconds: 4 * 3600, runSeconds: 0, tree: { mechanic: 0, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
     expect(legacyMultiplier(s)).toBeCloseTo(1.24, 9);
     expect(canSellEmpire(s)).toBe(false);
   });
@@ -158,7 +171,7 @@ describe('selling the empire', () => {
     sellEmpire(s, T0);
     tick(s, 30);
     expect(s.legacy.runSeconds).toBeCloseTo(30, 6);
-    // 12 points from 150 S + 1234; 22 points need 484 S in total.
+    // 12 points from E(12.25) + 1234; the next 10 points need E(22) in total.
     s.lifetimeEarnings = earningsForPoints(s, 10);
     s.cash = 1;
     s.legacy.runSeconds = 3600;
@@ -229,7 +242,7 @@ describe('the multiplier reaches every business', () => {
 describe('legacy saves', () => {
   it('round-trip, and saves from before prestige start with no points', () => {
     const s = newGame(T0, 3);
-    s.legacy = { points: 12, allTime: 150 * S, sold: 1, lastRunSeconds: 100, bestRunSeconds: 100, runSeconds: 5, tree: { mechanic: 2, dealer: 1, racer: 0 }, respecUsed: true, city: 'rustValley' };
+    s.legacy = { points: 12, allTime: E(12.25), sold: 1, lastRunSeconds: 100, bestRunSeconds: 100, runSeconds: 5, tree: { mechanic: 2, dealer: 1, racer: 0 }, respecUsed: true, city: 'rustValley' };
     expect(deserialize(serialize(s, T0), T0)?.state.legacy).toEqual(s.legacy);
     const old = JSON.parse(JSON.stringify(newGame(T0, 3))) as Record<string, unknown>;
     delete old.legacy;
@@ -240,8 +253,8 @@ describe('legacy saves', () => {
   });
 
   it('repair: no more points than the sold empires are worth, no negatives', () => {
-    const l = { points: 999, allTime: 100 * S, sold: -2, lastRunSeconds: NaN, bestRunSeconds: 5, runSeconds: -1, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' as const };
+    const l = { points: 999, allTime: E(10), sold: -2, lastRunSeconds: NaN, bestRunSeconds: 5, runSeconds: -1, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' as const };
     sanitizeLegacy(l);
-    expect(l).toEqual({ points: 10, allTime: 100 * S, sold: 0, lastRunSeconds: 0, bestRunSeconds: 5, runSeconds: 0, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
+    expect(l).toEqual({ points: 10, allTime: E(10), sold: 0, lastRunSeconds: 0, bestRunSeconds: 5, runSeconds: 0, tree: { mechanic: 1, dealer: 0, racer: 0 }, respecUsed: false, city: 'rustValley' });
   });
 });

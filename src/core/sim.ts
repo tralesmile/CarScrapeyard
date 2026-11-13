@@ -35,16 +35,21 @@ import type { Car, GameState } from './state';
 import { serveBuyer, tickBuyers, type BuyerEvent } from './buyers';
 import { clampHaggle, haggleGrade } from './haggle';
 import type { BuyerKind } from './config';
+import { trackDaily } from './daily';
+import { trackAchievements } from './achievements';
 import { barnReservesParts, nextBarnStage, tickBarn, type BarnEvent } from './barn';
 import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
 import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
 import { incomeMultiplier } from './legacy';
+import { boosted, tickBoost } from './boost';
+import { collectionValueMult, recordModel, type CollectionEvent } from './collection';
 import { cityScale } from './cities';
 import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
 
 export type GameEvent =
   | { type: 'arrived'; car: Car }
+  | { type: 'giftCar'; car: Car }
   | { type: 'washed'; carId: number }
   | { type: 'repaired'; carId: number }
   | {
@@ -63,6 +68,7 @@ export type GameEvent =
   | { type: 'familyUnlocked'; family: CarFamily }
   /** The first car of a family was sold: it starts its page in the Collection book. `families` = families collected so far. */
   | { type: 'firstOfFamily'; family: CarFamily; families: number }
+  | CollectionEvent
   | { type: 'crushed'; car: Car; parts: number; cash: number; auto: boolean }
   | { type: 'partsUsed'; carId: number; parts: number }
   | ContractEvent
@@ -91,11 +97,15 @@ export function generateCar(state: GameState): Car {
   const rolled = weighted(state, rarityWeights(rarePerk(state)));
   const rarity = state.nextCarId <= ECON.tutorialCommonCars ? 'common' : rolled;
   const spread = 1 + ECON.valueSpread * (2 * nextRandom(state) - 1);
-  const value = Math.max(1, Math.round(baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state)));
+  const raw = baseCarValue(family, rarity, state.levels.quality) * spread * incomeMultiplier(state);
+  const model = pick(state, MODEL_NAMES[family]);
+  // The book's set bonuses and mastery stars (P1.4a); the model is picked after the spread, as before, so the RNG
+  // stream is unchanged.
+  const value = Math.max(1, Math.round(raw * collectionValueMult(state, family, model)));
   const car: Car = {
     id: state.nextCarId++,
     family,
-    model: pick(state, MODEL_NAMES[family]),
+    model,
     paint: pick(state, PAINTS),
     rarity,
     value,
@@ -106,6 +116,14 @@ export function generateCar(state: GameState): Car {
   return car;
 }
 
+/** Turn an arrival into the calendar's gift car: a set rarity, worth what that rarity is worth. */
+function giftCar(car: Car): void {
+  const r = ECON.daily.giftRarity;
+  const was = ECON.rarity[car.rarity].valueMult;
+  car.value = Math.max(1, Math.round((car.value * ECON.rarity[r].valueMult) / was));
+  car.rarity = r;
+}
+
 function ensureFocus(state: GameState): void {
   if (findCar(state, state.focusedId)) return;
   state.focusedId = state.cars[0]?.id ?? null;
@@ -114,7 +132,7 @@ function ensureFocus(state: GameState): void {
 function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[], haggle = 1): void {
   const buyer = state.buyer?.kind ?? null;
   const buyerMult = serveBuyer(state, car);
-  const amount = Math.round(car.value * buyerMult * haggle);
+  const amount = boosted(state, Math.round(car.value * buyerMult * haggle));
   state.cash += amount;
   state.lifetimeEarnings += amount;
   state.carsSold += 1;
@@ -123,6 +141,7 @@ function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEve
   events.push({ type: 'sold', carId: car.id, amount, auto, haggle, buyer: buyerMult > 1 ? buyer : null, buyerMult });
   onCarSold(state, car, events);
   recordCollection(state, car.family, events);
+  for (const e of recordModel(state, car.model, car.rarity)) events.push(e);
   const fam = familyUnlockedAt(state.carsSold);
   if (fam) events.push({ type: 'familyUnlocked', family: fam });
   ensureFocus(state);
@@ -164,6 +183,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
   state.legacy.runSeconds += dt;
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
+  tickBoost(state, dt);
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
   tickBarn(state, dt, events);
@@ -177,6 +197,12 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
     if (state.arrivalTimer >= ECON.arrivalInterval) {
       state.arrivalTimer = 0;
       const car = generateCar(state);
+      // A gift car from the login calendar (P1.5a) takes the next arrival: same RNG draws, a set rarity.
+      if (state.daily.giftCars > 0) {
+        state.daily.giftCars -= 1;
+        giftCar(car);
+        events.push({ type: 'giftCar', car });
+      }
       state.cars.push(car);
       events.push({ type: 'arrived', car });
       if (car.rarity === 'legendary') {
@@ -233,6 +259,8 @@ export function tick(state: GameState, dt: number): GameEvent[] {
     step(state, s, events);
     remaining -= s;
   }
+  trackDaily(state);
+  trackAchievements(state);
   return events;
 }
 

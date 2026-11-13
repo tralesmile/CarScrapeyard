@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECON } from '../src/core/config';
+import { t } from '../src/i18n';
 import { SHAPES } from '../src/game/carArt';
 import {
   CONDITION_RUST,
@@ -106,7 +107,8 @@ describe('walk-up buyer lines (P1.2c)', () => {
   it('every buyer type has short happy and plain lines, picked stably per car', async () => {
     const { LOT_BUYER_LINES, lotBuyerLine } = await import('../src/game/carlotArt');
     for (const kind of Object.keys(ECON.carlot.buyers) as (keyof typeof LOT_BUYER_LINES)[]) {
-      const set = LOT_BUYER_LINES[kind];
+      const raw = LOT_BUYER_LINES[kind];
+      const set = { likes: raw.likes.map((k) => t(k)), plain: raw.plain.map((k) => t(k)) };
       expect(set.likes.length).toBeGreaterThan(0);
       expect(set.plain.length).toBeGreaterThan(0);
       // Short enough for a speech bubble on a 360 px phone.

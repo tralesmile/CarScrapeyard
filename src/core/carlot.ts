@@ -3,19 +3,21 @@
 // lot is open, whichever business is on screen.
 
 import type { CarFamily, CarLotCrewKind, CarLotUpgradeKind, Condition, LotBuyerKind, PaintService } from './config';
-import { ECON, MODEL_NAMES, PAINTS } from './config';
+import { ECON, MODEL_NAMES, PAINTS, MAX_SAVED_LEVEL } from './config';
 import { stationPower, unlockedFamilies } from './formulas';
 import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
 import { incomeMultiplier } from './legacy';
+import { boosted } from './boost';
 import { cityPrice, cityScale } from './cities';
+import { noteLotLost } from './story';
 import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
 
 export type CarLotEvent =
   | { type: 'lotListed'; lot: AuctionLot; index: number }
   /** A lot left the board unsold (someone else won it). */
-  | { type: 'lotExpired'; lot: AuctionLot; index: number }
+  | { type: 'lotExpired'; lot: AuctionLot; index: number; rival: boolean }
   | { type: 'lotBought'; car: LotCar; auto: boolean; index: number }
   | { type: 'lotRefurbished'; car: LotCar }
   /** A walk-up buyer stepped up to a car and looks it over; `bonus` is what they will add if they like it. */
@@ -239,12 +241,13 @@ function takeLot(state: GameState, index: number, auto: boolean, events: CarLotS
 function finishSale(
   state: GameState,
   car: LotCar,
-  amount: number,
+  baseAmount: number,
   haggle: number,
   buyer: { kind: LotBuyerKind; bonus: number } | null,
   events: CarLotSink,
 ): void {
   const l = state.carlot;
+  const amount = boosted(state, baseAmount);
   const profit = amount - car.paid;
   state.cash += amount;
   // Only the profit counts as earnings: the auction price was your own cash coming back.
@@ -291,7 +294,7 @@ export function tickCarLot(state: GameState, dt: number, events: CarLotSink): vo
       if (lot.timeLeft <= 0) {
         l.board[i] = null;
         l.refill[i] = ECON.carlot.refillSeconds;
-        events.push({ type: 'lotExpired', lot, index: i });
+        events.push({ type: 'lotExpired', lot, index: i, rival: noteLotLost(state, lot.id) });
       }
     } else {
       l.refill[i] = (l.refill[i] ?? 0) - dt;
@@ -492,7 +495,7 @@ export function sanitizeCarLot(l: GameState['carlot']): void {
   const c = ECON.carlot;
   const maxSpots = c.spots.start + c.spots.costs.length;
   l.spots = Math.min(maxSpots, Math.max(c.spots.start, Math.floor(l.spots)));
-  for (const k of CARLOT_UPGRADES) l.levels[k] = Math.max(1, Math.min(99_999, Math.floor(l.levels[k])));
+  for (const k of CARLOT_UPGRADES) l.levels[k] = Math.max(1, Math.min(MAX_SAVED_LEVEL, Math.floor(l.levels[k])));
   for (const k of CARLOT_CREW) l.crew[k] = l.crew[k] === true;
   const board: (AuctionLot | null)[] = [];
   const refill: number[] = [];

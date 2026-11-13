@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-08 (run 26; next run is run 27). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 63; next run is run 64). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -105,7 +105,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         ticket, or beside the customer under it; unit-tested on 7 screens x 1-3 services x 2 line widths). Short phones:
         `boothStage` moves the car down, lets the ticket cover a little more roof and on a 560 px phone draws the car
         smaller, so the sign keeps its lettering and the ticket clears the booth row (e2e at 375x560 with 2 booths).
-- [ ] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
+- [x] P1.3 Prestige "Sell Empire" → Legacy Points + Legacy tree; city 2 Motor City
   - [x] P1.3a Prestige core (run 19): `src/core/legacy.ts`: Legacy Points = floor(sqrt(all-time earnings / $5M)), the
         sale is offered at 10 new points and glows at >= half the points owned, +2% income per point on every payout
         and idle/offline income (yard cars, scrap, contracts, barn, garage fees, paint fees and lot tune stickers, lot
@@ -128,7 +128,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         `perkLabel` in legacyView.ts: a chip row above the cards per tab, the haggle badge, the map's open line, the
         welcome-back popup), a node-bought animation (pop, glow, stamp, "−3 🏛", header pulse; reduce-motion safe), and
         the welcome-back popup tells the real time worked (capped) plus a line when you were away longer than the cap.
-  - [ ] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
+  - [x] P1.3d City 2 Motor City (new map, its own businesses; the plan's "Motor City prestige day 6-8").
     - [x] P1.3d1 Core + city picker (run 23): `ECON.cities` (Rust Valley x1; Motor City x5, from the 2nd sale),
           `src/core/cities.ts`, `state.legacy.city` (kept on a sale; new field with a default and save repair, no
           version bump needed), `sellEmpire(state, now, city)`. A city's scale multiplies every value
@@ -158,14 +158,52 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
             `GARAGE_NIGHT` (night street, neon roof line), `LOT_NIGHT` (moon, lit showroom, neon halo behind the sign;
             same skyline layout), `BOOTH_NIGHT` (magenta neon stripe). Signs and lettering keep day colours.
             Unit-tested; e2e switches to Night in Settings and samples all four scenes (e2e-22g..k).
-    - [ ] P1.3d4 Balance follow-up: without a new city the 2nd and 3rd empires get slower (4h43m vs 3h28m for the
-          first). Consider a softer point curve or Legacy-tree nodes that speed the start of a run.
+    - [x] P1.3d4 Balance follow-up (run 27): the 2nd empire was offered its sale at 4h47m vs 3h28m for the first. Softer
+          point curve `floor((all-time / $28M) ^ 0.8)` (first sale still at ~$500M; no save migration, unit-tested) and
+          Motor City x5 -> x3 to keep its points per hour. Sim, selling at each offer: 3h27m, 3h23m, then 1h56m, 1h44m,
+          1h35m, 1h27m in Motor City; a balance test asserts every empire is offered its sale no later than the one
+          before. Compared in economy.md: exponents 0.5-0.8 and +3-5% per point (barely helps). Revisit the point
+          divisor when city 3 is designed (the curve grows faster in the long run).
 - [x] P1.3r Layout fixes found with the Sell Empire e2e (run 20): the 🗺 button was visible from the start (no CSS rule
       for `.icon-btn.hidden`); on 320 px phones the panel's tabs and buy modes overflowed and a modal's focus slid the
       whole game sideways (`overflow: clip`, `preventScroll`, compact tabs up to 430 px: four tabs + x1/x10/Max fit at 320 px, scrolling tabs
       as a fallback).
 - [x] P1.3s e2e flake (run 23): the 560 px paint-shop check failed once with no ticket, because the Painter finished the
       held 3-unit order during the resize. The order is held again (work 20) right before the resize.
+- [x] P1.3v Save hardening (run 52): `tests/save-fuzz.test.ts` corrupts random fields of a normal and a late-game state
+      (1500 seeds each, replayable) and plays a minute after loading. It found two crashes: a negative `carsSold` left no
+      car family unlocked (`weighted` read an empty list), and an absurd upgrade level or a paint job fee overflowed income
+      to Infinity. Fixed in `save.ts` (counters clamped), `MAX_SAVED_LEVEL = 1000` for all upgrade levels, and paint job
+      numbers capped at 1e18. Run 53 fuzzed the garage, lot, paint shop and a post-Sell-Empire state: no new crashes. Run 54 fuzzed the collection book,
+      daily tasks, `queueOffline` with 11 absurd clocks (NaN, Infinity, negative, 1e300) and corrupted `lastSeen`/`pendingOffline`
+      (`tests/save-fuzz2.test.ts`): no crashes, nothing to fix. Run 55 (`tests/save-fuzz3.test.ts`): fuzzed the legacy tree, achievements, wallet and story
+      subtrees (800 seeds, then buying every node, respec, medals, shop, a sale) and replayed 60 random players (600 public
+      actions each: wash, tap, sell, crush, upgrades, hire, contracts, Sell Empire) with a non-finite walk and a save
+      round-trip: no crashes, nothing to fix. Run 56 (`tests/save-fuzz4.test.ts`): 40 random players pressed every garage, car lot
+      and paint shop button (20 actions, 500 steps each, round-trip every 100 steps) and 600 corrupted garage/lot/paint
+      subtrees loaded and kept playing: no crashes, nothing to fix. The fuzz list is now exhausted; next quality ideas:
+      performance profile of the scenes on a low-end phone, and a longer-session soak (hours of ticks) for memory growth.
+      Run 57 (`tests/soak.test.ts`): a 48-hour soak (crew hired, every business open, 10 s ticks) keeps the save size flat (hour 48 under
+      2x hour 12), nothing non-finite, and the crew really sold cars. Run 58 added the scene performance probe (`npm run perf`,
+      `tools/perf-probe.cjs`: every business opened through the map on an emulated iPhone, CPU throttle 1x/4x via CDP, 4 s
+      of animation frames per scene; prints median/p95 frame time, slow-frame share, Phaser textures, JS heap; fails only
+      if a scene is under 2 fps; not part of `npm run check`). Headless Chromium has no GPU (software GL), so absolute
+      fps are not phone numbers; compare runs with each other. First readings (1x / 4x median ms): yard 67-83 / 117,
+      garage 67 / 117, lot 50 / 83, paint 67 / 100; textures 12 (yard) to 36 (paint, all scenes loaded); heap ~25 MB.
+- [ ] P1.3v Idea from the run 58 probe (not scheduled): the yard is the heaviest scene and the one players see most. Try
+      an adaptive pixel ratio (drop `dpr` from 2.5 to 2 or 1.5 when the first seconds average > 40 ms per frame) and
+      profile what the yard draws per frame (dirt blobs, backdrop, customers). Needs a real low-end phone to confirm.
+- [ ] P1.3t e2e flake (run 38; run 62: the assertion "the yard shows its current car after the garage" failed once in a baseline, null / 17, and passed on a rerun of e2e alone; if it returns, wait for `bigCarId` longer than 4 s or find why the yard shows no car after a switch): the first baseline `npm run check` failed at the very end with a page error
+      `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
+      passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short
+      stack. If it recurs, read the tag and look for a texture removed/regenerated while a sprite still uses it.
+      Recurred in run 46 after "lot cars through the paint shop" (`batchSprite` -> `glTexture`): all scenes now free car
+      textures through `removeTexturesSafely` (`src/game/textureSafe.ts`), which repoints images still using them (also in
+      containers) to `__WHITE` first. Tick this when a few runs pass without the error.
+- [ ] P1.3u e2e flake (run 45): the "scrapper" section's `waitForFunction(carsCrushed > n)` timed out once (20 s) in a run
+      that passed on the immediate re-run; code was unrelated (string moves). If it recurs, log whether a wreck was in the
+      yard and `scrapperRest` when it times out. Run 46: it recurred; the wait now zeroes `crusherCooldown`, waits 30 s and
+      throws the parts, rest, cooldown and yard cars on a timeout (likely cause: the automation cleaned every yard car).
 - [ ] P1.3q Quality (run 19): the lot's FOR SALE tag once took > 3 s to appear after the e2e injected a ready car (flake,
       passed on re-run). If it recurs, log `arriving`/`bigId`/texture key in the assertion and look for a stuck drive-in.
 - [x] P1.3q2 Quality (run 25, fixed run 26): on a 320x568 phone the paint shop's tap hint pill covered the lower half
@@ -174,27 +212,141 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       (The yard hides its label while the hint shows; the garage label had ~6 px to spare.) Also found: the Settings
       sheet overflowed an iPhone SE once the City lights row was added (Done unreachable); it scrolls now
       (`max-height: 100%`, tighter rows under 600 px tall), e2e-checked.
-- [ ] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
-- [ ] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
-- [ ] P1.6 Story chapter 1 + rival Vince Valvano
-- [ ] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub
-- [ ] P1.8 Music layers per business; volume settings
-- [ ] P1.9 i18n string files (English first)
-- [ ] P1.10 PWA: manifest, icons, service worker, offline play
-- [ ] P1.11 Analytics adapter (event taxonomy from the plan; no-op until accounts exist)
-- [ ] P1.12 Portal adapters: Poki and CrazyGames SDK wrappers behind the platform interface
+- [x] P1.4 Collection book (40 cars, sets, rarity badges), mastery; option to keep a restored barn classic for the book instead of selling (from P0.14f)
+  - [x] P1.4a Book core (run 27): `src/core/collection.ts`, `state.collection.models` (48 entries: 32 yard models + 16
+        barn classics, pre-filled in `newGame` so old saves get them; save repair). Each sale records the model, its
+        best rarity and mastery stars (10 / 50 / 200 sales, +1% value each); sets: 8 family sets (+5% that family),
+        4 brand sets (one model of the brand in every family, +5% that brand), Barn Classics (all 16, +25% barn sale
+        value). Bonuses multiply yard car values at arrival (RNG stream unchanged) and the yard's idle income; kept on
+        a sale. "SET COMPLETE!" banner and a mastery toast (`src/ui/collectionView.ts`). Sim: first run unchanged
+        (3h27m), lot-tune test now averaged over 3 seeds (one seed swings it 1.10-1.19).
+  - [x] P1.4b Book screen (run 28): 📒 HUD button (`bookUnlocked`: after the 10 quiet sales, or in a later empire),
+        `openBook` in ui.ts with three pages (Car types / Brands / Classics; `bookView`/`bookCard` in collectionView.ts,
+        unit-tested), set rows with progress and bonus, cards with Canvas 2D thumbnails (`src/game/bookArt.ts`, cached
+        data URLs; one silhouette per car type), rarity badge, mastery stars and a bar to the next star. `BookEntry.seen`
+        (default false, save repair) drives the NEW badges and the red dots; opening the book marks entries seen.
+        e2e on the iPhone 13 flow and on 320x568.
+  - [x] P1.4q HUD fix found while adding 📒 (run 28): a late-game top bar overflowed 320-414 px screens (the chip slid
+        over the cash). Compact top bar up to 430 px (`.money` column, sound toggle in Settings only, 34 px buttons),
+        `.chips` stack under 360 px; e2e asserts a full bar has no overlaps on an iPhone SE.
+  - [x] P1.4c Showcase (run 29): the reveal offers "🏆 Keep it" beside "Sell it!" (`keepBarnCar`/`canKeepBarnCar` in
+        barn.ts): no cash, the classic goes into `state.collection.showcase` (one per model, kept on a sale, save repair)
+        and the book like a sale, and adds +0.5% to every payout (`showcaseMultiplier` in `incomeMultiplier`; +8% max).
+        Sim A/B: +1% made keeping never slower (no choice), +0.5% costs ~1 min in the first empire. Book Classics page
+        shows the showcase line and kept cards on a gold plinth; Sell Empire preview lists it. e2e keep, repeat, book.
+        Follow-up idea (not scheduled): draw the kept classics in the yard (a trophy shelf by the barn).
+- [x] P1.5 Daily tasks + 7-day login calendar (UTC reset hour), achievements
+  - [x] P1.5a Daily core (run 29): `src/core/daily.ts`, `state.daily` (kept on a sale, save repair). A game day starts
+        at 04:00 UTC (`gameDay`, never earlier than `lastSeen`); after 80 sales `refreshDaily` rolls 3 of 8 task kinds
+        that are open (sell, haggle, buyers, crush, jobs, garage, lot, paint; hashed by day, game RNG untouched).
+        Tasks follow existing counters by their growth (`trackDaily` in `tick`), so a Sell Empire reset loses nothing.
+        Rewards are worth N average yard cars at claim time (legacy and city scale); all three claimed add a bonus.
+        Login calendar: one claim per day played, a missed day does not reset it, day 7 brings an Epic gift car (the
+        next arrival). Unit-tested (16 tests).
+  - [x] P1.5b Daily UI (run 29): Jobs tab: the 📅 Daily reward card (7-cell strip, claim, "Next in 5h 12m") and three
+        task cards below the orders; Jobs tab dot; "DAILY TASKS!", "ALL DAILIES DONE!", "GIFT CAR!" banners; a toast when
+        a new day starts while playing. e2e: unlock, claim, tomorrow wait, all-done bonus, a new day, the gift car.
+  - [x] P1.5c Achievements (run 30): `src/core/achievements.ts`, `ECON.achievements` (14 awards x 4 medals: Bronze,
+        Silver, Gold, Diamond = 56). Lifetime numbers are read directly (stats, the book, Legacy, calendar claims, yard
+        sales per family, all-time earnings); numbers a Sell Empire resets (garage jobs, lot sales, paint orders, barn
+        restorations) are followed by growth in `tick` (`state.achievements.tracked`; old saves backfill from the
+        current empire; `sellEmpire` tracks once more before the reset). A medal is claimed by hand for cash worth
+        3/6/12/24 average yard cars (sim A/B: 12 medals in 30 min, the first sale 1-2% sooner; 5/10/20/40 moved it 3-4%).
+        UI: an Awards tab in the 📒 book (`src/ui/awardsView.ts`: claimable first, medal row, progress bar, claim
+        button), the book opens on Awards when a medal waits and no car is new, 📒 dot, "🥉 Crusher: Bronze medal!" toast.
+        Gems replace part of the cash with P1.7.
+  - [x] P1.5d Daily follow-ups (run 30): the welcome-back popup lists what waits (today's calendar reward, finished
+        tasks, the all-done bonus, medals; `waitingLines` in dailyView.ts; a new day is rolled before the popup), and a
+        daily task finished in the garage, lot or paint shop shows a toast pointing to the scrapyard's Jobs board.
+        Gems in the daily rewards moved to P1.7. Also: the popup scrolls on short phones (`cls: 'welcome'`), e2e at 320x568.
+  - [ ] P1.5e Idea (not scheduled): a HUD shortcut to the Jobs board from the other businesses, if playtests show the
+        toast is missed.
+- [x] P1.6 Story chapter 1 + rival Vince Valvano (chapter 1 in run 31; chapter 2 and the story log in run 32)
+  - [x] P1.6a Chapter 1, Rust Valley (run 31): `src/core/story.ts` (`state.story`: beats seen, gap, Vince's tally;
+        kept on a sale, save repair), five beats in order (`vinceVisit` at 20 sales, `joeGarage`, `vinceAuction` after the
+        first lot let go, `vincePaint`, `chapter1End` when the empire can be sold; a skipped business never blocks the
+        rest), 20 s of play between scenes, Rust Valley only. Story modal (`openStory`, `src/ui/storyView.ts` lines and
+        toasts, `src/game/portraitArt.ts` Canvas 2D busts of Joe and Vince); the chapter's end opens the map before the
+        sale banner. Vince as flavour on the events (`lotExpired.rival`: purple VINCE! stamp; `buyerLeft.rival`), no
+        economy change (sims untouched). 9 unit tests; e2e at 20 sales, on the auction board and on an iPhone SE.
+  - [x] P1.6b Chapter 2, Motor City (run 32): `CHAPTER_2` in story.ts (`vinceCity` after 5 Motor City sales, then
+        `vinceMidtown` / `vinceMall` / `vinceNeon` when each business opens, `chapter2End` when the Motor City empire
+        can be sold; each chapter plays in its own city, chapter 2 does not need chapter 1), `vinceMet` also from the
+        Motor City welcome, Valvano Motors HQ on the Motor City map (`rivalHq` gold tower in place of a rooftop) and a
+        `rivalRow` in the list. Flavour only, no sim change. 5 unit tests; e2e scene on an iPhone SE and the HQ.
+  - [x] P1.6c Story log (run 32): a Story page in the 📒 book (`storyLog` in storyView.ts, shown once a scene is seen):
+        chapters with city and count, seen scenes open inline (`storyLinesHtml`), locked rows for the rest, a teaser
+        for the next chapter. Unit-tested; e2e at 320 px (five tabs fit) with a replayed scene.
+  - [x] P1.6q Quality (run 33): under 360 px the five book tabs wrap into two rows (`.book-tabs { flex-wrap }`), so no
+        label is cut; e2e asserts no tab label overflows on a 320 px phone.
+  - [ ] P1.6d Optional (owner question in NEEDS_FROM_YOU): a real rival mechanic (Vince bidding at the auction or a
+        monthly sales race). Chapter 3 waits for city 3.
+- [x] P1.7 Gems (soft premium) + Auction Tokens (earn-only); shop UI stub; gems in daily and medal rewards (from P1.5c/d)
+  - [x] P1.7a Wallet core (run 33): `src/core/wallet.ts` (`state.wallet`: gems, tokens, earned totals; kept on a sale,
+        caps, save repair), `ECON.wallet` income table, gems in medals / all-done bonus / calendar, tokens in tasks /
+        bonus / calendar, shown on claim buttons, banners, toasts and the book header. 9 unit tests, e2e. No cash change.
+  - [x] P1.7b Shop and first sinks (run 34): `src/core/shop.ts` + `ECON.shop`; a Shop page (sixth tab) in the 📒 book:
+        Barn rush 1 💎, Parts crate 2 💎, Cash bag 4 💎, Token lot 4 🎟 (a Good car on the Used Car Lot, no cash price);
+        locked rows say why; gem packs "coming soon" until P2.3. 6 unit tests, e2e. No sim change.
+  - [ ] P1.7c Idea (not scheduled): a cosmetic yard theme as a gem sink, and a 💎 shortcut button outside the book if
+        playtests show the Shop is hard to find.
+- [x] P1.8 Music layers per business; volume settings (run 35): `src/audio/musicScore.ts` (pure: one 4-bar loop per
+      city, Rust Valley major 96 bpm / Motor City minor 108 bpm; six layers; each opened business adds one: scrapyard =
+      bass + beat + pluck, garage = ratchet, lot = pad, paint = lead; the business on screen is louder),
+      `src/audio/music.ts` (Web Audio scheduler on the shared clock, per-layer gain fades), Settings: Music switch
+      (now real), Music volume and Effects volume sliders (`settings.musicVolume` / `sfxVolume`, saved and repaired).
+- [x] P1.9 i18n string files, first slice (run 36): `src/i18n/` (`t(key, params)`, `{name}` placeholders, `_one`/`_other`
+      plurals via Intl.PluralRules, English fallback, `registerLocale` / `setLocale` / `pickLocale`), catalog in `en.ts`;
+      the daily-task texts (`dailyView.ts`) are moved over, 4 unit tests.
+  - [x] P1.9b (finished run 59: the last three toasts in `main.ts` are `toast.*` keys; grep of `src/` for literal UI strings is clean) Move the remaining UI strings (run 37: `awardsView.ts`; run 38: `storyView.ts`; run 39: `collectionView.ts`; run 40: `cityMap.ts` and the Settings sheet in `ui.ts`; run 41: `legacyView.ts`; run 42: the lot, barn, crush, Sell Empire and Welcome back modals in `ui.ts`; run 43: HUD labels, tabs, crew/lot/garage/paint cards and the haggle slider; run 44: contract and barn cards; run 45: aria labels, event banners and toasts in `ui.ts`; run 46: the daily calendar and task cards; run 47: the yard, lot and paint scene texts (`scene.*`); run 48: the garage scene texts and the customer lines (`garage.say.*`); run 50: the last scene literals (`scene.lot.atShop`, `scene.lot.freeSpot`, `scene.paint.freeBooth`); run 49: lot buyer and paint customer lines (`lot.say.*`, `paint.say.*`), game event banners/toasts and the intro in `main.ts` (`event.*`, `intro.*`), the last literals in `ui.ts`; run 51: garage fault names and tap hint (`garage.fault.*`); car model names are proper nouns and stay; the `src/game` grep is clean; left:
+        add a language setting once a second language exists.
+- [x] P1.10 PWA (run 36): `public/manifest.webmanifest`, icons (192, 512, maskable; source `public/icons/icon.svg`),
+      `public/sw.js` (network-first page, cache-first assets, versioned cache), registered in production only and not in
+      `?debug` runs; e2e checks manifest, icons, active worker and a reload with the network off.
+- [x] P1.11 Analytics adapter (run 35): `src/platform/analytics.ts` (event names, consent-gated `Analytics` with a
+      pluggable sink, `MemorySink`, pure `diffEvents` milestones: sales 1/10/25/50/..., business opened, empire sold, city
+      changed, new car family, tutorial done; `Tracker` looks once a second). No sink and consent off by default, so
+      nothing is sent until accounts and a consent screen exist (P2.4, P2.7).
+- [x] P1.12 Portal adapters (run 37): `src/platform/portal.ts` (pure, SDK objects injected): `createPokiSdk`,
+      `createCrazyGamesSdk`, `detectPortal` (`?portal=` or a present global), `withPortal` (rewarded ads only after init,
+      one at a time, failures never throw), `bindGameplayToVisibility`. Wired in `main.ts`; the SDK `<script>` tag is not
+      added yet (portal rules differ; add it in the portal-specific build). 6 unit tests, e2e with a Poki stub.
 - [ ] P1.13 Deploy web build (Cloudflare Pages) — needs owner account
 - [ ] P1.14 Gate: D1 ≥ 35%, session ≥ 8 min
 
 ## Phase 2 — Mobile soft launch
 
 - [ ] P2.1 Capacitor Android + iOS projects; safe areas; back button; haptics plugin
+  - [x] P2.1a Shells and bridge (run 60): Capacitor 7 (`capacitor.config.ts`, `android/`, `ios/`, `npm run cap:sync|cap:android|cap:ios`),
+        `src/platform/native.ts` (pure, `window.Capacitor` injected: `detectNative`, `nativeVibrate`, `bindBackButton`,
+        `bindAppState`), `Haptics.setBackend`, `Ui.handleBack()` (`data-back` on the safe dismiss button of every sheet), `platform.name`
+        is `android`/`ios`, no service worker in the shell, portrait lock on phones. Unit tests (`tests/native.test.ts`) and an e2e
+        with a Capacitor stub (back, exit, app state, haptics). How to build: `docs/mobile.md`.
+  - [ ] P2.1b Device checks (needs the owner's machine or a CI job): build the debug APK / Xcode project, check safe areas (notch,
+        gesture bar; `env(safe-area-inset-*)` is already used in `style.css`), status bar colour (`@capacitor/status-bar`), splash screen
+        and the real icons (`@capacitor/assets` from `public/icons/icon.svg`), an Android build job in CI.
 - [ ] P2.2 AdMob rewarded ads adapter (double offline, 2x boost)
+  - [x] P2.2a Adapter + double offline (run 61): `src/platform/admob.ts` (pure, plugin injected via `Capacitor.Plugins.AdMob`; init,
+        preload, one ad at a time, reward only if the reward event fired before dismissal, never throws, hidden when ads are
+        removed), `withAdMob` wraps `Platform`, Google test unit ids until the owner's AdMob account exists, `ECON.ads.offlineMultiplier = 2`.
+        The welcome-back popup shows "Watch an ad: collect x2" (`third` button, back = plain Collect via `backMain`) when
+        `platform.rewardedAdAvailable()`. 6 unit tests (`tests/admob.test.ts`), e2e with a stubbed AdMob plugin (double, plain x1).
+  - [x] P2.2b 2x income boost (run 62): `src/core/boost.ts` (`state.boost` remaining/cooldown/started, `boosted(state, amount)` at the
+        sale, lot, garage and paint payout sites, ticked on game time in `step`, save repair), `ECON.ads.boost` (x2, 600 s, 300 s
+        cooldown, unlock 20 sales), a HUD chip "⚡ x2 · ad" that turns into a countdown. 5 unit tests (`tests/boost.test.ts`), e2e
+        with the stubbed AdMob plugin. Bots never watch ads: sim unchanged.
+  - [ ] P2.2c Real ad unit ids, the `@capacitor-community/admob` plugin install + app ids in the Android/iOS projects, consent (UMP)
+        screen: needs the owner's AdMob account (see NEEDS_FROM_YOU).
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP
 - [ ] P2.4 Firebase: anonymous auth, cloud save + conflict screen, server time, purchase validation
 - [ ] P2.5 Push notifications (garage full, offline cap reached); then let contract timers run offline (from P0.14c)
 - [ ] P2.6 Store assets: icon, screenshots, preview video script, store text
+  - [x] P2.6a Store text (run 63): `docs/store/listing.md` (title, short and full description, keywords, screenshot list, 30 s preview script).
+  - [ ] P2.6b Real icon and screenshots: need a real build and the final icon (with P2.1b).
 - [ ] P2.7 Privacy policy, terms, data safety and age-rating answers
+  - [x] P2.7a Drafts (run 63): `docs/store/privacy-policy.md`, `terms.md`, `data-safety-and-rating.md`, matched to the build today
+        (nothing collected; analytics off). The owner fills the [placeholders] and a lawyer should review before publishing.
+  - [ ] P2.7b Consent screen in the app (UMP / analytics opt-in), together with P2.2c.
 
 ## Phase 3+ — Global launch and live ops
 

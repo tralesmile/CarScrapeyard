@@ -28,6 +28,34 @@ to automate it, open new car businesses, then sell your empire and start again i
   piles with tyres and scrap panels (kept clear of the customer's spot), fence, ground and the concrete work bay.
 - **Collection counts:** every sale counts its car type for the Collection book (P1.4). The first sale of a type shows
   "📒 First Van sold! Collection: 5/8 car types" (the four starter types are counted quietly in the first 10 sales).
+- **Collection book (P1.4a, rules in run 27):** 48 entries, every yard model (four per car type, one of each fictional
+  brand) and every barn classic. A sale records the model, the best rarity it was sold in (rarity badge) and its
+  count; 10 / 50 / 200 sales give mastery stars (+1% that model's value each). **Sets:** a car type's four models
+  (+5% that type's value), a brand's model in all eight types (+5% that brand's value), all 16 barn classics (+25%
+  barn sale value). Bonuses are permanent and kept on Sell Empire. "SET COMPLETE! 📒 Van set: +5% Van value forever"
+  banner; "⭐ Kaze Pip mastery: +1% value" toast.
+- **Book screen (P1.4b, run 28):** a 📒 button in the top bar (after the 10 quiet tutorial sales, or at once in a later
+  empire) opens three pages: Car types (8 sets), Brands (4 sets) and Classics (16 barn classics). Each set shows its
+  progress and bonus (gold with ✓ once complete); each card shows a painted thumbnail (a dark silhouette until found,
+  "???"), the best rarity badge, three mastery stars and a bar to the next star ("12 sold · 50 for ⭐⭐"). New entries
+  wear a red NEW badge on the first visit after they were found; the 📒 button and the page tabs show a red dot until
+  then. Up to 430 px wide the top bar is compact (rate under the cash, the sound toggle only in Settings; under 360 px
+  the Legacy chip and parts stack).
+- **Showcase (P1.4c, run 29):** when a restored barn classic is revealed you choose: sell it to the collector (cash
+  now), or "🏆 Keep it": no cash, but the classic stands in your showcase for good and adds +0.5% to all income, even
+  after Sell Empire. One of each of the 16 classics (+8% at most); a repeat find can only be sold. A kept classic counts
+  for the book like a sale (Legendary, the Barn Classics set). The book's Classics page shows "🏆 Showcase 3/16 · +1.5%
+  all income" and kept cards on a gold plinth; the Sell Empire preview lists the showcase under what you keep. Why
+  this trade-off: cash now vs a small permanent edge, the classic idle "spend or invest" choice; the sim shows keeping
+  costs about a minute in the first empire and pays back in every empire after it.
+- **Daily tasks and login calendar (P1.5a/b, run 29):** after 80 sales (about minute 15, as in the plan's opening) the
+  Jobs board shows a 📅 Daily reward card and three tasks for the day, picked from what the player has unlocked (sell
+  40 cars, haggle 6 sales, serve 8 customers, crush 12 wrecks, finish 3 jobs, fix 25 garage cars, sell 8 lot cars,
+  finish 10 paint orders). Days turn over at 04:00 UTC for everyone (plan QA: no double or missed dailies on a time
+  zone or daylight-saving change). Calendar: seven rewards, one per day played (missing a day pauses it, never resets
+  it, a friendlier rule than a streak), the seventh an Epic gift car that takes the next yard arrival. Rewards are
+  cash (and parts) worth a number of average cars at claim time, so they stay meaningful in any empire or city;
+  gems and Auction Tokens join them (P1.7a, below).
 - **Haptics:** short vibrations on taps, sales, crushes, purchases and celebrations (navigator.vibrate on the web;
   the Capacitor Haptics plugin later). Own on/off switch in Settings, independent of sound.
 - **Reward texts** that land together (crush: "+6 Parts" and "+$110") stack upwards; banners queue instead of
@@ -73,7 +101,7 @@ to automate it, open new car businesses, then sell your empire and start again i
   and the car pops out ("LEGENDARY CLASSIC!"); a collector buys it for about 3x what the stages cost.
   Five minutes later Grandpa Joe finds another, 15% bigger each time. Classic names are fictional
   (e.g. Stallion Wildfire '67).
-- **Settings** (☰ in the top bar): sound effects, music (stored; music comes in P1.8), reduce motion (also on when
+- **Settings** (☰ in the top bar): sound effects, music and effects volume sliders (the score has one layer per open business, see Audio), reduce motion (also on when
   the OS asks for it), number format (short 1.5M or scientific 1.5e6), City lights (Auto / Day / Night, only in a
   city with a night look such as Motor City), reset progress (two-step confirm), credits with the version.
 - **City map** (🗺 in the top bar after 30 sales): Rust Valley drawn in code: scrapyard, Repair Garage (goal: $200K
@@ -155,6 +183,31 @@ to automate it, open new car businesses, then sell your empire and start again i
   floats "✓ Respray"; the paid order drives away with coins and a gold "⚡ Quick tip" note. The Painter (white overalls,
   goggles, respirator, spray gun) stands left of the car and sprays the oldest order. With 2-3 booths a thumbnail row
   shows each car and its current service. Tabs: Shop (Spray Booth, Hype, Extra Booth) and Crew (Painter).
+- **Achievements (P1.5c):** 14 lifetime awards with Bronze, Silver, Gold and Diamond medals (yard sales, total
+  earnings, crushes, perfect haggles, buyers served, orders, Legendary finds, barn restorations, garage repairs, lot
+  sales, paint orders, book entries, empires sold, daily rewards). They count across every empire. A new medal shows a
+  toast ("🥉 Crusher: Bronze medal! Claim it in the 📒 book") and a dot on 📒; the book's Awards tab lists claimable
+  awards first, each with its four medals (grey until reached, bobbing when ready) and a bar to the next one. Claiming
+  pays cash worth a few average yard cars (gems later). The welcome-back popup lists medals and dailies waiting, and a
+  daily task finished in another business shows a toast pointing to the scrapyard's Jobs board (P1.5d).
+- **Story chapter 1, Rust Valley (P1.6):** five short scenes, each a modal with painted portraits and speech bubbles
+  (Grandpa Joe on the left in rust orange, the rival Vince Valvano on the right in purple), shown once in story order
+  with at least 20 s of play between them: Vince visits the yard at 20 sales and offers $1 for it ("A Gold
+  Convertible"); Joe in the first garage; Vince outbids you on the first lot you let go ("Outbid!"); Vince worried by
+  the paint shop; the chapter's end when the empire can be sold (Vince leaves for Motor City, Joe tells you to sell
+  and follow; "On to the map" opens the map). Vince is flavour, not a mechanic: the first lot you let go and every
+  third after it (by lot id) get a purple VINCE! stamp instead of SOLD!, and every third yard customer who runs out of
+  patience is "lured to his lot"; toasts only for his first three wins and every tenth. The economy, the RNG and the
+  sims are unchanged. Chapter 1 plays in Rust Valley only; the story is kept on a Sell Empire.
+- **Story chapter 2, Motor City (P1.6b):** "The Big City", five scenes in Motor City only, not needing chapter 1 (old
+  saves may already be there): Vince greets you after 5 sales ("Welcome to MY city", points at his gold tower), then
+  one scene each when the Midtown Garage, the Auto Mall and Neon Customs open, and the chapter's end when the Motor
+  City empire can be sold (Vince gives up and sells his tower; "On to the map"). From his welcome on, Valvano Motors
+  HQ stands on the Motor City map as a gold tower with a purple V by the harbour, with a purple list row ("Vince's HQ ·
+  he has beaten you N times", "Tower for sale" after the chapter). Still flavour only.
+- **Story log (P1.6c):** a Story page in the 📒 book (shown once a scene has been seen) lists each started chapter
+  with its city and scenes; tapping a seen scene opens its lines inline, unseen ones are locked rows without titles, and
+  a line teases the next chapter's city.
 - **First session:** Grandpa Joe's note, hints for wash → repair → sell → first upgrade → hire a Mechanic.
 
 ## Decisions
@@ -187,8 +240,10 @@ to automate it, open new car businesses, then sell your empire and start again i
 
 ## Prestige: Sell Empire (P1.3)
 
-- **Legacy Points** come from everything you have ever earned, sold empires included: `floor(sqrt(all-time / $5M))`.
-  Selling adds the difference to what you already own, so each restart rewards more play with diminishing returns.
+- **Legacy Points** come from everything you have ever earned, sold empires included: `floor((all-time / $28M) ^ 0.8)`
+  (10 points at ~$500M; a square root until run 27, see P1.3d4 in economy.md). Selling adds the difference to what you
+  already own, so each restart rewards more play with diminishing returns, but gently enough that each empire is
+  offered its sale no later than the one before (sim: 3h27m, 3h23m, then 1h56m to 1h27m in Motor City).
   Each point adds **+2% to all income forever** (every car value, fee, price, reward and idle/offline rate). Points
   spent in the Legacy tree (P1.3c) keep their +2%.
 - The **Sell Empire** button appears once a sale would give at least 10 points and glows when the new points are at
@@ -232,8 +287,9 @@ to automate it, open new car businesses, then sell your empire and start again i
 - **Cities (P1.3d, core and picker in run 23):** an empire is built in one city. The first empires are in **Rust
   Valley**; from the **second sale** on, the preview asks "Where next?" with two cards: stay in Rust Valley or go to
   **Motor City** (picked by default, steel blue). Motor City runs the same four businesses with every price and every
-  payout x5, so a run plays at the same pace but earns five times the dollars, and Legacy Points (which count dollars)
-  come faster: the sim's third empire is offered the sale at 2h28m in Motor City and not within 5 h in Rust Valley.
+  payout x3 (x5 until run 27, cut with the softer point curve), so a run plays at the same pace but earns three times
+  the dollars, and Legacy Points (which count dollars) come faster: the sim's third empire is offered the sale at 1h54m
+  in Motor City and at 3h02m in Rust Valley.
   The first preview shows "🏙️ Motor City opens on your 2nd sale"; the celebration says "Next stop: Motor City" with a
   Grandpa Joe line; the map is titled with the city. **Motor City's map (run 24):** concrete city blocks with pale
   sidewalks, a two-carriageway highway with traffic along the top, rooftops in the margins, street lamps, a zebra
@@ -254,3 +310,26 @@ to automate it, open new car businesses, then sell your empire and start again i
   Signs, lettering and the work areas keep their daytime colours so they read the same. Rust Valley stays in daylight.
   The setting row only shows in a city with a night look. Later cities (Neon Tokyo, Monaco) slot into `ECON.cities.list`.
 
+## Wallet: Gems and Auction Tokens (P1.7a)
+
+Two extra currencies next to cash and parts, shown in the 📒 book header once owned and named on every reward.
+**Gems** are the soft premium currency: earned from medals (Bronze 0, Silver 1, Gold 3, Diamond 8), the all-dailies
+bonus (3) and the calendar (1, 1, 2, 2, 3, 3, 10); real-money packs arrive with purchases (P2.3). **Auction Tokens**
+are earn-only and never sold: finished daily tasks (1), the all-done bonus (2) and calendar days 2, 4, 6 and 7
+(1, 1, 2, 3). Tokens will be the only price of an auction lot, so there are no paid random rewards. Both are kept on
+a Sell Empire, capped (1,000,000 gems, 100,000 tokens) and repaired on load. Spending is the Shop page in the book (P1.7b, below).
+
+## Shop (P1.7b)
+
+A Shop page (sixth tab) in the 📒 book. Gems buy a barn stage rush (1), a parts crate (2) and a cash bag (4);
+Auction Tokens buy a Good-condition car for the Used Car Lot with no cash price (4). Unavailable items explain why
+(no stage running, crusher not open, lot closed or full). Real-money gem packs show as "coming soon" until P2.3;
+nothing in the shop is a random reward.
+
+## Audio (P1.8)
+
+All sound is synthesised in the browser (Web Audio). Effects: `src/audio/sfx.ts`. Music: one four-bar loop per city
+(`src/audio/musicScore.ts`), six layers, each owned by a business: scrapyard = bass, beat, pluck (always on); Repair
+Garage = ratchet; Used Car Lot = pad; Paint & Tuning = lead. The business on screen plays at full volume, the others
+at about half. Motor City is in a minor key, lower and faster. Music has its own on/off and volume; effects have
+theirs. Music never plays before the first tap (browser rule) and pauses when the app is hidden.

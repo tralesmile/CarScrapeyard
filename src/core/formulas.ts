@@ -1,3 +1,4 @@
+import { expectedCollectionMult } from './collection';
 import type { CarFamily, ManagerKind, Rarity, UpgradeKind } from './config';
 import { ECON } from './config';
 import type { GameState } from './state';
@@ -116,10 +117,10 @@ export function rarityWeights(rareMult = 1): Record<Rarity, number> {
 }
 
 /** Expected value of the next car, averaged over the unlocked families (by weight) and rarities. */
-export function expectedCarValue(qualityLevel: number, carsSold: number, rareMult = 1): number {
-  const fams = unlockedFamilies(carsSold).map((f) => ECON.families[f]);
-  const famW = fams.reduce((s, f) => s + f.weight, 0);
-  const famAvg = fams.reduce((s, f) => s + f.weight * f.baseValue, 0) / famW;
+export function expectedCarValue(qualityLevel: number, carsSold: number, rareMult = 1, famMult: (f: CarFamily) => number = () => 1): number {
+  const ids = unlockedFamilies(carsSold);
+  const famW = ids.reduce((s, f) => s + ECON.families[f].weight, 0);
+  const famAvg = ids.reduce((s, f) => s + ECON.families[f].weight * ECON.families[f].baseValue * famMult(f), 0) / famW;
   const w = rarityWeights(rareMult);
   const rs = Object.keys(w) as Rarity[];
   const totalW = rs.reduce((s, r) => s + w[r], 0);
@@ -144,7 +145,8 @@ export function idleIncomePerSecond(state: GameState): number {
   const stages = [washTime, repairTime, sellerDelay(state), ECON.arrivalInterval];
   const cycle = stages.reduce((s, t) => s + t, 0);
   const carsPerSecond = Math.min(1 / Math.max(...stages), state.slots / cycle);
-  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold, rarePerk(state)) * incomeMultiplier(state);
+  const book = (f: CarFamily) => expectedCollectionMult(state, f);
+  return carsPerSecond * expectedCarValue(state.levels.quality, state.carsSold, rarePerk(state), book) * incomeMultiplier(state);
 }
 
 /** Offline earnings for a gap of `seconds`, using the cap and efficiency. */
