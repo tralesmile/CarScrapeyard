@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.57.0 - 2026-11-13 (run 57)
+
+- **Long-session soak test (tests only):** 48 hours of game time with the crew working and every business open keeps the save
+  file small and every number finite. Nothing changes for players.
+
 ## 0.56.0 - 2026-11-12 (run 56)
 
 - **Fuzzing the other businesses (tests only):** random players pressing every Repair Garage, Used Car Lot and Paint &

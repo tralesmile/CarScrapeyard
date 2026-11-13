@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-12 (run 56; next run is run 57). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 57; next run is run 58). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -183,6 +183,8 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
       and paint shop button (20 actions, 500 steps each, round-trip every 100 steps) and 600 corrupted garage/lot/paint
       subtrees loaded and kept playing: no crashes, nothing to fix. The fuzz list is now exhausted; next quality ideas:
       performance profile of the scenes on a low-end phone, and a longer-session soak (hours of ticks) for memory growth.
+      Run 57 (`tests/soak.test.ts`): a 48-hour soak (crew hired, every business open, 10 s ticks) keeps the save size flat (hour 48 under
+      2x hour 12), nothing non-finite, and the crew really sold cars. Still open: scene performance profile on a low-end phone.
 - [ ] P1.3t e2e flake (run 38): the first baseline `npm run check` failed at the very end with a page error
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short

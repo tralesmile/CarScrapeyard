@@ -843,3 +843,10 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   and giving cash up front (through public setup) is what made the random player reach those actions.
 - **Start the baseline `npm run check` with `nohup` in the first call and keep tests in the scratchpad until it ends:** this
   worked as planned in run 56 (baseline green in ~12 minutes with no lost call).
+
+## 2026-11-13 (run 57)
+
+- **A soak test must prove the crew worked:** the first draft passed in 0.2 s because a fresh game with no crew does nothing for 48
+  hours. Asserting `carsSold` grew exposed it; hire the crew (`mechanic`, `washer`, `seller`) first. Check manager kind names in
+  `config.ts` (`seller`, not `salesperson`).
+- **`serialize`/`deserialize` take `now`:** read the signature before writing a test against them.
