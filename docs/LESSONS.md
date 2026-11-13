@@ -860,3 +860,10 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
 - **Headless Chromium has no GPU:** frame times (~15 fps at 1x) are only useful relatively. Check `game.scene.getScenes(true)`
   in a probe to prove the scene really switched (my first version measured the yard four times).
 - **Do not run a perf probe while the e2e runs:** both fight for the CPU and the numbers are meaningless.
+
+## 2026-11-13 (run 59)
+
+- **Do not edit `src/` while the baseline `npm run check` is running:** the build, unit tests and e2e read the files at
+  different moments, so a mid-run edit makes the baseline result meaningless. Wait for the baseline, then edit (or edit docs only).
+- **Grep for leftover literals before planning a string-move task:** a one-line `grep` showed only 3 toasts were left, so the task
+  took minutes instead of a full run.

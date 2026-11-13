@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.59.0 - 2026-11-13 (run 59)
+
+- **Translation prep finished:** the last three toast texts (storage full, new day, private browsing) now live in the string
+  catalog. Nothing changes for players.
+
 ## 0.58.0 - 2026-11-13 (run 58)
 
 - **Performance probe (tooling only):** `npm run perf` opens every business on an emulated phone with the CPU slowed down

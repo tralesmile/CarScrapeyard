@@ -84,7 +84,7 @@ function saveNow() {
   dirty = false;
   if (!ok && !saveWarned) {
     saveWarned = true;
-    ui.toast('Your device storage is full: progress may not be saved.');
+    ui.toast(t('toast.storageFull'));
   }
 }
 
@@ -282,7 +282,7 @@ setInterval(() => {
   // A new game day (P1.5a): fresh tasks and the next calendar reward.
   if (refreshDaily(state, platform.now())) {
     dirty = true;
-    if (state.tutorial.dailySeen) ui.toast('📅 New day: fresh daily tasks and a reward on the Jobs board', 3500);
+    if (state.tutorial.dailySeen) ui.toast(t('toast.newDay'), 3500);
     ui.rebuildCards();
   }
   ui.render();
@@ -356,7 +356,7 @@ if (!state.tutorial.introSeen) {
   });
 }
 if (platform.storageVolatile) {
-  ui.toast('Private browsing: your progress will not be saved after you close this tab.', 6000);
+  ui.toast(t('toast.privateBrowsing'), 6000);
 }
 ui.render();
 
