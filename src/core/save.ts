@@ -8,6 +8,7 @@ import { sanitizeBook, sanitizeShowcase } from './collection';
 import { sanitizeDaily } from './daily';
 import { sanitizeAchievements } from './achievements';
 import { sanitizeWallet } from './wallet';
+import { sanitizeBoost } from './boost';
 import { sanitizeStory } from './story';
 import { ECON, MAX_SAVED_LEVEL } from './config';
 import { sanitizeBusinesses } from './businesses';
@@ -155,6 +156,7 @@ export function deserialize(text: string | null, now: number): { state: GameStat
     state.collection.showcase = sanitizeShowcase(state.collection.showcase);
     sanitizeDaily(state.daily);
     sanitizeWallet(state);
+    sanitizeBoost(state);
     sanitizeBusinesses(state.businesses);
     sanitizeGarage(state.garage);
     sanitizeCarLot(state.carlot);

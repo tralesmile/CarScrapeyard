@@ -130,6 +130,9 @@ Items are ordered by when they block work. Tick an item (or tell Claude) when it
       Settings has Music and Effects volume sliders. Is it pleasant after 10 minutes, too loud/repetitive, or would you
       rather have it off by default? (Real recorded music would need a composer or licensed tracks; the synth score is
       a placeholder that costs nothing.)
+      New since run 62 (phone app only, needs a rewarded ad to be ready): a blue "⚡ x2 · ad" chip in the top bar after 20
+      sales; one ad = x2 on every sale, repair and paint payout for 10 minutes, then a 5-minute wait. Is 10 minutes on / 5 off
+      a fair deal, or should the boost be shorter or rarer so it does not cheapen the game?
 - [ ] **Review and merge `dev` → `main`** when you're happy with a milestone (PR #1 was merged after run 5;
       open a new PR from `dev` for the next milestone). Claude works on `dev` and never pushes to `main`.
 

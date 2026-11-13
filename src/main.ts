@@ -12,6 +12,7 @@ import { ECON } from './core/config';
 import { SaveManager } from './core/save';
 import { formatCash, setNumberFormat } from './core/format';
 import { collectOffline, queueOffline, touch, type GameEvent } from './core/sim';
+import { startBoost } from './core/boost';
 import { newGame, type GameState } from './core/state';
 import { sellEmpire } from './core/legacy';
 import { currentCity, isCityNight } from './core/cities';
@@ -196,6 +197,15 @@ const ui = new Ui(document.getElementById('ui')!, {
     }
     saveNow();
     return sold;
+  },
+  boostAdReady: () => platform.rewardedAdAvailable(),
+  watchBoostAd: () => {
+    void platform.showRewardedAd('income_boost').then((earned) => {
+      if (earned && startBoost(state)) {
+        ui.toast(t('toast.boost'), 3500);
+        saveNow();
+      }
+    });
   },
   restart: () => {
     saveNow();

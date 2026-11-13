@@ -53,6 +53,7 @@ import { MAX_TIER, businessName, mapUnlocked, nextBusiness, openBusiness, switch
 import { cityMapSvg, mapRows, rivalRow } from './cityMap';
 import { LEGACY_ICON, awayText, grandpaLine, legacyBadge, legacyTreeView, nextSaleLine, perkChip, sellEmpirePreview, sellEmpireRow, tabPerks, treeHasBuy, type PerkChip } from './legacyView';
 import { canSellEmpire, type SoldEmpire } from '../core/legacy';
+import { boostActive, canStartBoost } from '../core/boost';
 import { dueBeat, markBeatSeen, type StoryBeatId } from '../core/story';
 import { speaker, storyLog, storyScene } from './storyView';
 import { portraitUrl } from '../game/portraitArt';
@@ -123,6 +124,10 @@ export interface UiDeps {
   sellEmpire: (city: CityId) => SoldEmpire | null;
   /** Start the new empire's scenes fresh (a reload: every scene and texture is rebuilt from the saved game). */
   restart: () => void;
+  /** Is a rewarded ad ready for the income boost (P2.2b)? */
+  boostAdReady: () => boolean;
+  /** The player tapped the boost chip: show the ad, then start the boost. */
+  watchBoostAd: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
@@ -172,6 +177,8 @@ export class Ui {
   private legacyTab: LegacyBranch = 'mechanic';
   /** HUD chip with the Legacy income multiplier, once the player owns points (P1.3b). */
   private legacyChip!: HTMLButtonElement;
+  /** HUD chip: x2 income boost for a rewarded ad, or the time left while it runs (P2.2b). */
+  private boostChip!: HTMLButtonElement;
   private hint!: HTMLElement;
   private sell!: HTMLButtonElement;
   private panel!: HTMLElement;
@@ -257,7 +264,11 @@ export class Ui {
     const money = el('div', 'money');
     money.append(this.cash, this.rate);
     const chips = el('div', 'chips');
-    chips.append(this.legacyChip, this.partsEl);
+    this.boostChip = el('button', 'boost-chip hidden') as HTMLButtonElement;
+    this.boostChip.onclick = () => {
+      if (canStartBoost(this.deps.state()) && this.deps.boostAdReady()) this.deps.watchBoostAd();
+    };
+    chips.append(this.boostChip, this.legacyChip, this.partsEl);
     hud.append(money, el('div', 'spacer'), chips, this.bookBtn, this.mapBtn, this.soundBtn, this.settingsBtn);
 
     this.hint = el('div', 'hint hidden');
@@ -985,6 +996,20 @@ export class Ui {
     for (const b of this.modeButtons.values()) b.style.display = this.tab === 'upgrades' ? '' : 'none';
   }
 
+  /** The boost chip: the countdown while x2 runs, the offer when an ad is ready, hidden otherwise. */
+  private updateBoostChip(s: GameState): void {
+    const running = boostActive(s);
+    const offer = !running && canStartBoost(s) && this.deps.boostAdReady();
+    const text = running ? t('ui.boost.running', { time: formatDuration(Math.ceil(s.boost.remaining)) }) : offer ? t('ui.boost.offer') : '';
+    this.boostChip.classList.toggle('hidden', !running && !offer);
+    this.boostChip.classList.toggle('running', running);
+    this.boostChip.disabled = running;
+    if (this.boostChip.textContent !== text) {
+      this.boostChip.textContent = text;
+      this.boostChip.setAttribute('aria-label', running ? text : t('ui.boost.aria'));
+    }
+  }
+
   /** The chip row of owned Legacy perks that apply to the open tab (hidden when none). */
   private renderPerkStrip() {
     const chips = tabPerks(this.deps.state(), this.tab);
@@ -1357,6 +1382,7 @@ export class Ui {
     if (bookOn) this.checkMedals(s);
     this.checkDailyDone(s);
     this.bookWasOn = bookOn;
+    this.updateBoostChip(s);
     const badge = legacyBadge(s);
     this.legacyChip.classList.toggle('hidden', badge === null);
     const chipHtml = badge === null ? '' : `${badge}${treeHasBuy(s) ? '<i class="dot on"></i>' : ''}`;

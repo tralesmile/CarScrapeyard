@@ -9,6 +9,7 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { pick, weighted } from './rng';
 import type { GameState, GarageJob } from './state';
 import { incomeMultiplier } from './legacy';
+import { boosted } from './boost';
 import { cityPrice, cityScale } from './cities';
 import { crewPerk, offlineCap, tapPerk } from './legacyTree';
 
@@ -100,7 +101,8 @@ export function jobPayout(state: GameState, job: GarageJob): { amount: number; p
 }
 
 function finishJob(state: GameState, job: GarageJob, auto: boolean, events: GarageSink): void {
-  const { amount, parts } = jobPayout(state, job);
+  const { amount: base, parts } = jobPayout(state, job);
+  const amount = boosted(state, base);
   state.parts -= parts;
   state.cash += amount;
   state.lifetimeEarnings += amount;

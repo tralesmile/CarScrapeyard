@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.62.0 - 2026-11-13 (run 62)
+
+- **Rewarded ads, second half (P2.2b): the 2x income boost.** After 20 sales, inside the phone app, a blue "⚡ x2 · ad" chip
+  appears in the top bar whenever a video ad is ready. Watching one doubles every sale, repair and paint payout for 10 minutes
+  (the chip turns green and counts down); the next ad is offered 5 minutes after the boost ends. It never stacks, runs on play
+  time only, and the plain game never needs it. The pacing simulation is unchanged because bots never watch ads. Nothing changes
+  on the web build without an ad provider.
 ## 0.61.0 - 2026-11-13 (run 61)
 
 - **Rewarded ads, first half (P2.2):** inside the phone app the welcome-back popup gets a "📺 Watch an ad: collect x2" button

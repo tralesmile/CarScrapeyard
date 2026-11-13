@@ -42,6 +42,7 @@ import { garageOfflineEarnings, tickGarage, type GarageEvent } from './garage';
 import { carlotOfflineEarnings, tickCarLot, type CarLotEvent } from './carlot';
 import { paintOfflineEarnings, tickPaint, type PaintEvent } from './paint';
 import { incomeMultiplier } from './legacy';
+import { boosted, tickBoost } from './boost';
 import { collectionValueMult, recordModel, type CollectionEvent } from './collection';
 import { cityScale } from './cities';
 import { offlineCap, partsPerk, rarePerk, sellerDelay } from './legacyTree';
@@ -131,7 +132,7 @@ function ensureFocus(state: GameState): void {
 function sellInternal(state: GameState, car: Car, auto: boolean, events: GameEvent[], haggle = 1): void {
   const buyer = state.buyer?.kind ?? null;
   const buyerMult = serveBuyer(state, car);
-  const amount = Math.round(car.value * buyerMult * haggle);
+  const amount = boosted(state, Math.round(car.value * buyerMult * haggle));
   state.cash += amount;
   state.lifetimeEarnings += amount;
   state.carsSold += 1;
@@ -182,6 +183,7 @@ function step(state: GameState, dt: number, events: GameEvent[]): void {
   state.stats.playSeconds += dt;
   state.legacy.runSeconds += dt;
   if (state.crusherCooldown > 0) state.crusherCooldown = Math.max(0, state.crusherCooldown - dt);
+  tickBoost(state, dt);
   tickContracts(state, dt, events);
   tickBuyers(state, dt, events);
   tickBarn(state, dt, events);

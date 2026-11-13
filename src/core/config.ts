@@ -87,6 +87,14 @@ export const ECON = {
   ads: {
     /** Watching one ad on the welcome-back popup multiplies the collected offline earnings by this. */
     offlineMultiplier: 2,
+    /** 2x income boost (P2.2b): one ad = `seconds` of x`multiplier` on every sale, repair and paint payout. */
+    boost: {
+      multiplier: 2,
+      seconds: 600,
+      /** After a boost ends the next ad is offered this much later (playing time). */
+      cooldownSeconds: 300,
+      unlockCarsSold: 20,
+    },
   },
 
   rarity: {

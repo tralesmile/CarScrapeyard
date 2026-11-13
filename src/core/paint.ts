@@ -10,6 +10,7 @@ import { stationPower, unlockedFamilies } from './formulas';
 import { nextRandom, pick, weighted } from './rng';
 import type { GameState, LotCar, PaintJob } from './state';
 import { incomeMultiplier } from './legacy';
+import { boosted } from './boost';
 import { cityPrice, cityScale } from './cities';
 import { crewPerk, offlineCap, tapPerk, tipSecondsPerService } from './legacyTree';
 
@@ -159,7 +160,7 @@ function finishJob(state: GameState, job: PaintJob, auto: boolean, events: Paint
   const p = state.paint;
   if (job.lotCarId !== undefined) return returnLotCar(state, job, auto, events);
   const tip = !auto && job.age <= tipDeadline(job, state) ? tipFor(job) : 0;
-  const amount = job.fee + tip;
+  const amount = boosted(state, job.fee + tip);
   state.cash += amount;
   state.lifetimeEarnings += amount;
   p.earned += amount;

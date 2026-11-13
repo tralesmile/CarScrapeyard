@@ -1225,6 +1225,27 @@ body {
   cursor: pointer;
 }
 
+.boost-chip {
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, #5ad1ff, #1f9bd6);
+  color: #052538;
+  font: 800 13px 'Nunito', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.boost-chip.running {
+  background: linear-gradient(180deg, #8bf0a0, #3cc25c);
+  color: #08300f;
+  cursor: default;
+}
+
+.boost-chip.hidden {
+  display: none;
+}
+
 .legacy-chip.hidden {
   display: none;
 }

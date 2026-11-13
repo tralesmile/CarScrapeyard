@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-13 (run 61; next run is run 62). Runs now start every 3 hours.
+Last updated: 2026-11-13 (run 62; next run is run 63). Runs now start every 3 hours.
 
 Current phase: **Phase 0 — Prototype** (plan: prototype → web MVP → mobile soft launch → global launch → live ops).
 
@@ -193,7 +193,7 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
 - [ ] P1.3v Idea from the run 58 probe (not scheduled): the yard is the heaviest scene and the one players see most. Try
       an adaptive pixel ratio (drop `dpr` from 2.5 to 2 or 1.5 when the first seconds average > 40 ms per frame) and
       profile what the yard draws per frame (dirt blobs, backdrop, customers). Needs a real low-end phone to confirm.
-- [ ] P1.3t e2e flake (run 38): the first baseline `npm run check` failed at the very end with a page error
+- [ ] P1.3t e2e flake (run 38; run 62: the assertion "the yard shows its current car after the garage" failed once in a baseline, null / 17, and passed on a rerun of e2e alone; if it returns, wait for `bigCarId` longer than 4 s or find why the yard shows no car after a switch): the first baseline `npm run check` failed at the very end with a page error
       `Cannot read properties of null (reading 'glTexture')` (Phaser WebGL renderer, main page); the identical code
       passed on the immediate re-run. The e2e now tags page errors with the section they happened in plus a short
       stack. If it recurs, read the tag and look for a texture removed/regenerated while a sprite still uses it.
@@ -331,8 +331,10 @@ Work rules: take the next unchecked tasks in order. Each run should finish 1–3
         removed), `withAdMob` wraps `Platform`, Google test unit ids until the owner's AdMob account exists, `ECON.ads.offlineMultiplier = 2`.
         The welcome-back popup shows "Watch an ad: collect x2" (`third` button, back = plain Collect via `backMain`) when
         `platform.rewardedAdAvailable()`. 6 unit tests (`tests/admob.test.ts`), e2e with a stubbed AdMob plugin (double, plain x1).
-  - [ ] P2.2b 2x income boost (e.g. 10 min x2 per ad, a HUD button when an ad is ready, cooldown): needs `state.boost`, a place in
-        `incomeMultiplier`, a sim A/B (bots never watch ads, so pacing targets must stay unchanged), save default + unit tests.
+  - [x] P2.2b 2x income boost (run 62): `src/core/boost.ts` (`state.boost` remaining/cooldown/started, `boosted(state, amount)` at the
+        sale, lot, garage and paint payout sites, ticked on game time in `step`, save repair), `ECON.ads.boost` (x2, 600 s, 300 s
+        cooldown, unlock 20 sales), a HUD chip "⚡ x2 · ad" that turns into a countdown. 5 unit tests (`tests/boost.test.ts`), e2e
+        with the stubbed AdMob plugin. Bots never watch ads: sim unchanged.
   - [ ] P2.2c Real ad unit ids, the `@capacitor-community/admob` plugin install + app ids in the Android/iOS projects, consent (UMP)
         screen: needs the owner's AdMob account (see NEEDS_FROM_YOU).
 - [ ] P2.3 RevenueCat purchases: starter pack, remove ads, gem packs, VIP

@@ -5,6 +5,7 @@ import { newBook, type BookEntry } from './collection';
 import type { Daily } from './daily';
 import { newAchievements, type Achievements } from './achievements';
 import { newWallet, type Wallet } from './wallet';
+import { newBoost, type Boost } from './boost';
 import { newStory, type Story } from './story';
 
 /** v2 (run 10): `businesses` (city map, P1.1). */
@@ -303,6 +304,8 @@ export interface GameState {
   achievements: Achievements;
   /** Gems and Auction Tokens (P1.7a, see wallet.ts). Kept on a sale. */
   wallet: Wallet;
+  /** Rewarded-ad income boost (P2.2b, see boost.ts). */
+  boost: Boost;
   /** Story chapters (P1.6, see story.ts): scenes shown and Vince's tally. Kept on a sale. */
   story: Story;
 }
@@ -432,6 +435,7 @@ export function newGame(now: number, seed = Math.floor(Math.random() * 2 ** 31))
     daily: { day: -1, tasks: [], bonusClaimed: false, claims: 0, claimedDay: -1, giftCars: 0 },
     achievements: newAchievements(),
     wallet: newWallet(),
+    boost: newBoost(),
     story: newStory(),
   };
 }

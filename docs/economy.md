@@ -461,3 +461,11 @@ courtesy), Parts crate 2 gems for 60 parts (about ten common wrecks), Cash bag 4
 3 cars per gem; a Diamond medal pays 8 gems plus 24 cars, so the bag is not a better deal than play), Token lot 4
 tokens for a Good (4-star) car with `paid: 0` (its profit counts as earnings; at most one lot a day for a daily player,
 negligible beside idle income). No new income stream, so `npm run sim` pacing is unchanged.
+
+## Income boost (P2.2b, run 62)
+
+`ECON.ads.boost`: one rewarded ad = x2 on every sale payout (yard cars incl. crew sales, lot sales, garage and paint jobs; not
+barn sales, crush cash or rewards) for 600 s of play time, then a 300 s cooldown before the next offer; unlocked at 20 cars sold.
+Best case an ad-watching player earns x2 for 10 of every 15 minutes (about x1.67 on average, only while actively playing; it does
+not run offline). Bots never watch ads, so `npm run sim` pacing and the targets above are unchanged. If ad revenue data later
+shows the boost shortens sessions or skips content too fast, lower `seconds` or raise `cooldownSeconds`.

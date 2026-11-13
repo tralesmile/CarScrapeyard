@@ -886,3 +886,13 @@ Each run adds what went wrong or what worked, so the next run does better. Read 
   multiplier, so "double offline" needed no core change, no save field and no sim run (bots never watch ads).
 - **Give a modal's extra choice an explicit back rule:** the `third` button made the main button lose `data-back`; `backMain`
   restores it so the system back button can never trigger an ad or a purchase.
+
+## 2026-11-13 (run 62)
+
+- **A known e2e flake needs one rerun of `npm run e2e` alone, not a full `npm run check`:** the first baseline failed on the
+  "yard shows its current car after the garage" assertion (a flake first seen in run 17); the unit tests had passed, so only the
+  ~10-minute e2e was rerun and it went green. Record each flake in STATUS under its P1.3 flake task instead of rediscovering it.
+- **Put a payout multiplier where the cash lands, not where values are made:** `incomeMultiplier` is applied when cars, fees and
+  auction prices are created, so a timed boost there would miss everything already queued. Boosting the amount at the four
+  payout sites (`boosted(state, amount)`) makes it apply instantly and keeps the sim untouched.
+- **Count a timed effect on game time (`tick`), not the wall clock:** it stays testable and cannot be cheated by changing the phone clock.

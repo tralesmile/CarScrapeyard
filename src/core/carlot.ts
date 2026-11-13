@@ -9,6 +9,7 @@ import { clampHaggle } from './haggle';
 import { pick, weighted } from './rng';
 import type { AuctionLot, GameState, LotCar } from './state';
 import { incomeMultiplier } from './legacy';
+import { boosted } from './boost';
 import { cityPrice, cityScale } from './cities';
 import { noteLotLost } from './story';
 import { auctionPerk, buyerRatePerk, crewPerk, offlineCap, tapPerk } from './legacyTree';
@@ -240,12 +241,13 @@ function takeLot(state: GameState, index: number, auto: boolean, events: CarLotS
 function finishSale(
   state: GameState,
   car: LotCar,
-  amount: number,
+  baseAmount: number,
   haggle: number,
   buyer: { kind: LotBuyerKind; bonus: number } | null,
   events: CarLotSink,
 ): void {
   const l = state.carlot;
+  const amount = boosted(state, baseAmount);
   const profit = amount - car.paid;
   state.cash += amount;
   // Only the profit counts as earnings: the auction price was your own cash coming back.

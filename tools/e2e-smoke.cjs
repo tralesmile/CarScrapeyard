@@ -2465,6 +2465,18 @@ async function waitForServer(url, ms = 15000) {
     await nv.waitForSelector('.modal-back.welcome .modal .buy', { timeout: 3000 });
     await nv.click('.modal-back.welcome .buy');
     assert((await nv.evaluate(() => window.__jye.state.cash)) === 1000, 'plain Collect still pays x1 with the ad offered');
+    // 2x income boost (P2.2b): a HUD chip offers it after 20 sales; one ad starts 10 minutes of x2.
+    assert(await nv.evaluate(() => document.querySelector('.boost-chip')?.classList.contains('hidden') ?? false), 'no boost chip before 20 sales');
+    await nv.evaluate(() => { window.__jye.state.carsSold = 25; });
+    await nv.waitForSelector('.boost-chip:not(.hidden)', { timeout: 4000 });
+    assert(/x2/.test(await nv.textContent('.boost-chip')), 'the boost chip offers x2 for an ad');
+    const adsBefore = await nv.evaluate(() => window.__cap.ads);
+    await nv.evaluate(() => document.querySelector('.boost-chip').click()); // a story scene may cover the chip at 20 sales
+    await nv.waitForFunction(() => window.__jye.state.boost.remaining > 0, null, { timeout: 5000 });
+    assert((await nv.evaluate(() => window.__cap.ads)) === adsBefore + 1, 'the boost chip shows one rewarded ad');
+    await nv.waitForSelector('.boost-chip.running', { timeout: 3000 });
+    assert(/\d+:\d\d|\d+m|\d+s/.test(await nv.textContent('.boost-chip')), 'the chip shows the time left while x2 runs (' + (await nv.textContent('.boost-chip')).trim() + ')');
+    await nv.screenshot({ path: path.join(SHOTS, 'e2e-15-boost.png') });
     await nv.close();
 
     console.log('desktop layout');
